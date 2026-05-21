@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Hercules MCP" width="180" />
+  <img src="assets/logo.svg" alt="Hercules MCP" width="120" />
 </p>
 
 <h1 align="center">Hercules MCP</h1>
@@ -10,7 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white" alt="Python" />
-  <img src="https://img.shields.io/badge/MCP-FastMCP_2.0-00C853" alt="FastMCP" />
+  <img src="https://badge.mcpx.dev?status=on" title="MCP Enabled" />
   <img src="https://img.shields.io/badge/Docker-Kali_Linux-2496ED?logo=docker&logoColor=white" alt="Docker" />
   <img src="https://img.shields.io/badge/license-MIT-F57C00" alt="License" />
 </p>
@@ -27,7 +27,9 @@ Hercules MCP is a [Model Context Protocol](https://modelcontextprotocol.io/) ser
 
 ### 🐳 Sandbox-First Architecture
 
-Every command executes inside an ephemeral Docker container based on `kalilinux/kali-rolling`. Your host machine is never exposed — tools, exploits, and payloads stay isolated. Containers are created per-session and destroyed on shutdown by default.
+Every command executes inside an ephemeral Docker container based on `kalilinux/kali-rolling`. Your host machine is never exposed — tools, exploits, and payloads stay isolated. Containers are created per-session and destroyed on shutdown by default. The AI agent can also manage its own Docker sessions, allowing it to start, stop, and control environments dynamically.
+
+Session files, downloaded loot, and tool outputs are stored locally in the `workspace/` directory at the project root. This ensures the agent maintains persistent access to scan results and artifacts while keeping the host system completely isolated.
 
 ### ⚡ Token-Cost Optimized
 
