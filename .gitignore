@@ -35,3 +35,7 @@ wordlists/
 
 # Extensions
 hercules-extension/
+
+# Unused directories
+tests/
+docs/
