@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" alt="Hercules MCP" width="120" />
+  <img src="assets/logo.svg" alt="Hercules MCP" width="220" style="margin-bottom: 20px;"/>
 </p>
 
 <h1 align="center">Hercules MCP</h1>
@@ -27,9 +27,11 @@ Hercules MCP is a [Model Context Protocol](https://modelcontextprotocol.io/) ser
 
 ### 🐳 Sandbox-First Architecture
 
-Every command executes inside an ephemeral Docker container based on `kalilinux/kali-rolling`. Your host machine is never exposed — tools, exploits, and payloads stay isolated. Containers are created per-session and destroyed on shutdown by default. The AI agent can also manage its own Docker sessions, allowing it to start, stop, and control environments dynamically.
+Every command executes inside an ephemeral Docker container based on `kalilinux/kali-rolling`. Your host machine is never exposed — tools, exploits, and payloads stay isolated. Containers are created per-session and destroyed on shutdown by default.
 
-Session files, downloaded loot, and tool outputs are stored locally in the `workspace/` directory at the project root. This ensures the agent maintains persistent access to scan results and artifacts while keeping the host system completely isolated.
+**🤖 Agent-Managed Sessions:** The AI agent can fully manage its own Docker sessions directly, allowing it to start, stop, and control multiple environments dynamically.
+
+**📂 Persistent Workspaces:** Session files, downloaded loot, and tool outputs are automatically stored locally in the `workspace/` directory at the project root. This ensures the agent maintains persistent access to scan results and artifacts between sessions while keeping the host system completely isolated.
 
 ### ⚡ Token-Cost Optimized
 
@@ -128,7 +130,7 @@ To connect Hercules to any MCP-compatible AI agent or client (such as Claude Cod
 }
 ```
 
-> **Note for Gemini CLI users:** A pre-built extension is available in the [`hercules-extension/`](hercules-extension/) directory. A portable manifest is also included at [`hercules-mcp.json`](hercules-mcp.json) for reference.
+> **Note for Gemini CLI users:** A portable manifest is included at [`hercules-mcp.json`](hercules-mcp.json) for reference.
 
 ---
 
@@ -197,7 +199,6 @@ hercules-mcp/
 │   ├── tools/                  # MCP tool implementations
 │   └── resources/              # Post-exploitation scripts
 ├── docker/                     # Container entrypoint
-├── hercules-extension/         # Gemini CLI extension
 ├── Dockerfile                  # Kali container definition
 ├── hercules_setup.py           # First-time setup script
 ├── hercules-mcp.json           # MCP client manifest
