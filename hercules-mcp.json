@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "hercules": {
+      "command": "uv",
+      "args": ["run", "hercules"],
+      "cwd": ".",
+      "env": {
+        "MSF_PASSWORD": "hercules",
+        "SKIP_METASPLOIT": "false"
+      }
+    }
+  }
+}

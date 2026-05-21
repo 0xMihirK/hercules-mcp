@@ -1,0 +1,1 @@
+"""Hercules MCP resource modules."""

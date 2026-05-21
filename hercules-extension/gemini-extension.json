@@ -1,0 +1,25 @@
+{
+  "name": "hercules-mcp",
+  "version": "1.0.0",
+  "description": "Offensive Security MCP Server for AI Agents",
+  "mcpServers": {
+    "hercules": {
+      "command": "uv",
+      "args": ["run", "hercules"],
+      "cwd": "${extensionPath}${/}.."
+    }
+  },
+  "settings": [
+    {
+      "name": "MSF_PASSWORD",
+      "description": "Password for the Metasploit RPC daemon (msfrpcd)",
+      "default": "hercules",
+      "sensitive": true
+    },
+    {
+      "name": "SKIP_METASPLOIT",
+      "description": "Skip Metasploit setup for faster startup (true/false)",
+      "default": "false"
+    }
+  ]
+}

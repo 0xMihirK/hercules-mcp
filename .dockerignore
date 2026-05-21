@@ -1,0 +1,16 @@
+# Don't send these to the Docker build context
+.venv/
+.git/
+.env
+__pycache__/
+*.pyc
+workspace/
+wordlists/
+*.egg-info/
+dist/
+build/
+tests/
+spectifcations/
+.gemini/
+.pytest_cache/
+.ruff_cache/
