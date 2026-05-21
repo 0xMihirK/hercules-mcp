@@ -33,3 +33,5 @@ wordlists/rockyou.txt.tar.gz
 wordlists/SecLists.zip
 wordlists/
 
+# Extensions
+hercules-extension/
