@@ -130,7 +130,6 @@ To connect Hercules to any MCP-compatible AI agent or client (such as Claude Cod
 }
 ```
 
-> **Note for Gemini CLI users:** A portable manifest is included at [`hercules-mcp.json`](hercules-mcp.json) for reference.
 
 ---
 
