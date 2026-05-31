@@ -16,25 +16,43 @@ LABEL description="Pre-built Kali tooling image for the Hercules offensive secur
 ENV DEBIAN_FRONTEND=noninteractive
 
 # ── 1. System packages ──────────────────────────────────────────────────────
-RUN apt-get update -qq && \
-    apt-get install -y -qq --no-install-recommends \
-        # Core offensive tools
-        nmap metasploit-framework sqlmap hydra exploitdb gobuster \
-        # Language runtimes & utilities
+RUN set -eux; \
+    if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's|http://http.kali.org/kali|http://kali.download/kali|g' /etc/apt/sources.list; \
+    fi; \
+    if [ -f /etc/apt/sources.list.d/kali.sources ]; then \
+        sed -i 's|http://http.kali.org/kali/|http://kali.download/kali/|g' /etc/apt/sources.list.d/kali.sources; \
+    fi; \
+    printf '%s\n' \
+        'Acquire::Retries "5";' \
+        'Acquire::http::Timeout "60";' \
+        'Acquire::https::Timeout "60";' \
+        'Acquire::http::No-Cache "true";' \
+        > /etc/apt/apt.conf.d/80-hercules-retries; \
+    packages="\
+        nmap metasploit-framework sqlmap hydra exploitdb gobuster ffuf amass \
         python3 python3-pip curl wget git unzip jq \
-        # DNS / Recon / Networking utilities
         dnsutils whois iputils-ping telnet iproute2 net-tools \
-        # Web scanning
         whatweb wafw00f nikto wpscan \
-        # Cracking & networking
         john ncat hping3 \
-        # CTF & Advanced Web Scanners
         commix binwalk steghide libimage-exiftool-perl xxd binutils \
-        # Misc utilities (rev for searchsploit, wordlists for cracking)
         bsdmainutils wordlists \
-        # Go (needed for some binaries)
-        golang-go && \
-    # Clean apt cache to reduce image size
+        golang-go \
+    "; \
+    for attempt in 1 2 3; do \
+        apt-get clean; \
+        rm -rf /var/lib/apt/lists/*; \
+        apt-get update -qq --allow-releaseinfo-change; \
+        if apt-get install -y -qq --fix-missing --no-install-recommends $packages; then \
+            break; \
+        fi; \
+        if [ "$attempt" = "3" ]; then \
+            echo "apt package installation failed after 3 attempts" >&2; \
+            exit 1; \
+        fi; \
+        echo "apt package installation failed, retrying after mirror refresh..." >&2; \
+        sleep $((attempt * 20)); \
+    done; \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -85,7 +103,7 @@ RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,
 #   - Starting PostgreSQL + msfrpcd (if SKIP_METASPLOIT != true)
 #   - Keeping the container alive
 COPY docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 EXPOSE 55553
 

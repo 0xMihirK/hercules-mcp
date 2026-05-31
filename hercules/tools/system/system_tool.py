@@ -12,6 +12,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from fastmcp import Context
+from hercules.core.guidance import TOOL_DESCRIPTIONS
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -21,7 +22,7 @@ logger = logging.getLogger("hercules.tools.system")
 
 def register_system_tools(mcp: "FastMCP") -> None:
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_new_session"])
     async def system_start_new_session(ctx: Context = None) -> dict:
         """
         Start a fresh Hercules session with a clean, isolated workspace.
@@ -80,7 +81,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
             "message": f"New session '{new_session}' started. Previous session '{old_session}' data preserved on host.",
         }
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["system_list_sessions"])
     async def system_list_sessions(ctx: Context = None) -> dict:
         """
         List all Hercules session workspaces on the host.
@@ -102,7 +103,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
             "sessions": sessions,
         }
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["system_stop_container"])
     async def system_stop_container(ctx: Context = None) -> dict:
         """
         DANGER: Permanently shuts down the Hercules environment. DESTRUCTIVE.
@@ -138,7 +139,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
         except Exception as exc:
             return {"tool": "system_stop_container", "status": "error", "error": str(exc)}
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["system_network_info"])
     async def system_network_info(ctx: Context = None) -> dict:
         """
         Get network configuration for the Hercules environment.

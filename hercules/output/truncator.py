@@ -32,18 +32,30 @@ def truncate_output(
     if len(text) <= max_chars:
         return text, False
 
-    # Reserve space for the truncation notice itself (~120 chars)
-    notice_budget = 150
-    available = max_chars - notice_budget
+    if max_chars <= 0:
+        return "", True
 
-    head_size = int(available * head_ratio)
-    tail_size = available - head_size
+    artifact = artifact_path or "<log file>"
+    notice = _TRUNCATION_NOTICE.format(omitted=len(text), artifact=artifact)
+    if len(notice) >= max_chars:
+        notice = f"\n[OUTPUT TRUNCATED: full output saved to {artifact}]\n"
+        if len(notice) >= max_chars:
+            return notice[:max_chars], True
+
+    available = max_chars - len(notice)
+    head_size = max(0, int(available * head_ratio))
+    tail_size = max(0, available - head_size)
     omitted = len(text) - head_size - tail_size
 
-    notice = _TRUNCATION_NOTICE.format(
-        omitted=omitted,
-        artifact=artifact_path or "<log file>",
-    )
+    notice = _TRUNCATION_NOTICE.format(omitted=omitted, artifact=artifact)
+    if len(notice) >= max_chars:
+        notice = f"\n[OUTPUT TRUNCATED: full output saved to {artifact}]\n"
+        if len(notice) >= max_chars:
+            return notice[:max_chars], True
+    if len(notice) + head_size + tail_size > max_chars:
+        available = max_chars - len(notice)
+        head_size = max(0, int(available * head_ratio))
+        tail_size = max(0, available - head_size)
 
     truncated = text[:head_size] + notice + text[-tail_size:]
     return truncated, True

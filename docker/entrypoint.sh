@@ -77,5 +77,6 @@ else
     echo "[hercules] Metasploit skipped (SKIP_METASPLOIT=true)."
 fi
 
+touch /tmp/hercules-ready
 echo "[hercules] Container ready. Sleeping..."
 exec sleep infinity

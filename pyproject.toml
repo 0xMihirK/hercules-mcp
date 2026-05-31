@@ -23,3 +23,7 @@ hercules = "hercules.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["hercules"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"hercules/resources/nse_skills.md" = "hercules/resources/nse_skills.md"
+"hercules/resources/nuclei_skills.md" = "hercules/resources/nuclei_skills.md"

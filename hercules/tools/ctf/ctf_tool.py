@@ -1,15 +1,19 @@
 """
 CTF and forensics tools for Hercules MCP server.
 
-Includes binwalk, strings, steghide, base64, and xxd.
+Includes binwalk and steghide. Thin shell-equivalent wrappers were removed
+from the MCP surface in favor of shell_exec.
 """
 
 from __future__ import annotations
 
 import logging
+import posixpath
+import shlex
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
+from hercules.core.guidance import TOOL_DESCRIPTIONS, selector_error
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -19,7 +23,7 @@ logger = logging.getLogger("hercules.tools.ctf")
 
 def register_ctf_tools(mcp: "FastMCP") -> None:
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["ctf_binwalk"])
     async def ctf_binwalk(
         filepath: str,
         extract: bool = True,
@@ -33,46 +37,26 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
         parts = ["binwalk"]
         if extract:
             parts.append("-e")
+            if "--run-as" not in extra_args:
+                parts.append("--run-as=root")
         if extra_args:
             parts.append(extra_args)
-        
-        parts.append(f"'{filepath}'")
 
-        cmd = " ".join(parts)
+        if extract and filepath.startswith("/"):
+            directory = posixpath.dirname(filepath) or "/"
+            filename = posixpath.basename(filepath)
+            parts.append(shlex.quote(filename))
+            cmd = f"cd {shlex.quote(directory)} && {' '.join(parts)}"
+        else:
+            parts.append(shlex.quote(filepath))
+            cmd = " ".join(parts)
 
         async with concurrency.acquire_heavy("ctf_binwalk"):
             result = await docker.exec_command(cmd, timeout=300)
 
         return {"tool": "ctf_binwalk", "filepath": filepath, **result.to_dict()}
 
-    @mcp.tool()
-    async def ctf_strings(
-        filepath: str,
-        min_length: int = 4,
-        grep_pattern: str = "",
-        extra_args: str = "",
-        ctx: Context = None,
-    ) -> dict:
-        """Extract printable strings from a binary file."""
-        docker = ctx.lifespan_context["docker"]
-        concurrency = ctx.lifespan_context["concurrency"]
-
-        parts = ["strings", f"-n {min_length}"]
-        if extra_args:
-            parts.append(extra_args)
-            
-        parts.append(f"'{filepath}'")
-
-        cmd = " ".join(parts)
-        if grep_pattern:
-            cmd += f" | grep -i '{grep_pattern}'"
-
-        async with concurrency.acquire_light("ctf_strings"):
-            result = await docker.exec_command(cmd, timeout=60)
-
-        return {"tool": "ctf_strings", "filepath": filepath, **result.to_dict()}
-
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["ctf_steghide"])
     async def ctf_steghide(
         action: Literal["info", "extract"],
         filepath: str,
@@ -84,10 +68,26 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
 
-        parts = ["steghide", action, "-sf", f"'{filepath}'"]
+        action = (action or "").lower()
+
+        if action == "info":
+            parts = ["steghide", action, shlex.quote(filepath)]
+        elif action == "extract":
+            parts = ["steghide", action, "-sf", shlex.quote(filepath)]
+        else:
+            return selector_error(
+                "ctf_steghide",
+                "action",
+                action,
+                ["info", "extract"],
+                examples=[
+                    "ctf_steghide(action='info', filepath='/opt/workspace/image.jpg')",
+                    "ctf_steghide(action='extract', filepath='/opt/workspace/image.jpg', passphrase='secret')",
+                ],
+            )
         
         if passphrase:
-            parts.extend(["-p", f"'{passphrase}'"])
+            parts.extend(["-p", shlex.quote(passphrase)])
         else:
             # Without a passphrase, steghide will prompt unless we pass empty
             parts.extend(["-p", "''"])
@@ -101,55 +101,3 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
             result = await docker.exec_command(cmd, timeout=60)
 
         return {"tool": "ctf_steghide", "action": action, "filepath": filepath, **result.to_dict()}
-
-    @mcp.tool()
-    async def ctf_base64(
-        text: str = "",
-        filepath: str = "",
-        decode: bool = True,
-        ctx: Context = None,
-    ) -> dict:
-        """Encode or decode base64 strings/files."""
-        docker = ctx.lifespan_context["docker"]
-        concurrency = ctx.lifespan_context["concurrency"]
-
-        parts = ["base64"]
-        if decode:
-            parts.append("-d")
-            
-        if filepath:
-            parts.append(f"'{filepath}'")
-            cmd = " ".join(parts)
-        else:
-            cmd = f"echo -n '{text}' | " + " ".join(parts)
-
-        async with concurrency.acquire_light("ctf_base64"):
-            result = await docker.exec_command(cmd, timeout=30)
-
-        return {"tool": "ctf_base64", **result.to_dict()}
-
-    @mcp.tool()
-    async def ctf_xxd(
-        filepath: str,
-        reverse: bool = False,
-        extra_args: str = "",
-        ctx: Context = None,
-    ) -> dict:
-        """Create a hex dump or reverse it using xxd."""
-        docker = ctx.lifespan_context["docker"]
-        concurrency = ctx.lifespan_context["concurrency"]
-
-        parts = ["xxd"]
-        if reverse:
-            parts.append("-r")
-        if extra_args:
-            parts.append(extra_args)
-            
-        parts.append(f"'{filepath}'")
-
-        cmd = " ".join(parts)
-
-        async with concurrency.acquire_light("ctf_xxd"):
-            result = await docker.exec_command(cmd, timeout=60)
-
-        return {"tool": "ctf_xxd", "filepath": filepath, **result.to_dict()}

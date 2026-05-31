@@ -17,6 +17,9 @@ venv/
 # Hercules runtime
 resources_cache/
 workspace/
+.hercules.lock
+AGENTS.md
+tests/
 
 # IDE
 .idea/
@@ -37,5 +40,4 @@ wordlists/
 hercules-extension/
 
 # Unused directories
-tests/
 docs/

@@ -1,9 +1,8 @@
 """
 Known-pattern banner blocklist for tool output cleaning.
 
-Uses explicit string/regex matching against known ASCII art banners.
-NO heuristic density detection — only strips what is positively identified.
-This prevents false positives on hex dumps, base64 certs, and exploit payloads.
+Only explicit banner lines are stripped. The patterns are intentionally narrow
+to avoid false positives on exploit code, certificates, hexdumps, and payloads.
 """
 
 from __future__ import annotations
@@ -11,8 +10,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List
 
-# Each entry: tool_name -> list of regex patterns that match banner lines.
-# Patterns are matched against individual lines (re.match, not re.search).
+# Each entry maps a tool name to regexes matched against individual lines.
 KNOWN_BANNERS: Dict[str, List[str]] = {
     "sqlmap": [
         r"^\s*___\s*$",
@@ -26,7 +24,12 @@ KNOWN_BANNERS: Dict[str, List[str]] = {
         r"^\s*\|_\|V\.\.\.\s*\|_\|\s*https?://sqlmap\.org.*$",
     ],
     "commix": [
-        r"^\s*[░▓▀█▄▌▐]+\s*$",          # ASCII art blocks
+        r"^\s*__\s*$",
+        r"^\s*___\s+___.*v\d+.*$",
+        r"^.*commixproject\.com.*$",
+        r"^Automated All-in-One OS Command Injection Exploitation Tool.*$",
+        r"^Copyright .*Anastasios Stasinopoulos.*$",
+        r"^\(!\) Legal disclaimer:.*$",
         r"^\s*commix.*v\d+.*$",
         r"^\(\+\) .*commix.*$",
     ],
@@ -34,6 +37,12 @@ KNOWN_BANNERS: Dict[str, List[str]] = {
         r"^\s*______\s*$",
         r"^\s*/\s*\\\s*$",
         r"^\s*\(\s*Woof!\s*\)\s*$",
+        r"^\s*\(\s*W00f!\s*\)\s*$",
+        r"^.*404 Hack Not Found.*$",
+        r"^.*405 Not Allowed.*$",
+        r"^.*403 Forbidden.*$",
+        r"^.*502 Bad Gateway.*$",
+        r"^.*500 Internal Error.*$",
         r"^\s*\\\s*____/.*\)$",
         r"^\s*,,.*\)\s*\(_\s*$",
         r"^\s*\.-\.\s*-\s*_______\s*\(.*$",
@@ -64,25 +73,34 @@ KNOWN_BANNERS: Dict[str, List[str]] = {
         r"^\s*/\s*\\.*WPScan.*$",
         r"^\s*WordPress Security Scanner.*$",
     ],
+    "nuclei": [
+        r"^\s*__\s+_\s*$",
+        r"^\s*____\s+__\s+_______.*$",
+        r"^\s*/ __ \\/ / / / ___/.*$",
+        r"^\s*/ / / / /_/ / /__/.*$",
+        r"^\s*/_/ /_/\\__,_/\\___/.*v\d+.*$",
+        r"^\s*projectdiscovery\.io\s*$",
+    ],
+    "arjun": [
+        r"^\s*_\s*$",
+        r"^\s*/_\|.*v\d+.*$",
+        r"^\s*\(\s*\|/ /\(//\).*$",
+        r"^\s*_/.*$",
+    ],
 }
 
-# Pre-compile all patterns at import time for performance
 _COMPILED_BANNERS: Dict[str, List[re.Pattern]] = {
-    tool: [re.compile(p) for p in patterns]
+    tool: [re.compile(pattern) for pattern in patterns]
     for tool, patterns in KNOWN_BANNERS.items()
 }
 
 
 def strip_known_banners(text: str, tool_name: str) -> str:
-    """
-    Remove known ASCII art banner lines for a specific tool.
-
-    If the tool_name has no registered patterns, text is returned unmodified.
-    """
+    """Remove known ASCII-art/banner lines for a specific tool."""
     patterns = _COMPILED_BANNERS.get(tool_name)
     if not patterns:
         return text
 
     lines = text.splitlines()
-    cleaned = [line for line in lines if not any(p.match(line) for p in patterns)]
+    cleaned = [line for line in lines if not any(pattern.match(line) for pattern in patterns)]
     return "\n".join(cleaned)

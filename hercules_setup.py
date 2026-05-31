@@ -23,8 +23,10 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 import time
 import urllib.request
+import zipfile
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -151,11 +153,35 @@ def check_image_exists() -> bool:
     return bool(result.stdout.strip())
 
 
+def check_image_runtime_ready() -> bool:
+    """Verify the existing image contains the runtime files Hercules requires."""
+    result = subprocess.run(
+        [
+            "docker", "run", "--rm",
+            "--entrypoint", "/bin/sh",
+            IMAGE_NAME,
+            "-c",
+            "test -x /entrypoint.sh "
+            "&& ! head -n 1 /entrypoint.sh | od -An -tx1 | grep -qi '0d' "
+            "&& command -v nmap >/dev/null "
+            "&& command -v nuclei >/dev/null "
+            "&& command -v ffuf >/dev/null "
+            "&& command -v amass >/dev/null",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return result.returncode == 0
+
+
 def build_image(force_rebuild: bool = False) -> bool:
     """Build the hercules-kali Docker image from the Dockerfile."""
     if not force_rebuild and check_image_exists():
-        ok(f"Image '{IMAGE_NAME}' already exists. Skipping build.")
-        return True
+        if check_image_runtime_ready():
+            ok(f"Image '{IMAGE_NAME}' already exists. Skipping build.")
+            return True
+        warn(f"Image '{IMAGE_NAME}' exists but is missing required runtime files. Rebuilding.")
 
     if not DOCKERFILE.exists():
         fail(f"Dockerfile not found at: {DOCKERFILE}")
@@ -170,40 +196,65 @@ def build_image(force_rebuild: bool = False) -> bool:
     info("All offensive security tools are being baked into the image.")
     print()
 
+    build_attempts = [
+        ["docker", "build", "--pull", "-t", IMAGE_NAME, "."],
+    ]
+    if force_rebuild:
+        build_attempts[0].insert(3, "--no-cache")
+    else:
+        build_attempts.append(["docker", "build", "--pull", "--no-cache", "-t", IMAGE_NAME, "."])
+
     start = time.time()
+    last_returncode = 1
 
-    # Stream docker build output in real time
-    process = subprocess.Popen(
-        ["docker", "build", "-t", IMAGE_NAME, "."],
-        cwd=str(PROJECT_ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
+    for attempt_num, cmd in enumerate(build_attempts, start=1):
+        if attempt_num > 1:
+            warn("Docker build failed. Retrying once with --pull --no-cache to refresh Kali package indexes.")
+            print()
 
-    current_step = ""
-    for line in process.stdout:
-        line = line.strip()
-        if not line:
-            continue
+        # Stream docker build output in real time
+        process = subprocess.Popen(
+            cmd,
+            cwd=str(PROJECT_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
 
-        # Show step headers clearly, compress verbose output
-        if line.startswith("#") and ("[" in line or "RUN" in line or "COPY" in line or "FROM" in line):
-            current_step = line
-            print(f"  {C.CYAN}>{C.RESET} {line[:75]}")
-        elif "error" in line.lower():
-            print(f"  {C.RED}>{C.RESET} {line[:75]}")
+        for line in process.stdout:
+            line = line.strip()
+            if not line:
+                continue
 
-    process.wait()
-    elapsed = time.time() - start
+            lower = line.lower()
+            interesting_error = any(
+                marker in lower
+                for marker in (
+                    "error",
+                    "failed",
+                    "e:",
+                    "unable to",
+                    "temporary failure",
+                    "hash sum mismatch",
+                )
+            )
 
-    if process.returncode != 0:
-        fail(f"Docker build failed (exit code {process.returncode}).")
-        return False
+            # Show step headers clearly, compress verbose output
+            if line.startswith("#") and ("[" in line or "RUN" in line or "COPY" in line or "FROM" in line):
+                print(f"  {C.CYAN}>{C.RESET} {line[:110]}")
+            elif interesting_error:
+                print(f"  {C.RED}>{C.RESET} {line[:180]}")
 
-    ok(f"Image '{IMAGE_NAME}' built successfully in {elapsed:.0f}s.")
-    return True
+        process.wait()
+        last_returncode = process.returncode
+        if process.returncode == 0:
+            elapsed = time.time() - start
+            ok(f"Image '{IMAGE_NAME}' built successfully in {elapsed:.0f}s.")
+            return True
+
+    fail(f"Docker build failed (exit code {last_returncode}).")
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +288,17 @@ def download_with_progress(url: str, dest: Path, label: str) -> bool:
         return False
 
 
+def is_valid_wordlist_archive(filename: str, path: Path) -> bool:
+    """Return True when a downloaded wordlist archive is readable."""
+    if not path.exists() or path.stat().st_size == 0:
+        return False
+    if filename.endswith(".zip"):
+        return zipfile.is_zipfile(path)
+    if filename.endswith(".tar.gz"):
+        return tarfile.is_tarfile(path)
+    return True
+
+
 def ensure_wordlists() -> bool:
     """Download SecLists and rockyou.txt if not already present."""
     WORDLISTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -244,14 +306,19 @@ def ensure_wordlists() -> bool:
 
     for filename, url in WORDLIST_URLS.items():
         dest = WORDLISTS_DIR / filename
-        if dest.exists():
+        if is_valid_wordlist_archive(filename, dest):
             size_mb = dest.stat().st_size / (1024 * 1024)
             ok(f"{filename} already present ({size_mb:.1f} MB).")
             continue
+        if dest.exists():
+            warn(f"{filename} is present but invalid. Re-downloading.")
+            dest.unlink()
 
         info(f"Downloading {filename}...")
-        if not download_with_progress(url, dest, filename):
+        if not download_with_progress(url, dest, filename) or not is_valid_wordlist_archive(filename, dest):
             warn(f"{filename} could not be downloaded. It will not be available inside the container.")
+            if dest.exists() and not is_valid_wordlist_archive(filename, dest):
+                dest.unlink()
             all_ok = False
 
     return all_ok
@@ -269,6 +336,7 @@ def is_setup_complete() -> dict:
     status = {
         "docker_available": False,
         "image_exists": False,
+        "image_runtime_ready": False,
         "wordlists_ready": False,
         "ready": False,
         "errors": [],
@@ -294,6 +362,13 @@ def is_setup_complete() -> dict:
     # Image
     if check_image_exists():
         status["image_exists"] = True
+        if check_image_runtime_ready():
+            status["image_runtime_ready"] = True
+        else:
+            status["errors"].append(
+                f"The '{IMAGE_NAME}' Docker image exists but is not runtime-ready. "
+                f"Run: python hercules_setup.py --rebuild"
+            )
     else:
         status["errors"].append(
             f"The '{IMAGE_NAME}' Docker image has not been built yet. "
@@ -302,10 +377,17 @@ def is_setup_complete() -> dict:
 
     # Wordlists (optional — warn but don't block)
     wl_dir = PROJECT_ROOT / "wordlists"
-    if (wl_dir / "SecLists.zip").exists() or (wl_dir / "rockyou.txt.tar.gz").exists():
+    if (
+        is_valid_wordlist_archive("SecLists.zip", wl_dir / "SecLists.zip")
+        and is_valid_wordlist_archive("rockyou.txt.tar.gz", wl_dir / "rockyou.txt.tar.gz")
+    ):
         status["wordlists_ready"] = True
 
-    status["ready"] = status["docker_available"] and status["image_exists"]
+    status["ready"] = (
+        status["docker_available"]
+        and status["image_exists"]
+        and status["image_runtime_ready"]
+    )
     return status
 
 

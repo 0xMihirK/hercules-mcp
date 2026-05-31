@@ -12,6 +12,7 @@ import uuid
 
 from fastmcp import Context
 
+from hercules.core.guidance import TOOL_DESCRIPTIONS, target_error
 from hercules.output.filters import TOOL_FILTERS
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ _DEFAULT_WORDLIST = "/usr/share/wordlists/rockyou.txt"
 
 def register_cracking_tools(mcp: "FastMCP") -> None:
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["bruteforce_hydra"])
     async def bruteforce_hydra(
         target: str,
         service: str,
@@ -48,7 +49,10 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
         config = ctx.lifespan_context["config"]
         concurrency = ctx.lifespan_context["concurrency"]
 
-        config.validate_target(target)
+        try:
+            config.validate_target(target)
+        except ValueError as exc:
+            return target_error("bruteforce_hydra", target, exc, config)
 
         parts = ["hydra"]
 
@@ -82,7 +86,7 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
 
         return {"tool": "bruteforce_hydra", "target": target, "service": service, **result.to_dict()}
 
-    @mcp.tool()
+    @mcp.tool(description=TOOL_DESCRIPTIONS["crack_john"])
     async def crack_john(
         hashes: str,
         format: str = "",

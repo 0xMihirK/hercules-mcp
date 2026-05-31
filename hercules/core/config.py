@@ -21,7 +21,7 @@ logger = logging.getLogger("hercules.config")
 # ---------------------------------------------------------------------------
 # Load .env from project root (two levels up from this file)
 # ---------------------------------------------------------------------------
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ENV_PATH = _PROJECT_ROOT / ".env"
 if _ENV_PATH.exists():
     load_dotenv(_ENV_PATH)
