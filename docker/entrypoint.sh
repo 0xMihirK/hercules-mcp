@@ -77,6 +77,13 @@ else
     echo "[hercules] Metasploit skipped (SKIP_METASPLOIT=true)."
 fi
 
+# ── Stealth browser (cloakbrowser + agent-browser) ──────────────────────────
+# Intentionally NOT started here. The cloakserve stealth-Chromium backend is
+# launched lazily on the first browser_* MCP tool call (see
+# hercules/tools/browser/browser_tool.py::_ensure_cloakserve) so non-browser
+# sessions never pay the Chromium spin-up cost. Headed mode (BROWSER_HEADLESS=false)
+# runs cloakserve under `xvfb-run`; nothing extra is needed at entrypoint time.
+
 touch /tmp/hercules-ready
 echo "[hercules] Container ready. Sleeping..."
 exec sleep infinity

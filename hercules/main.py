@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import logging.handlers
 import sys
+from pathlib import Path
 
 from fastmcp import FastMCP
 from fastmcp.server.lifespan import lifespan
@@ -20,6 +22,7 @@ from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager
 from hercules.core.guidance import SERVER_INSTRUCTIONS
 from hercules.core.instance_lock import HerculesInstanceLock, InstanceLockError
+from hercules.core.tool_catalog import CORE_TOOLS
 
 # Tool registrations
 from hercules.tools.network.nmap_tool import register_nmap_tools
@@ -37,6 +40,7 @@ from hercules.tools.web.web_scanner_tool import register_web_scanner_tools
 from hercules.tools.network.network_tool import register_network_tools
 from hercules.tools.cracking.cracking_tool import register_cracking_tools
 from hercules.tools.ctf.ctf_tool import register_ctf_tools
+from hercules.tools.browser.browser_tool import register_browser_tools
 
 # Resource registrations
 from hercules.resources.agent_skills import register_agent_skill_resources
@@ -46,13 +50,118 @@ from hercules.resources.post_exploitation import register_post_exploitation_reso
 # Logging setup
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    stream=sys.stderr,
-)
+# Mutable holder so the session_id in log lines tracks the active session. It
+# changes only on a deliberate rotation (system_start_new_session), not on
+# recovery (recovery preserves the session id).
+_LOG_SESSION = {"id": "-"}
+
+_LOG_FORMAT = "%(asctime)s [%(session_id)s] [%(name)s] %(levelname)s: %(message)s"
+_LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
+
+
+class _SessionFilter(logging.Filter):
+    """Inject the active session id into every record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.session_id = _LOG_SESSION["id"]
+        return True
+
+
+def _configure_stderr_logging() -> None:
+    """Attach the stderr handler (idempotent). Logs always go to stderr so they
+    never corrupt the stdio MCP transport on stdout."""
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    for h in root.handlers:
+        if getattr(h, "_hercules_stderr", False):
+            return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATEFMT))
+    handler.addFilter(_SessionFilter())
+    handler._hercules_stderr = True  # type: ignore[attr-defined]
+    root.addHandler(handler)
+
+
+def _add_file_logging(project_root: Path, session_id: str) -> None:
+    """Attach a rotating file handler on the HOST workspace (survives container
+    kills) so a mid-session crash leaves a durable post-mortem log. Idempotent."""
+    _LOG_SESSION["id"] = session_id
+    log_path = project_root / "workspace" / "hercules.log"
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return
+    root = logging.getLogger()
+    target = str(log_path)
+    for h in root.handlers:
+        if getattr(h, "_hercules_file_path", "") == target:
+            return  # already attached
+    try:
+        fh = logging.handlers.RotatingFileHandler(
+            target, maxBytes=5_000_000, backupCount=3, encoding="utf-8"
+        )
+    except Exception:
+        return
+    fh.setFormatter(logging.Formatter(_LOG_FORMAT, _LOG_DATEFMT))
+    fh.addFilter(_SessionFilter())
+    fh._hercules_file_path = target  # type: ignore[attr-defined]
+    root.addHandler(fh)
+
+
+_configure_stderr_logging()
 logger = logging.getLogger("hercules")
+
+
+class _RegistrationFilter:
+    """Thin proxy around the FastMCP server that lets the operator opt out of
+    individual MCP tools (set via the setup TUI / ``HERCULES_DISABLED_TOOLS``).
+
+    A disabled tool simply isn't registered, so its name/description/schema never
+    enters the model's context — that is the token saving. The binary is still in
+    the image, so the agent can fall back to ``shell_exec``. Core tools are never
+    skippable (``shell_exec`` itself is the fallback path). Every non-``tool``
+    attribute access is forwarded to the real server unchanged, so middleware,
+    resources, and the request-handler patch below all see the genuine FastMCP.
+    """
+
+    def __init__(self, mcp, disabled: "frozenset[str] | set[str]"):
+        self._mcp = mcp
+        self._disabled = {d for d in disabled if d not in CORE_TOOLS}
+        self.skipped: list[str] = []
+
+    def tool(self, *args, **kwargs):
+        real_decorator = self._mcp.tool(*args, **kwargs)
+
+        def decorator(fn):
+            if getattr(fn, "__name__", "") in self._disabled:
+                self.skipped.append(fn.__name__)
+                return fn  # not registered → dropped from the tool surface
+            return real_decorator(fn)
+
+        return decorator
+
+    def __getattr__(self, name):
+        return getattr(self._mcp, name)
+
+
+async def _watchdog(docker_mgr, interval: int) -> None:
+    """
+    Proactively detect a dead container and recover it BEFORE the next tool
+    call, so recovery is transparent rather than lazy. Shares the recovery lock
+    (via _recover_container) so it can never collide with a tool-triggered
+    recovery — it just no-ops if the container is already healthy.
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            if await docker_mgr.health_ok():
+                continue
+            logger.warning("Watchdog: container unhealthy, proactively recovering.")
+            await docker_mgr._recover_container("watchdog proactive recovery")
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("Watchdog recovery attempt failed: %s", exc)
 
 
 async def _connect_metasploit_background(context: dict) -> None:
@@ -98,6 +207,9 @@ async def docker_lifespan(server):
 
     docker_mgr = DockerManager(config)
 
+    # Durable, host-side, session-tagged log for post-mortem of mid-session crashes.
+    _add_file_logging(config.project_root, docker_mgr.session_id)
+
     logger.info("=== Hercules starting ===")
     logger.info("Session ID: %s", docker_mgr.session_id)
     logger.info("Skip Metasploit: %s", config.skip_metasploit)
@@ -134,10 +246,27 @@ async def docker_lifespan(server):
         except TimeoutError:
             logger.warning("msfrpcd did not become ready — Metasploit tools will be unavailable.")
 
+    # Proactive container watchdog (0 disables).
+    if getattr(config, "watchdog_interval", 0) and config.watchdog_interval > 0:
+        watchdog_task = asyncio.create_task(_watchdog(docker_mgr, config.watchdog_interval))
+        lifespan_context["watchdog_task"] = watchdog_task
+        logger.info("Watchdog enabled: health check every %ds.", config.watchdog_interval)
+
     try:
         yield lifespan_context
     finally:
         try:
+            # Signal teardown so the watchdog/recovery never resurrect a
+            # container we are deliberately removing, and cancel the watchdog
+            # BEFORE stopping the container.
+            docker_mgr._shutting_down = True
+            wtask = lifespan_context.get("watchdog_task")
+            if wtask is not None and not wtask.done():
+                wtask.cancel()
+                try:
+                    await wtask
+                except asyncio.CancelledError:
+                    pass
             task = lifespan_context.get("msf_connect_task")
             if task is not None and not task.done():
                 task.cancel()
@@ -177,30 +306,41 @@ mcp = FastMCP(
     lifespan=docker_lifespan | concurrency_lifespan,
 )
 
-# Register all tools
+# Register all tools. Operator opt-outs (HERCULES_DISABLED_TOOLS, set via the
+# setup TUI) are honored by the registration filter: a disabled tool is not
+# registered, so its schema/description never costs context tokens — but its
+# binary remains in the image and stays reachable via shell_exec.
 config = HerculesConfig.from_env()
+_reg = _RegistrationFilter(mcp, config.disabled_tools)
 
-register_nmap_tools(mcp)
+register_nmap_tools(_reg)
 if not config.skip_metasploit:
-    register_metasploit_tools(mcp)
+    register_metasploit_tools(_reg)
 else:
     logger.info("SKIP_METASPLOIT=true: Metasploit tools will not be registered.")
 
-register_sqlmap_tools(mcp)
-register_nuclei_tools(mcp)
-register_searchsploit_tools(mcp)
-register_shell_tools(mcp)
-register_file_tools(mcp)
-register_system_tools(mcp)
+register_sqlmap_tools(_reg)
+register_nuclei_tools(_reg)
+register_searchsploit_tools(_reg)
+register_shell_tools(_reg)
+register_file_tools(_reg)
+register_system_tools(_reg)
 
 # New categorized tools
-register_recon_tools(mcp)
-register_web_scanner_tools(mcp)
-register_network_tools(mcp)
-register_cracking_tools(mcp)
-register_ctf_tools(mcp)
+register_recon_tools(_reg)
+register_web_scanner_tools(_reg)
+register_network_tools(_reg)
+register_cracking_tools(_reg)
+register_ctf_tools(_reg)
+register_browser_tools(_reg)
 
-# Register post-exploitation resources
+if _reg.skipped:
+    logger.info(
+        "Operator-disabled tools (not registered; still reachable via shell_exec): %s",
+        ", ".join(sorted(set(_reg.skipped))),
+    )
+
+# Register post-exploitation resources (resources are never opt-out-able).
 register_agent_skill_resources(mcp)
 register_post_exploitation_resources(mcp)
 
@@ -232,6 +372,16 @@ if original_call_tool_handler:
         return await original_call_tool_handler(request, *args, **kwargs)
 
     mcp._mcp_server.request_handlers[CallToolRequest] = patched_call_tool
+
+# ---------------------------------------------------------------------------
+# Universal Tool Exception Firewall
+# Converts any uncaught tool exception into a structured, agent-repairable
+# ToolResult so a single tool failure can never crash or wedge the session.
+# Complements the parameter interceptor above (different layer).
+# ---------------------------------------------------------------------------
+from hercules.core.firewall import ToolExceptionFirewall
+
+mcp.add_middleware(ToolExceptionFirewall())
 
 logger.info("Hercules MCP server configured with all tools and resources.")
 

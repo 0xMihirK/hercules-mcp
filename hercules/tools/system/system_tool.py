@@ -51,7 +51,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
 
         old_session = docker.session_id
         try:
-            new_session = await docker.restart_container()
+            new_session = await docker.new_session()
         except Exception as exc:
             logger.error("Failed to start new session: %s", exc)
             return {

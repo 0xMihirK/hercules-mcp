@@ -13,13 +13,19 @@ build/
 venv/
 .pytest_cache/
 .ruff_cache/
+.claude/
 
 # Hercules runtime
 resources_cache/
 workspace/
 .hercules.lock
 AGENTS.md
+CLAUDE.md
 tests/
+
+# Agent / CI (local-only, not committed)
+.github/
+.claude/
 
 # IDE
 .idea/
@@ -41,3 +47,18 @@ hercules-extension/
 
 # Unused directories
 docs/
+
+# Type / coverage caches
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Backups, scratch & preview artifacts
+*.bak
+*.orig
+*.tmp
+# pytest-textual-snapshot failure report
+snapshot_report.html
+# Scratch render images at the repo root (real assets live in assets/)
+/*.png
+/*.svg

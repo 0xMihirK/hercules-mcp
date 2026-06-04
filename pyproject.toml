@@ -16,6 +16,17 @@ dependencies = [
     "pymetasploit3>=1.0.0",
     "python-dotenv>=1.0.0",
     "httpx>=0.27.0",
+    # Interactive setup UI (python hercules_setup.py). Pulled in so the TUI is
+    # available without an on-demand install; the script still degrades to a
+    # classic non-interactive flow if textual is somehow missing.
+    "textual>=0.60",
+]
+
+[project.optional-dependencies]
+# Dev-only: snapshot-test the setup TUI (python -m pytest tests/test_setup_tui_snapshot.py).
+dev = [
+    "pytest>=8.0.0",
+    "pytest-textual-snapshot>=1.0.0",
 ]
 
 [project.scripts]

@@ -38,6 +38,14 @@ def _parse_csv(value: str) -> list[str]:
     return [v.strip() for v in value.split(",") if v.strip()]
 
 
+def _parse_disabled_tools(value: str) -> frozenset[str]:
+    """Parse HERCULES_DISABLED_TOOLS, filtering out core tools (delegated to the
+    tool catalog so the never-disable-core rule lives in exactly one place)."""
+    from hercules.core.tool_catalog import parse_disabled
+
+    return parse_disabled(value)
+
+
 def _parse_float(value: str, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -66,12 +74,35 @@ class HerculesConfig:
     allowed_targets: list[str] = field(default_factory=list)
     blocked_targets: list[str] = field(default_factory=list)
 
+    # Operator tool selection. Names listed here are NOT registered as MCP tools
+    # (their description/schema is dropped from the model's context to save
+    # tokens). The underlying binaries stay in the image, so the agent can still
+    # invoke them via shell_exec. Set via the interactive `hercules_setup.py` TUI
+    # or HERCULES_DISABLED_TOOLS in .env. Core tools can never be disabled.
+    disabled_tools: frozenset[str] = field(default_factory=frozenset)
+
     # Container resource limits
     container_cpu_limit: float = 0.0  # 0 = unlimited
     container_mem_limit: str = "0"    # 0 = unlimited, or e.g. "4g"
 
     # Timeouts
     default_timeout: int = 300
+    # Hard ceiling applied to EVERY exec_command, regardless of caller. Stops an
+    # unbounded internal call (background-job plumbing) from pinning a tool for
+    # the full default timeout against a wedged container. Set above the longest
+    # legitimate scan (nmap aggressive 600s, amass ~20min).
+    max_exec_timeout: int = 1200
+
+    # Proactive watchdog: poll container health every N seconds and recover
+    # before the next tool call. 0 disables the watchdog.
+    watchdog_interval: int = 20
+
+    # Stealth browser (cloakbrowser stealth Chromium + agent-browser controller)
+    browser_headless: bool = True       # False → run cloakserve under Xvfb (headed)
+    browser_stream_port: int = 0        # 0 = disabled; >0 forwards a headed live-view port to the host
+    browser_proxy: str = ""             # default upstream proxy for browser sessions (e.g. http://host:8080)
+    browser_timezone: str = ""          # default stealth timezone (e.g. America/New_York)
+    browser_locale: str = ""            # default stealth locale (e.g. en-US)
 
     # Paths
     project_root: Path = field(default_factory=lambda: _PROJECT_ROOT)
@@ -89,9 +120,17 @@ class HerculesConfig:
             max_concurrent_light=int(os.getenv("MAX_CONCURRENT_LIGHT", "10")),
             allowed_targets=_parse_csv(os.getenv("ALLOWED_TARGETS", "")),
             blocked_targets=_parse_csv(os.getenv("BLOCKED_TARGETS", "")),
+            disabled_tools=_parse_disabled_tools(os.getenv("HERCULES_DISABLED_TOOLS", "")),
             container_cpu_limit=_parse_float(os.getenv("CONTAINER_CPU_LIMIT", "0")),
             container_mem_limit=os.getenv("CONTAINER_MEM_LIMIT", "0"),
             default_timeout=int(os.getenv("DEFAULT_TIMEOUT", "300")),
+            max_exec_timeout=int(os.getenv("MAX_EXEC_TIMEOUT", "1200")),
+            watchdog_interval=int(os.getenv("WATCHDOG_INTERVAL", "20")),
+            browser_headless=_parse_bool(os.getenv("BROWSER_HEADLESS", "true")),
+            browser_stream_port=int(os.getenv("BROWSER_STREAM_PORT", "0") or "0"),
+            browser_proxy=os.getenv("BROWSER_PROXY", ""),
+            browser_timezone=os.getenv("BROWSER_TIMEZONE", ""),
+            browser_locale=os.getenv("BROWSER_LOCALE", ""),
         )
 
     # ------------------------------------------------------------------

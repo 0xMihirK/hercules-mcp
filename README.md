@@ -23,6 +23,24 @@ Hercules MCP is a [Model Context Protocol](https://modelcontextprotocol.io/) ser
   <img src="assets/architecture.png" alt="Architecture" width="720" />
 </p>
 
+## Contents
+
+- [Why Hercules?](#why-hercules)
+- [Tools Available](#tools-available)
+- [Stealth Browser](#stealth-browser)
+- [Output, Artifacts, And Timeouts](#output-artifacts-and-timeouts)
+- [MCP Resources](#mcp-resources)
+- [Quick Start](#quick-start)
+- [Connect To An MCP Client](#connect-to-an-mcp-client)
+- [Troubleshooting Setup](#troubleshooting-setup)
+- [Design Principles](#design-principles)
+- [Project Structure](#project-structure)
+- [Acknowledgements](#acknowledgements)
+- [Security](#security)
+- [License](#license)
+
+---
+
 ## Why Hercules?
 
 ### Sandbox-first execution
@@ -39,6 +57,18 @@ Hercules is built for LLM use. It strips ANSI/OSC escape codes, color sequences,
 
 Every public capability is exposed as a typed MCP tool or resource. The server includes rich instructions and tool descriptions so clients can map tasks to reconnaissance, web scanning, exploitation, post-exploitation, CTF, shell, file, and session workflows.
 
+### Stealth browser automation
+
+Drive a bot-evading Chromium to manually test JavaScript-heavy or anti-bot-protected sites — navigate, snapshot, interact, screenshot, and run page JavaScript through structured `browser_*` tools. See [Stealth Browser](#stealth-browser) for how it works.
+
+### Interactive setup and token budgeting
+
+`python hercules_setup.py` launches a clean terminal UI (built with [Textual](https://textual.textualize.io/)) for first-time setup. Beyond building the image, it lets you opt out of whole tool families you don't need — Metasploit, the browser, SQLMap, and so on — and shows the context-token cost of the tool surface updating live as you toggle. Opted-out tools are simply **not registered**, so their names, descriptions, and schemas never enter the model's context window (that is the token saving), while the underlying binaries stay baked into the image and remain reachable through `shell_exec`. Selections persist to `.env` as `HERCULES_DISABLED_TOOLS`; a headless `--tokens` report and a `--classic` non-interactive flow are also available.
+
+### Resilient sessions
+
+A single tool failure never takes down the session: uncaught tool exceptions are converted into structured, agent-repairable errors by a middleware firewall. If the container crashes mid-session, Hercules recovers it while preserving the same session id and workspace — files, background jobs, and the browser daemon survive — and a background watchdog repairs a dead container before the next tool call. One server runs per checkout, guarded by a startup lock.
+
 ---
 
 ## Tools Available
@@ -47,8 +77,10 @@ Expected registered tool count:
 
 | Mode | Tool count |
 |------|------------|
-| Metasploit enabled, default `SKIP_METASPLOIT=false` | 35 |
-| Lightweight mode, `SKIP_METASPLOIT=true` | 30 |
+| Metasploit enabled, default `SKIP_METASPLOIT=false` | 45 |
+| Lightweight mode, `SKIP_METASPLOIT=true` | 40 |
+
+Counts are the full surface; the interactive setup can opt out of tool families you don't need (see [Interactive setup and token budgeting](#interactive-setup-and-token-budgeting)).
 
 Hercules exposes a compact MCP API over these Kali tools and workflow
 capabilities. The MCP client sees structured tool calls, but the README keeps
@@ -64,6 +96,7 @@ what is available without memorizing every selector or wrapper.
 | Password attacks | Hydra, John the Ripper |
 | Networking | curl, Ncat, hping3 |
 | CTF and forensics | Binwalk, Steghide |
+| Stealth browser | Bot-evading Chromium (cloakbrowser) driven by agent-browser: navigate, accessibility snapshot, click/type/fill, wait, screenshot, eval JS, network/HAR capture, isolated sessions — see [Stealth Browser](#stealth-browser) |
 | Shell and workspace | Direct Kali shell commands inside the container, background jobs, workspace file read/write, binary-safe file transfer |
 | System/session control | Container session lifecycle, active session listing, network information |
 
@@ -80,6 +113,23 @@ directory fuzzing remain directly accessible where dedicated controls are useful
 
 The exact MCP function names, parameters, and selector values are advertised by
 the MCP server itself through tool metadata.
+
+---
+
+## Stealth Browser
+
+Hercules ships a bot-evading browser so agents can manually test JavaScript-heavy or anti-bot-protected sites, reproduce web bugs interactively, and capture visual evidence. Through structured `browser_*` MCP tools, agents can navigate, capture an accessibility-tree snapshot with stable element refs, click/type/fill, wait for dynamic content, screenshot, run page JavaScript, and capture network/HAR traffic — all within isolated browser sessions. `browser_cmd` is an escape hatch to every other agent-browser subcommand, and `browser_skill` loads agent-browser's own version-matched command reference. The browser starts lazily on first use, runs headless by default (or headed under Xvfb via `BROWSER_HEADLESS=false`), and keeps page and session state across separate MCP calls.
+
+### How agent-browser and cloakbrowser combine to evade bot detection
+
+Hercules joins two open-source projects, each used for its strength:
+
+- **[agent-browser](https://github.com/vercel-labs/agent-browser)** is the *controller* — a Rust CLI with a persistent daemon that exposes an agent-friendly accessibility snapshot (with `@ref` element handles) plus the full click / type / wait / eval command surface.
+- **[cloakbrowser](https://github.com/CloakHQ/cloakbrowser)** is the *engine* — a Chromium built with compile-time C++ patches that remove the tell-tale signals of automation.
+
+Instead of running a remote-debugging (CDP) server, agent-browser launches the cloakbrowser stealth Chromium **directly** through the `AGENT_BROWSER_EXECUTABLE_PATH` environment variable (the binary path reported by `python3 -m cloakbrowser info`) and manages its lifecycle; its daemon then holds that browser open across MCP tool calls. Because the engine is cloakbrowser, the page presents a realistic, human-like fingerprint rather than an automated one — `navigator.webdriver` reads `false`, plugins and languages are populated, and canvas / WebGL / audio / font signals are spoofed — so it passes checks that flag a vanilla headless Chromium (verified all-green against `bot.sannysoft.com`). The patched Chromium is downloaded into your locally built image at setup time and is never repackaged or redistributed.
+
+> Special thanks to the **agent-browser** and **cloakbrowser** projects for making this possible — see [Acknowledgements](#acknowledgements).
 
 ---
 
@@ -148,12 +198,15 @@ uv sync
 python hercules_setup.py
 ```
 
-The setup script checks Docker, builds the `hercules-kali` image from `Dockerfile`, and downloads local wordlist archives for SecLists and `rockyou.txt`.
+Run in a terminal, this opens a clean interactive UI where you can opt out of tool families you don't need and watch the context-token cost of the tool surface update live, then build. It checks Docker, builds the `hercules-kali` image from `Dockerfile` (including the stealth browser stack), and downloads local wordlist archives for SecLists and `rockyou.txt`. With no TTY (for example in CI) it runs non-interactively.
 
-To verify an existing setup:
+Useful flags:
 
 ```bash
-python hercules_setup.py --check
+python hercules_setup.py --check     # verify an existing setup
+python hercules_setup.py --tokens    # print the per-capability context-token report
+python hercules_setup.py --classic   # skip the UI; build non-interactively
+python hercules_setup.py --rebuild   # force a no-cache image rebuild
 ```
 
 ### 3. Configure environment
@@ -178,6 +231,11 @@ Common settings:
 | `CONTAINER_CPU_LIMIT` | `0` | Docker CPU limit. `0` means unlimited. |
 | `CONTAINER_MEM_LIMIT` | `0` | Docker memory limit. `0` means unlimited. |
 | `DEFAULT_TIMEOUT` | `300` | Default command timeout in seconds. |
+| `HERCULES_DISABLED_TOOLS` | empty | Comma-separated MCP tools to not register (managed by the setup UI). Trims their schema from the agent's context; the binary stays usable via `shell_exec`. Core tools cannot be disabled. |
+| `BROWSER_HEADLESS` | `true` | Run the stealth browser headless, or headed under Xvfb when `false`. |
+| `BROWSER_STREAM_PORT` | `0` | Forward a headed live-view port to the host (`0` = off, headed mode only). |
+| `BROWSER_PROXY` | empty | Default upstream proxy for browser sessions. |
+| `WATCHDOG_INTERVAL` | `20` | Seconds between container health checks; `0` disables the watchdog. |
 
 ### 4. Start the MCP server
 
@@ -264,9 +322,9 @@ If a client reports no Hercules tools, confirm that only one MCP server is runni
 hercules-mcp/
 |-- hercules/
 |   |-- main.py                  # FastMCP entrypoint and tool/resource registration
-|   |-- core/                    # Config, Docker lifecycle, concurrency, guidance
+|   |-- core/                    # Config, Docker lifecycle, concurrency, guidance, tool catalog
 |   |-- output/                  # Sanitizer, banner stripping, filters, truncation
-|   |-- tools/                   # MCP tool implementations by category
+|   |-- tools/                   # MCP tool implementations by category (incl. browser/)
 |   `-- resources/               # Agent skill docs and post-exploitation resources
 |-- docker/
 |   `-- entrypoint.sh            # Container startup, wordlists, msfrpcd
@@ -274,11 +332,37 @@ hercules-mcp/
 |-- workspace/                   # Runtime session workspaces and artifacts
 |-- wordlists/                   # Downloaded SecLists and rockyou archives
 |-- Dockerfile                   # Kali container image definition
-|-- hercules_setup.py            # Setup and readiness check script
+|-- hercules_setup.py            # Interactive setup, token budgeting, readiness check
 |-- hercules-mcp.json            # Example MCP client manifest
 |-- pyproject.toml               # Project metadata
 `-- .env.example                 # Environment configuration template
 ```
+
+---
+
+## Acknowledgements
+
+Hercules stands on the shoulders of excellent open-source work. The stealth
+browser in particular would not exist without two projects, and we are grateful
+to both:
+
+- **[agent-browser](https://github.com/vercel-labs/agent-browser)** — the Rust
+  browser-control CLI and persistent daemon that gives agents an
+  accessibility-first way to drive a real browser. It powers every `browser_*`
+  tool in Hercules.
+- **[cloakbrowser](https://github.com/CloakHQ/cloakbrowser)** — the
+  fingerprint-patched stealth Chromium that lets that automation pass as a real
+  user and slip past common bot detection.
+
+Thanks also to the wider ecosystem Hercules builds on:
+[Kali Linux](https://www.kali.org/), the
+[Metasploit Framework](https://www.metasploit.com/),
+[ProjectDiscovery](https://projectdiscovery.io/) (nuclei, httpx, dnsx),
+[SecLists](https://github.com/danielmiessler/SecLists),
+[FastMCP](https://github.com/jlowin/fastmcp), and
+[Textual](https://textual.textualize.io/).
+
+---
 
 ## Security
 

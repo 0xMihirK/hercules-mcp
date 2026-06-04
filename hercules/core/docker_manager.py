@@ -145,6 +145,9 @@ class ExecResult:
     old_session_id: str = ""
     session_id: str = ""
     recovery_reason: str = ""
+    recovery_mode: str = ""
+    workspace_preserved: bool = False
+    note: str = ""
 
     def to_dict(self) -> dict:
         d = {
@@ -182,6 +185,11 @@ class ExecResult:
             d["old_session_id"] = self.old_session_id
             d["session_id"] = self.session_id
             d["recovery_reason"] = self.recovery_reason
+            if self.recovery_mode:
+                d["recovery_mode"] = self.recovery_mode
+            d["workspace_preserved"] = self.workspace_preserved
+            if self.note:
+                d["note"] = self.note
         return d
 
 
@@ -216,11 +224,36 @@ class DockerManager:
         self._bootstrapped: bool = False
         self._ready: bool = False
         self._ready_task: asyncio.Task | None = None
+        # Serializes container recovery so concurrent tool calls can't spawn
+        # duplicate containers (thundering herd). Created lazily because some
+        # tests construct DockerManager via __new__ and skip __init__.
+        self._recovery_lock: asyncio.Lock | None = None
+        # Serializes in-container msfrpcd restarts (single port 55553).
+        self._msf_restart_lock: asyncio.Lock | None = None
+        # Set while stop_container() is tearing down, so the watchdog and
+        # recovery paths never resurrect a container we are deliberately killing.
+        self._shutting_down: bool = False
 
     @property
     def session_id(self) -> str:
         """Unique ID for the current session. Changes on restart."""
         return self._session_id
+
+    def _get_recovery_lock(self) -> asyncio.Lock:
+        """Lazily create the recovery lock (safe for __new__-constructed mocks)."""
+        lock = getattr(self, "_recovery_lock", None)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._recovery_lock = lock
+        return lock
+
+    def _get_msf_restart_lock(self) -> asyncio.Lock:
+        """Lazily create the msfrpcd-restart lock."""
+        lock = getattr(self, "_msf_restart_lock", None)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._msf_restart_lock = lock
+        return lock
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -272,6 +305,11 @@ class DockerManager:
                 str(wordlists_path): {"bind": "/opt/wordlists_host", "mode": "ro"},
             },
             "shm_size": "256m",
+            # Let the Docker daemon auto-restart this container after a daemon
+            # restart / host resume so it comes back with the SAME workspace
+            # mount. A deliberate `docker stop`/`rm` (graceful teardown) overrides
+            # this, so clean shutdown still works.
+            "restart_policy": {"Name": "unless-stopped"},
         }
 
         # Handle networking: Linux uses host mode for VPNs. Windows/Mac use port mapping.
@@ -282,6 +320,12 @@ class DockerManager:
             ports = {"55553/tcp": 55553}
             for p in range(4444, 4465):
                 ports[f"{p}/tcp"] = p
+            # Optional headed browser live-view stream port (0 = disabled). The
+            # cloakserve CDP port (9222) is deliberately NEVER mapped — it stays
+            # loopback-only inside the container.
+            stream_port = getattr(self._config, "browser_stream_port", 0)
+            if stream_port:
+                ports[f"{int(stream_port)}/tcp"] = int(stream_port)
             kwargs["ports"] = ports
 
         # Capabilities
@@ -297,7 +341,22 @@ class DockerManager:
             kwargs["mem_limit"] = self._config.container_mem_limit
 
         logger.info("Creating container '%s'...", self._container_name)
-        
+
+        # Defensive: remove any pre-existing container holding our exact name
+        # (e.g. a stale one the daemon auto-restarted) to avoid a 409 name clash.
+        # We only reach here when we intend to OWN this name; the reattach path
+        # adopts a still-running same-named container before calling us.
+        try:
+            clash = await asyncio.to_thread(
+                self._client.containers.get, self._container_name
+            )
+            await asyncio.to_thread(clash.remove, force=True)
+            logger.info("Removed pre-existing container '%s' before create.", self._container_name)
+        except NotFound:
+            pass
+        except Exception as exc:
+            logger.warning("Failed to clear pre-existing container '%s': %s", self._container_name, exc)
+
         try:
             self._container = await asyncio.to_thread(
                 self._client.containers.run, **kwargs
@@ -379,30 +438,145 @@ class DockerManager:
         self._ready = False
         self._ready_task = None
 
-    async def restart_container(self) -> str:
+    async def restart_container(self, rotate_workspace: bool = True) -> str:
         """
-        Atomically restart the container with a new session ID and workspace.
+        Recreate the container.
 
-        Creates the new workspace subfolder BEFORE tearing down the old
-        container, so a failure in start_container() never leaves the
-        manager pointing at an ID that corresponds to nothing.
+        rotate_workspace=True (default): mint a NEW session ID and a fresh empty
+        workspace, then start clean. Used by ``new_session`` /
+        ``system_start_new_session`` when the agent deliberately wants a clean
+        slate.
 
-        Returns the new session_id.
+        rotate_workspace=False: PRESERVE the current session ID, container name,
+        and host workspace dir, recreating the container with the SAME
+        /opt/workspace mount. Used by recovery so a container crash is
+        transparent and previously written files / job logs survive.
+
+        Ensures the workspace subfolder exists BEFORE tearing down the old
+        container, so a failure in start_container() never leaves the manager
+        pointing at an ID that corresponds to nothing.
+
+        Returns the (possibly unchanged) session_id.
         """
-        new_session_id = uuid.uuid4().hex[:8]
-        new_name = f"hercules-{new_session_id}"
+        if rotate_workspace:
+            new_session_id = uuid.uuid4().hex[:8]
+            new_name = f"hercules-{new_session_id}"
+        else:
+            new_session_id = self._session_id
+            new_name = self._container_name
 
-        # Create the workspace subfolder FIRST — if this fails, old container is still alive
+        # Ensure the workspace subfolder exists FIRST — if this fails, the old
+        # container is still alive. For the preserve path this is a no-op mkdir.
         new_workspace = self._config.project_root / "workspace" / new_session_id
         new_workspace.mkdir(parents=True, exist_ok=True)
 
-        # Now it's safe to tear down the old one
+        # Now it's safe to tear down the old one.
         await self.stop_container()
 
         self._session_id = new_session_id
         self._container_name = new_name
         await self.start_container()
         return self._session_id
+
+    async def new_session(self) -> str:
+        """
+        Deliberately rotate to a fresh, empty session (clean slate).
+
+        Holds the recovery lock so a concurrent watchdog/tool recovery cannot
+        race the rotation. This is the public entry point for
+        system_start_new_session.
+        """
+        async with self._get_recovery_lock():
+            return await self.restart_container(rotate_workspace=True)
+
+    async def reattach_container(self) -> str:
+        """
+        Revive the CURRENT session without losing its workspace.
+
+        Strategy (most-preserving first):
+          1. If the same-named container still exists, adopt it (running /
+             paused → unpause) or ``docker start`` it (exited/created). This
+             preserves /opt/workspace AND any in-container writes outside the
+             mount.
+          2. Otherwise recreate a container with the SAME name and SAME
+             workspace mount via restart_container(rotate_workspace=False).
+             This preserves /opt/workspace through the host bind mount.
+
+        The caller MUST hold the recovery lock. Returns the recovery mode
+        string ("restart" or "recreate"); session_id is unchanged.
+        """
+        # Cancel any stale readiness task tied to the dead container.
+        task = getattr(self, "_ready_task", None)
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._ready_task = None
+        self._ready = False
+
+        existing = None
+        try:
+            existing = await asyncio.to_thread(
+                self._client.containers.get, self._container_name
+            )
+        except NotFound:
+            existing = None
+        except Exception as exc:
+            logger.warning(
+                "reattach: lookup of container %s failed: %s",
+                self._container_name, exc,
+            )
+            existing = None
+
+        mode = ""
+        if existing is not None:
+            try:
+                await asyncio.to_thread(existing.reload)
+                state = (
+                    getattr(existing, "attrs", {}).get("State", {}).get("Status")
+                    or getattr(existing, "status", "")
+                )
+                if state == "paused":
+                    await asyncio.to_thread(existing.unpause)
+                elif state != "running":
+                    # exited / created → start the SAME container (preserves FS).
+                    await asyncio.to_thread(existing.start)
+                # state == "running" → daemon already auto-restarted it; adopt.
+                self._container = existing
+                mode = "restart"
+            except Exception as exc:
+                logger.warning(
+                    "reattach: could not revive existing container %s (%s); recreating.",
+                    self._container_name, exc,
+                )
+                existing = None
+
+        if mode != "restart":
+            # Remove any stale same-named container to avoid a 409 name clash.
+            try:
+                stale = await asyncio.to_thread(
+                    self._client.containers.get, self._container_name
+                )
+                await asyncio.to_thread(stale.remove, force=True)
+            except NotFound:
+                pass
+            except Exception as exc:
+                logger.warning("reattach: failed to remove stale container: %s", exc)
+            await self.restart_container(rotate_workspace=False)
+            mode = "recreate"
+        else:
+            # docker-start path: start_container was not called, so spawn the
+            # readiness poller ourselves.
+            self._bootstrapped = True
+            self._ready = False
+            self._ready_task = asyncio.create_task(self._mark_ready())
+
+        logger.info(
+            "reattach: session %s recovered via %s.", self._session_id, mode
+        )
+        return mode
 
     async def _cleanup_orphaned_containers(self) -> None:
         """Remove only containers that are safe for this checkout to own."""
@@ -527,20 +701,68 @@ class DockerManager:
             raise ContainerUnavailable(f"Docker container is {state}, not running.")
 
     async def _recover_container(self, reason: str) -> dict:
-        """Start a fresh session after Docker reports the active one is stale."""
-        old_session = self._session_id
-        logger.warning(
-            "Recovering Hercules container for session %s after Docker error: %s",
-            old_session,
-            reason,
-        )
-        new_session = await self.restart_container()
-        return {
-            "container_recovered": True,
-            "old_session_id": old_session,
-            "session_id": new_session,
-            "recovery_reason": reason,
-        }
+        """
+        Recover the active session after Docker reports it stale, PRESERVING the
+        workspace so the agent's files / job logs survive.
+
+        Serialized by the recovery lock so concurrent in-flight tool calls
+        cannot each spawn a duplicate container (thundering herd). After
+        acquiring the lock we re-check health: if another waiter already
+        recovered, this call no-ops.
+        """
+        lock = self._get_recovery_lock()
+        async with lock:
+            old_session = self._session_id
+
+            # Double-check: someone may have already recovered while we waited.
+            try:
+                await self._ensure_container_running()
+                return {
+                    "container_recovered": True,
+                    "old_session_id": old_session,
+                    "session_id": self._session_id,
+                    "recovery_reason": reason,
+                    "recovery_mode": "noop-already-recovered",
+                    "workspace_preserved": True,
+                }
+            except Exception:
+                pass  # still broken → we own the recovery
+
+            logger.warning(
+                "Recovering Hercules container for session %s after Docker error: %s",
+                old_session,
+                reason,
+            )
+            mode = await self.reattach_container()
+            return {
+                "container_recovered": True,
+                "old_session_id": old_session,
+                "session_id": self._session_id,
+                "recovery_reason": reason,
+                "recovery_mode": mode,
+                "workspace_preserved": True,
+                "note": "background jobs were interrupted; re-launch if needed (their prior logs are preserved).",
+            }
+
+    async def health_ok(self) -> bool:
+        """
+        Cheap liveness check used by the proactive watchdog: the active
+        container exists and is running. Does NOT spawn a process in the
+        container (just a Docker state reload).
+
+        Returns True (healthy / not-our-concern) during deliberate teardown or
+        before the container is bootstrapped, so the watchdog never resurrects a
+        container we are intentionally killing or one that is still starting.
+        """
+        if getattr(self, "_shutting_down", False):
+            return True
+        if not getattr(self, "_bootstrapped", False):
+            return True
+        try:
+            await self._ensure_container_running()
+            return True
+        except Exception:
+            return False
 
     # ------------------------------------------------------------------
     # Command execution
@@ -586,7 +808,11 @@ class DockerManager:
             else:
                 raise
 
-        effective_timeout = timeout or self._config.default_timeout
+        requested_timeout = timeout or self._config.default_timeout
+        # Hard ceiling: no single exec can exceed max_exec_timeout, so a wedged
+        # container can never pin a tool (or the bg-job plumbing) indefinitely.
+        ceiling = getattr(self._config, "max_exec_timeout", 0) or requested_timeout
+        effective_timeout = min(requested_timeout, ceiling)
         start = time.monotonic()
 
         def _run():
@@ -774,8 +1000,8 @@ class DockerManager:
             raise RuntimeError("Container is not running.")
 
         # Ensure jobs dir exists
-        await self.exec_command("mkdir -p /opt/workspace/jobs")
-        
+        await self.exec_command("mkdir -p /opt/workspace/jobs", timeout=15)
+
         script_path = f"/opt/workspace/jobs/{job_id}.sh"
         log_file = f"/opt/workspace/jobs/{job_id}.log"
         pid_file = f"/opt/workspace/jobs/{job_id}.pid"
@@ -785,7 +1011,7 @@ class DockerManager:
         
         # Run it in background and detach completely
         bg_cmd = f"nohup bash {script_path} > {log_file} 2>&1 & echo $! > {pid_file}"
-        await self.exec_command(bg_cmd, workdir=workdir, env=env)
+        await self.exec_command(bg_cmd, workdir=workdir, env=env, timeout=15)
         
         return job_id
         
@@ -800,27 +1026,30 @@ class DockerManager:
         # Check if running
         is_running = False
         if pid:
-            res = await self.exec_command(f"kill -0 {pid}", clean_output=False)
+            res = await self.exec_command(f"kill -0 {pid}", clean_output=False, timeout=15)
             is_running = (res.exit_code == 0)
             if is_running:
                 state_res = await self.exec_command(
                     f"ps -o stat= -p {pid} 2>/dev/null | tr -d ' '",
                     clean_output=False,
+                    timeout=15,
                 )
                 state = state_res.stdout.strip()
                 if "Z" in state:
                     is_running = False
-            
+
         # Get only the last N lines (not the entire accumulated buffer)
         out_res = await self.exec_command(
             f"tail -n {tail_lines} /opt/workspace/jobs/{job_id}.log",
             clean_output=True,
+            timeout=15,
         )
 
         # Get total line count for context
         wc_res = await self.exec_command(
             f"wc -l < /opt/workspace/jobs/{job_id}.log",
             clean_output=False,
+            timeout=15,
         )
         total_lines = wc_res.stdout.strip()
         
@@ -843,12 +1072,13 @@ class DockerManager:
             return False
             
         if pid:
-            res = await self.exec_command(f"kill -9 {pid}")
+            res = await self.exec_command(f"kill -9 {pid}", timeout=15)
             if res.exit_code != 0:
                 return False
             state_res = await self.exec_command(
                 f"ps -o stat= -p {pid} 2>/dev/null | tr -d ' '",
                 clean_output=False,
+                timeout=15,
             )
             state = state_res.stdout.strip()
             return not state or "Z" in state or res.exit_code == 0
@@ -990,6 +1220,46 @@ class DockerManager:
 
         raise TimeoutError(
             f"msfrpcd did not become ready after {max_retries * interval}s"
+        )
+
+    async def restart_msfrpcd(self) -> None:
+        """
+        Restart msfrpcd INSIDE the already-running container (no recreate).
+
+        msfrpcd is a background child of PID1 (`sleep infinity`), so it can die
+        while the container stays alive. Reconnecting an RPC client is useless if
+        the process is gone — this revives the process. Serialized so two
+        concurrent reconnects don't double-start on port 55553. All internal
+        exec calls use require_ready=False so they never re-enter the recovery
+        path (deadlock guard).
+        """
+        if self._config.skip_metasploit:
+            return
+        lock = self._get_msf_restart_lock()
+        async with lock:
+            # Kill any stale / half-dead msfrpcd.
+            await self.exec_command(
+                "pkill -f msfrpcd || true",
+                timeout=15, require_ready=False, clean_output=False,
+            )
+            # Ensure PostgreSQL is up (msfrpcd wants the DB but tolerates none).
+            await self.exec_command(
+                "pg_ctlcluster $(pg_lsclusters -h 2>/dev/null | awk '{print $1}' | head -1) "
+                "$(pg_lsclusters -h 2>/dev/null | awk '{print $2}' | head -1) start "
+                "2>/dev/null || /etc/init.d/postgresql start 2>/dev/null || true",
+                timeout=60, require_ready=False, clean_output=False,
+            )
+            # Relaunch detached; log to the workspace for durable diagnostics.
+            await self.exec_command(
+                "mkdir -p /opt/workspace/logs && "
+                'nohup msfrpcd -P "$MSF_PASSWORD" -S -a 0.0.0.0 '
+                "> /opt/workspace/logs/msfrpcd.log 2>&1 & echo started",
+                timeout=20, require_ready=False, clean_output=False,
+                env={"MSF_PASSWORD": self._config.msf_password},
+            )
+        logger.info(
+            "restart_msfrpcd: msfrpcd relaunched in container %s.",
+            self._container_name,
         )
 
     # ------------------------------------------------------------------

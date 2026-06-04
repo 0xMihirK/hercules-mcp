@@ -34,7 +34,15 @@ Post-exploitation maps to metasploit_manage for active sessions, shell_exec or
 shell background jobs for container-side automation, and resources for linPEAS,
 winPEAS, PowerUp, GTFOBins, and LOLBAS decision support. CTF and forensics
 workflows map to ctf_binwalk, ctf_steghide, crack_john, bruteforce_hydra, and
-shell_exec when a thin wrapper would be redundant.
+shell_exec when a thin wrapper would be redundant. Stealthy browser-driven
+testing of JS-heavy or anti-bot-protected sites maps to browser_open ->
+browser_snapshot -> browser_act / browser_read -> browser_screenshot; browser_eval
+runs page JavaScript; browser_wait handles dynamic content; browser_session
+isolates cookie/identity contexts; browser_skill loads agent-browser's own
+command reference; and browser_cmd is the escape hatch that reaches EVERY other
+agent-browser feature (cookies, storage, network/HAR capture, set device/geo,
+tabs, dialogs, diff, trace, react inspection, web vitals, and more). The browser
+runs through a stealth Chromium (cloakbrowser) so it evades common bot detection.
 </workflow_map>
 
 <resources>
@@ -311,6 +319,66 @@ TOOL_DESCRIPTIONS = {
         "Steganography and CTF artifact workflows.",
         "Pass filepath and optional passphrase. Without a passphrase Hercules passes an empty one to avoid an interactive prompt. extra_args can tune steghide behavior.",
         "ctf_steghide(action='info', filepath='/opt/workspace/image.jpg')\nctf_steghide(action='extract', filepath='/opt/workspace/image.jpg', passphrase='secret')",
+    ),
+    "browser_open": _desc(
+        "Open a URL in a STEALTH Chromium browser (cloakbrowser) and start an interactive browsing session. This is the entry point for driving a real browser to manually test a site, reproduce a web bug, defeat anti-bot/JS challenges, or capture visual evidence.",
+        "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JS-capable, bot-evading browser.",
+        "The browser is a fingerprint-patched stealth Chromium (cloakbrowser) launched and driven by agent-browser; it evades common bot detection (passes bot.sannysoft.com, FingerprintJS, Cloudflare/reCAPTCHA heuristics — navigator.webdriver is false, realistic plugins/WebGL). url is target-validated against ALLOWED_TARGETS/BLOCKED_TARGETS. session names an isolated identity (own cookies/storage/history); reuse the same session to keep state, use a new name for a clean identity. timezone and locale refine the session's stealth profile (applied at first launch; match them to your proxy exit IP for realism); proxy routes the session through an upstream proxy; fingerprint is reserved (the stealth binary applies a built-in realistic fingerprint). The browser launches on first use of a session (a few seconds). After opening, you MUST call browser_snapshot to obtain element @refs before clicking or reading.",
+        "browser_open(url='https://bot.sannysoft.com/')\nbrowser_open(url='https://app.target.com/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.com', session='vpn1', proxy='http://127.0.0.1:8080')",
+    ),
+    "browser_snapshot": _desc(
+        "Capture the page's accessibility tree as compact text with stable element references (@e1, @e2, ...). This is how the agent 'sees' the page and obtains the @refs used by browser_act and browser_read.",
+        "Call right after browser_open and again after any navigation or interaction that changes the DOM. Required before browser_act/browser_read because those tools address elements by @ref from the latest snapshot.",
+        "Returns a labelled tree where interactive elements carry refs like [ref=e5]; use them as @e5. compact (default true) keeps it token-efficient; detailed adds more attributes; inline_iframes includes iframe content. Refs are only valid until the page changes — re-snapshot after navigations/clicks that mutate the DOM. For semantic targeting without a snapshot, browser_act/browser_read also accept target_type='role'|'text'|'label'.",
+        "browser_snapshot(session='recon')\nbrowser_snapshot(session='recon', detailed=True)\nbrowser_snapshot(session='recon', inline_iframes=True)",
+    ),
+    "browser_act": _desc(
+        "Interact with a page element: click, fill, type, press a key, hover, select an option, or (un)check. Target the element by an @ref from browser_snapshot, by CSS selector, or semantically by role/text/label.",
+        "Core interaction step after browser_snapshot. Re-snapshot afterwards if the action changes the page. Use browser_read to verify the result (e.g. new URL or element text).",
+        "action selects the verb: click|fill|type|press|hover|select|check|uncheck. target is the element reference: with target_type='ref' (default) pass an @e ref from the latest snapshot (the leading @ is optional); target_type='css' takes a CSS selector; target_type='role'|'text'|'label' targets semantically. value is required for fill/type/select (the text/option) and for press (the key, e.g. 'Enter', 'Control+a') where target is not needed. For complex or unlisted actions (drag, upload, scrollintoview, dblclick, focus, keyboard...) use browser_cmd.",
+        "browser_act(action='fill', target='e3', value='admin', session='recon')\nbrowser_act(action='click', target='e7', session='recon')\nbrowser_act(action='press', value='Enter', session='recon')\nbrowser_act(action='click', target='Sign in', target_type='text', session='recon')",
+    ),
+    "browser_read": _desc(
+        "Read data from the page: visible text, inner HTML, an input value, or the page-level URL/title. Use it to verify state after interaction or to extract content.",
+        "Use after browser_snapshot/browser_act to confirm results (e.g. did the URL change after a click?) or to scrape a value. Pairs with browser_act in the test/verify loop.",
+        "what selects the field: text|html|value|url|title. text/html/value need a target element (@ref via target_type='ref' default, CSS via target_type='css', or semantic role/text/label); url and title are page-level and need no target. For reading element attributes use browser_cmd('get attr <ref|selector> <attrName>').",
+        "browser_read(what='url', session='recon')\nbrowser_read(what='text', target='e5', session='recon')\nbrowser_read(what='value', target='input#email', target_type='css', session='recon')",
+    ),
+    "browser_screenshot": _desc(
+        "Capture a PNG screenshot of the current page (viewport or full page) as visual evidence, saved into the container workspace.",
+        "Use to document a finding, capture a rendered PoC, or inspect a page visually. Run after the page has loaded/settled (browser_wait helps).",
+        "Each session has its OWN screenshot directory: shots save to /opt/workspace/browser/<session>/ by default. A relative path resolves under that per-session directory (and rejects '..'); an absolute container path is used as-is. full=True captures the entire scrollable page, not just the viewport. The returned path can be read later with workspace_read_file(encoding='base64'); pass return_base64=True to also inline the base64 bytes in the response (large — off by default).",
+        "browser_screenshot(session='recon')\nbrowser_screenshot(session='recon', path='login_page.png', full=True)\nbrowser_screenshot(session='recon', return_base64=True)",
+    ),
+    "browser_eval": _desc(
+        "Run arbitrary JavaScript in the page context and return the result. Use for custom DOM extraction, probing JS state, or verifying anti-bot signals.",
+        "Use when snapshot/read are not enough — e.g. to read navigator properties, evaluate complex selectors, or trigger page JS. A quick stealth check is to evaluate navigator.webdriver (should be false/undefined under the stealth browser).",
+        "The JS is written to a workspace temp file and evaluated to avoid quoting issues. Return a JSON-serializable value (wrap objects in JSON.stringify) for clean output. Runs in the page's main world for the given session.",
+        "browser_eval(js=\"JSON.stringify({wd: navigator.webdriver, plugins: navigator.plugins.length})\", session='recon')\nbrowser_eval(js=\"document.querySelectorAll('a').length\", session='recon')",
+    ),
+    "browser_wait": _desc(
+        "Wait for a condition before continuing: an element/selector to appear, a fixed number of milliseconds, specific text, a URL pattern, or a load state.",
+        "Use between navigation/interaction and snapshot/read on dynamic or SPA pages so you act on settled content instead of a half-rendered DOM.",
+        "condition selects the mode: selector (CSS/@ref in value), ms (milliseconds in value), text (value is the text to await), url (value is a URL glob like '**/dashboard'), or load (value is a load state like 'networkidle'). Keep waits bounded; prefer specific conditions over long fixed sleeps.",
+        "browser_wait(condition='load', value='networkidle', session='recon')\nbrowser_wait(condition='text', value='Welcome', session='recon')\nbrowser_wait(condition='ms', value='1500', session='recon')",
+    ),
+    "browser_session": _desc(
+        "Manage isolated stealth browser identities (sessions) and the optional headed live-view stream. Each session has its own cookies, storage, history, and fingerprint context.",
+        "Use to run multiple independent identities in parallel (e.g. authenticated vs anonymous), to list active sessions, or to close a context when done. Enable the live stream (headed mode only) to watch the agent drive the browser.",
+        "action selects the operation: current (show the active session), list (all sessions), close (close one session; pass session), close_all (close every session and free the browser), or stream (headed mode only — start a live-view stream on stream_port so a human can watch). Closing sessions frees memory; the stealth backend stays up for reuse.",
+        "browser_session(action='list')\nbrowser_session(action='close', session='recon')\nbrowser_session(action='stream', stream_port=4848)",
+    ),
+    "browser_skill": _desc(
+        "Load agent-browser's own built-in skill documentation — the authoritative, version-matched command reference and agent guidance for the underlying browser engine.",
+        "Call this when you need exact syntax for any browser capability, especially before using browser_cmd for an advanced/unlisted feature. The 'core' skill covers most browser tasks.",
+        "With no name it lists available skills; name='core' (default) with full=True returns the complete command reference. This makes the agent self-aware of every agent-browser command so it can drive the browser through browser_cmd precisely.",
+        "browser_skill()\nbrowser_skill(name='core', full=True)",
+    ),
+    "browser_cmd": _desc(
+        "Escape hatch that runs ANY agent-browser command against the current stealth session — giving access to the COMPLETE browser feature set beyond the convenience tools. This is to browser_* what shell_exec is to the shell.",
+        "Use for any capability not covered by browser_open/snapshot/act/read/screenshot/eval/wait: cookies, storage, network capture, device/geo emulation, tabs, frames, dialogs, diffs, tracing, React inspection, web vitals, and more. Call browser_skill(name='core', full=True) first if unsure of exact syntax.",
+        "Full command groups available: interaction (dblclick, focus, keyboard, keydown, keyup, scroll, scrollintoview, drag, upload), capture (pdf), info (get count|box|styles|cdp-url; is visible|enabled|checked), find (role/text/label/placeholder/alt/title/testid/first/last/nth), batch, clipboard, set (viewport/device/geo/offline/headers/credentials/media), cookies, storage, network (route/unroute/requests/har), tab, window, frame, dialog (accept/dismiss), diff (snapshot/screenshot/url), debug (trace/profiler/console/errors/highlight/inspect/state), react (tree/inspect/renders/suspense), vitals, addinitscript/removeinitscript, pushstate, stream, connect, doctor. args is the raw agent-browser subcommand string (run with --json against the session's CDP). Every invocation is audit-logged.",
+        "browser_cmd(args='cookies list', session='recon')\nbrowser_cmd(args=\"set device 'iPhone 15'\", session='recon')\nbrowser_cmd(args='network har /opt/workspace/browser/recon.har', session='recon')\nbrowser_cmd(args='get attr e5 href', session='recon')",
     ),
 }
 

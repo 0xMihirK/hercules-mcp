@@ -88,8 +88,30 @@ RUN env GOPATH=/root/go go install github.com/hahwul/dalfox/v2@latest && \
     mv /root/go/bin/dalfox /usr/local/bin/ && \
     rm -rf /root/go
 
+# ── 5b. Stealth browser automation: agent-browser + cloakbrowser ────────────
+# agent-browser (Rust CLI/daemon) launches and drives a browser; pointed at the
+# cloakbrowser fingerprint-patched stealth Chromium via AGENT_BROWSER_EXECUTABLE_PATH.
+# Installing the system `chromium` package pulls the exact X/GTK/NSS/font
+# shared-library closure the cloak binary links against (robust across Debian
+# t64 package renames) and provides Xvfb for headed mode.
+#
+# LICENSE NOTE: the cloak Chromium binary is "free to use, no redistribution".
+# `python3 -m cloakbrowser install` downloads it INTO this locally built image at
+# build time — do NOT repackage or push this image to a public registry.
+RUN set -eux; \
+    apt-get update -qq --allow-releaseinfo-change; \
+    apt-get install -y -qq --no-install-recommends \
+        nodejs npm xvfb chromium ca-certificates fonts-liberation; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g agent-browser
+
+RUN pip3 install cloakbrowser --break-system-packages -q && \
+    python3 -m cloakbrowser install
+
 # ── 6. Create workspace directories ─────────────────────────────────────────
-RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,logs} \
+RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,logs,browser} \
     /usr/share/nmap/scripts/custom \
     /usr/share/wordlists && \
     # Decompress rockyou so tools (john, gobuster, hydra) can read it directly
