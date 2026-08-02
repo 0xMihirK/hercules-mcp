@@ -11,88 +11,44 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from hercules.core.security import redact_secrets
 
 SERVER_INSTRUCTIONS = """
-<server_purpose>
-Hercules is an AI-orchestrated offensive security MCP server. It runs a Kali
-tooling container, exposes scanners and exploitation helpers as structured MCP
-tools, and preserves large or raw command output as workspace artifacts when
-compact output is returned to the model. Use it for authorized reconnaissance,
-web scanning, vulnerability verification, exploit workflow automation,
-post-exploitation analysis, CTF/forensics tasks, shell automation, and custom
-Nmap NSE or Nuclei authoring.
-</server_purpose>
+Hercules runs authorized security tools in a managed Kali container. Confirm
+scope, start passive/light, verify evidence, and escalate only when authorized.
+Prefer structured tools; shell_exec, browser_cmd, raw_args, and extra_args are
+administrator escape hatches outside complete structured-target guarantees.
 
-<workflow_map>
-Recon starts with recon_dns, recon_whois, recon_amass, nmap_scan, and
-network_curl. Web scanning maps to web_scan for fingerprinting, fuzz_dirs for
-content discovery, web_vuln_scan for Dalfox or Commix checks, nuclei_run for
-template-driven verification, and sqlmap_run for SQL injection workflows.
-Exploitation maps to searchsploit, metasploit_search, metasploit_run_module,
-metasploit_start_listener, metasploit_generate_payload, and metasploit_manage.
-Post-exploitation maps to metasploit_manage for active sessions, shell_exec or
-shell background jobs for container-side automation, and resources for linPEAS,
-winPEAS, PowerUp, GTFOBins, and LOLBAS decision support. CTF and forensics
-workflows map to ctf_binwalk, ctf_steghide, crack_john, bruteforce_hydra, and
-shell_exec when a thin wrapper would be redundant. Stealthy browser-driven
-testing of JS-heavy or anti-bot-protected sites maps to browser_open ->
-browser_snapshot -> browser_act / browser_read -> browser_screenshot; browser_eval
-runs page JavaScript; browser_wait handles dynamic content; browser_session
-isolates cookie/identity contexts; browser_skill loads agent-browser's own
-command reference; and browser_cmd is the escape hatch that reaches EVERY other
-agent-browser feature (cookies, storage, network/HAR capture, set device/geo,
-tabs, dialogs, diff, trace, react inspection, web vitals, and more). The browser
-runs through a stealth Chromium (cloakbrowser) so it evades common bot detection.
-</workflow_map>
+Use HTTP tools for direct requests and browser_open -> wait/snapshot ->
+act/read -> screenshot for JavaScript, session state, interaction, or visual
+evidence. Browser configuration cannot guarantee CAPTCHA/bot avoidance.
 
-<resources>
-Read resource://agent_skills/nse before creating complex NSE scripts with
-nmap_write_nse_script and nmap_run_nse_script. Read
-resource://agent_skills/nuclei before creating complex Nuclei templates with
-nuclei_write_template and nuclei_run. Use resource://post_exploitation/linpeas,
-resource://post_exploitation/winpeas, and resource://post_exploitation/powerup
-after a shell or Meterpreter session proves local execution and you need
-privilege-escalation enumeration. Use resource://post_exploitation/gtfobins
-after Linux enumeration finds sudo, SUID, or capabilities on common binaries.
-Use resource://post_exploitation/lolbas after Windows enumeration finds
-usable binaries, scripts, DLLs, writable service paths, or living-off-the-land
-execution opportunities.
-</resources>
+Prefer installed NSE/Nuclei content. For missing logic read
+resource://agent_skills/nse or resource://agent_skills/nuclei before authoring.
+After authorized local execution, select only the needed linpeas, winpeas,
+powerup, gtfobins, or lolbas post-exploitation resource; enumeration does not
+authorize escalation.
 
-<target_validation>
-Many network-facing tools enforce ALLOWED_TARGETS and BLOCKED_TARGETS before a
-command runs. If a tool returns error_type=target_not_allowed, narrow the target
-to the configured scope or ask the operator to update the environment. Do not
-interpret this as a scanner result because no target command was executed.
-</target_validation>
-
-<output_and_artifacts>
-Tool output is sanitized for ANSI escape codes, OSC sequences, color codes,
-null bytes, carriage-return progress overwrites, known banners, and explicit
-tool progress noise. High-noise tools may return compact stdout plus fields
-such as raw_artifact, stdout_artifact, stderr_artifact, artifact, truncated,
-filter_notes, output_complete, stdout_truncated, stderr_truncated, parsed,
-matches, results, or summary. Use include_raw=True on tools that support it
-when exact raw evidence is needed; raw output remains bounded by truncation
-and may still be saved to artifacts.
-</output_and_artifacts>
-
-<tool_selection>
-Prefer purpose-built tools over shell_exec when the task maps to a registered
-tool, because those tools apply target validation, timeouts, output shaping,
-and concurrency classes. Use shell_exec as the escape hatch for missing tools,
-one-off Linux commands, or workflows not represented by a public MCP tool. The
-parameter leakage interceptor drops unknown injected parameters before a tool
-call; valid public parameters such as include_raw, threads, extra_args, data,
-cookie, and job_id are preserved when they appear in the tool signature.
-</tool_selection>
-
-<search_behavior>
-For search-style workflows, use broader terms when exact names do not produce
-useful matches. Hercules search tools should return closest useful matches or
-suggestions where possible instead of hard "not found" dead ends.
-</search_behavior>
+Interpret exit_code separately from findings. Check timed_out, terminated,
+partial_output, output_filtered, output_complete, evidence_complete, parsed
+results, and artifact paths. Use bounded workspace paging instead of repeating
+a scan. Unknown parameters may be dropped; use only the live schema. Operators
+may disable optional tools, including Metasploit.
 """.strip()
+
+
+def _clip_guidance(value: str, maximum: int) -> str:
+    """Bound fixed MCP context while leaving full guidance in the skill."""
+    text = " ".join(value.split())
+    if len(text) <= maximum:
+        return text
+    clipped = text[: maximum + 1]
+    boundary = max(clipped.rfind(". "), clipped.rfind("; "), clipped.rfind(", "))
+    if boundary >= maximum // 2:
+        clipped = clipped[: boundary + 1]
+    else:
+        clipped = clipped[:maximum].rstrip()
+    return clipped.rstrip(" ,;") + "…"
 
 
 def _desc(
@@ -101,11 +57,12 @@ def _desc(
     important_notes: str,
     examples: str,
 ) -> str:
+    del workflow_position  # Detailed sequencing lives in the progressive skill.
+    example = examples.splitlines()[0] if examples else ""
     return (
-        f"<use_case>{use_case}</use_case>\n"
-        f"<workflow_position>{workflow_position}</workflow_position>\n"
-        f"<important_notes>{important_notes}</important_notes>\n"
-        f"<examples>{examples}</examples>"
+        f"Purpose: {_clip_guidance(use_case, 125)}\n"
+        f"Constraints: {_clip_guidance(important_notes, 190)}\n"
+        f"Example: {_clip_guidance(example, 105)}"
     )
 
 
@@ -119,7 +76,7 @@ TOOL_DESCRIPTIONS = {
     "nmap_write_nse_script": _desc(
         "Write a custom NSE script into the container and update the Nmap script database.",
         "Custom NSE authoring after reading resource://agent_skills/nse.",
-        "Pass name without path separators; Hercules sanitizes it and writes /usr/share/nmap/scripts/custom/<name>.nse. Use nmap_run_nse_script to execute it. Include NSEDoc metadata and correct categories in content.",
+        "Pass name without path separators; Hercules sanitizes it and writes /opt/workspace/nmap-scripts/<name>.nse. Use nmap_run_nse_script to execute that managed artifact. Include NSEDoc metadata and correct categories in content.",
         "nmap_write_nse_script(name='http-custom-check', content='description = [[...]]\\nauthor = ...')",
     ),
     "nmap_run_nse_script": _desc(
@@ -251,7 +208,7 @@ TOOL_DESCRIPTIONS = {
     "shell_exec": _desc(
         "Execute a non-interactive shell command inside the Kali container.",
         "Escape hatch for Linux commands, missing tools, package checks, custom validation, and artifact inspection.",
-        "This is not interactive; use shell_exec_background or ncat/listeners for long-running interactive jobs. raw=True disables output cleaning but output is still bounded and artifacted when large. Commands are written to a temporary script so complex quoting and newlines work. For python -c snippets with Windows paths, PowerShell/C#/base64 chains, or heavy quoting, write a helper script with workspace_write_file and run the file.",
+        "raw=True disables semantic compaction but retains safety bounds and artifacts. This is non-interactive; use shell_exec_background or ncat/listeners for long-running jobs.",
         "shell_exec(command='id && pwd')\nshell_exec(command='apt-get update && apt-get install -y jq', timeout=600)",
     ),
     "shell_exec_background": _desc(
@@ -273,15 +230,15 @@ TOOL_DESCRIPTIONS = {
         "shell_kill_job(job_id='http8000')",
     ),
     "workspace_read_file": _desc(
-        "Read a file inside the container workspace or an absolute container path.",
+        "Read a bounded file chunk inside the owned container workspace.",
         "Artifact review, custom script inspection, and result collection.",
-        "Relative paths resolve under /opt/workspace. Use this for saved templates, scripts, logs, and tool artifacts when stdout was compacted. encoding='base64' reads binaries without replacement decoding and returns byte size.",
-        "workspace_read_file(path='nuclei-templates/custom/check.yaml')\nworkspace_read_file(path='payload.exe', encoding='base64')",
+        "Relative paths resolve under /opt/workspace. Paths outside it and symlink/reparse escapes are rejected. encoding='base64' reads binary data. For large files, continue with offset=next_offset and a bounded max_bytes until truncated=false.",
+        "workspace_read_file(path='nuclei-templates/custom/check.yaml')\nworkspace_read_file(path='payload.exe', encoding='base64', offset=0, max_bytes=1048576)",
     ),
     "workspace_write_file": _desc(
-        "Write content to a file in the container workspace or an absolute container path.",
+        "Atomically write content to a file in the owned container workspace.",
         "Preparing payloads, helper scripts, target lists, and custom config files.",
-        "Relative paths resolve under /opt/workspace. mode defaults to 0644 and accepts integers or strings like '0644' and '0o755'. Use content_base64 for binary-safe writes or to avoid complex quoting in PowerShell, C#, base64, or Windows-path workflows. For NSE and Nuclei authoring prefer the dedicated write tools when applicable.",
+        "Relative paths resolve under /opt/workspace; paths outside it and symlink/reparse escapes are rejected. Supply either content or content_base64, never both. mode defaults to 0644. For NSE and Nuclei authoring prefer the dedicated write tools.",
         "workspace_write_file(path='targets.txt', content='http://host\\n')\nworkspace_write_file(path='payload.bin', content_base64='AAE=', mode='0644')",
     ),
     "system_start_new_session": _desc(
@@ -321,34 +278,34 @@ TOOL_DESCRIPTIONS = {
         "ctf_steghide(action='info', filepath='/opt/workspace/image.jpg')\nctf_steghide(action='extract', filepath='/opt/workspace/image.jpg', passphrase='secret')",
     ),
     "browser_open": _desc(
-        "Open a URL in a STEALTH Chromium browser (cloakbrowser) and start an interactive browsing session. This is the entry point for driving a real browser to manually test a site, reproduce a web bug, defeat anti-bot/JS challenges, or capture visual evidence.",
-        "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JS-capable, bot-evading browser.",
-        "The browser is a fingerprint-patched stealth Chromium (cloakbrowser) launched and driven by agent-browser; it evades common bot detection (passes bot.sannysoft.com, FingerprintJS, Cloudflare/reCAPTCHA heuristics — navigator.webdriver is false, realistic plugins/WebGL). url is target-validated against ALLOWED_TARGETS/BLOCKED_TARGETS. session names an isolated identity (own cookies/storage/history); reuse the same session to keep state, use a new name for a clean identity. timezone and locale refine the session's stealth profile (applied at first launch; match them to your proxy exit IP for realism); proxy routes the session through an upstream proxy; fingerprint is reserved (the stealth binary applies a built-in realistic fingerprint). The browser launches on first use of a session (a few seconds). After opening, you MUST call browser_snapshot to obtain element @refs before clicking or reading.",
-        "browser_open(url='https://bot.sannysoft.com/')\nbrowser_open(url='https://app.target.com/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.com', session='vpn1', proxy='http://127.0.0.1:8080')",
+        "Open a URL in cloakbrowser Chromium and start an interactive browsing session. This is the entry point for driving a real browser to test a JavaScript-heavy site, reproduce a web bug, handle an operator-authorized challenge, or capture visual evidence.",
+        "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JavaScript-capable browser.",
+        "url is scope-validated and redirects are revalidated. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
+        "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://127.0.0.1:8080')",
     ),
     "browser_snapshot": _desc(
         "Capture the page's accessibility tree as compact text with stable element references (@e1, @e2, ...). This is how the agent 'sees' the page and obtains the @refs used by browser_act and browser_read.",
         "Call right after browser_open and again after any navigation or interaction that changes the DOM. Required before browser_act/browser_read because those tools address elements by @ref from the latest snapshot.",
-        "Returns a labelled tree where interactive elements carry refs like [ref=e5]; use them as @e5. compact (default true) keeps it token-efficient; detailed adds more attributes; inline_iframes includes iframe content. Refs are only valid until the page changes — re-snapshot after navigations/clicks that mutate the DOM. For semantic targeting without a snapshot, browser_act/browser_read also accept target_type='role'|'text'|'label'.",
+        "compact is default; detailed requests an uncompacted unlimited-depth tree. Use interactive, include_urls, depth, or selector to narrow/expand it. Iframes auto-inline; inline_iframes is a compatibility hint.",
         "browser_snapshot(session='recon')\nbrowser_snapshot(session='recon', detailed=True)\nbrowser_snapshot(session='recon', inline_iframes=True)",
     ),
     "browser_act": _desc(
         "Interact with a page element: click, fill, type, press a key, hover, select an option, or (un)check. Target the element by an @ref from browser_snapshot, by CSS selector, or semantically by role/text/label.",
         "Core interaction step after browser_snapshot. Re-snapshot afterwards if the action changes the page. Use browser_read to verify the result (e.g. new URL or element text).",
-        "action selects the verb: click|fill|type|press|hover|select|check|uncheck. target is the element reference: with target_type='ref' (default) pass an @e ref from the latest snapshot (the leading @ is optional); target_type='css' takes a CSS selector; target_type='role'|'text'|'label' targets semantically. value is required for fill/type/select (the text/option) and for press (the key, e.g. 'Enter', 'Control+a') where target is not needed. For complex or unlisted actions (drag, upload, scrollintoview, dblclick, focus, keyboard...) use browser_cmd.",
+        "Use browser_snapshot refs when available. ref/CSS supports all actions. Semantic role/text/label supports click, fill, check, and hover only; use name/exact for accessible matching.",
         "browser_act(action='fill', target='e3', value='admin', session='recon')\nbrowser_act(action='click', target='e7', session='recon')\nbrowser_act(action='press', value='Enter', session='recon')\nbrowser_act(action='click', target='Sign in', target_type='text', session='recon')",
     ),
     "browser_read": _desc(
         "Read data from the page: visible text, inner HTML, an input value, or the page-level URL/title. Use it to verify state after interaction or to extract content.",
         "Use after browser_snapshot/browser_act to confirm results (e.g. did the URL change after a click?) or to scrape a value. Pairs with browser_act in the test/verify loop.",
-        "what selects the field: text|html|value|url|title. text/html/value need a target element (@ref via target_type='ref' default, CSS via target_type='css', or semantic role/text/label); url and title are page-level and need no target. For reading element attributes use browser_cmd('get attr <ref|selector> <attrName>').",
+        "url/title are page-level. ref/CSS supports text/html/value; semantic role/text/label supports text only with optional name/exact. Use snapshot/ref or CSS for unsupported combinations.",
         "browser_read(what='url', session='recon')\nbrowser_read(what='text', target='e5', session='recon')\nbrowser_read(what='value', target='input#email', target_type='css', session='recon')",
     ),
     "browser_screenshot": _desc(
-        "Capture a PNG screenshot of the current page (viewport or full page) as visual evidence, saved into the container workspace.",
+        "Capture a validated PNG screenshot of the current page as native inline MCP image content and save it into the container workspace.",
         "Use to document a finding, capture a rendered PoC, or inspect a page visually. Run after the page has loaded/settled (browser_wait helps).",
-        "Each session has its OWN screenshot directory: shots save to /opt/workspace/browser/<session>/ by default. A relative path resolves under that per-session directory (and rejects '..'); an absolute container path is used as-is. full=True captures the entire scrollable page, not just the viewport. The returned path can be read later with workspace_read_file(encoding='base64'); pass return_base64=True to also inline the base64 bytes in the response (large — off by default).",
-        "browser_screenshot(session='recon')\nbrowser_screenshot(session='recon', path='login_page.png', full=True)\nbrowser_screenshot(session='recon', return_base64=True)",
+        "Shots save to /opt/workspace/browser/<session>/ by default. A relative path resolves under that per-session directory and rejects '..'. full=True captures the scrollable page. annotate=True adds agent-browser element annotations. Every successful call returns ImageContent plus structured path, MIME type, byte count, dimensions, and command status. return_base64=True only adds the legacy base64 metadata copy.",
+        "browser_screenshot(session='recon')\nbrowser_screenshot(session='recon', path='login_page.png', full=True, annotate=True)\nbrowser_screenshot(session='recon', return_base64=True)",
     ),
     "browser_eval": _desc(
         "Run arbitrary JavaScript in the page context and return the result. Use for custom DOM extraction, probing JS state, or verifying anti-bot signals.",
@@ -363,9 +320,9 @@ TOOL_DESCRIPTIONS = {
         "browser_wait(condition='load', value='networkidle', session='recon')\nbrowser_wait(condition='text', value='Welcome', session='recon')\nbrowser_wait(condition='ms', value='1500', session='recon')",
     ),
     "browser_session": _desc(
-        "Manage isolated stealth browser identities (sessions) and the optional headed live-view stream. Each session has its own cookies, storage, history, and fingerprint context.",
-        "Use to run multiple independent identities in parallel (e.g. authenticated vs anonymous), to list active sessions, or to close a context when done. Enable the live stream (headed mode only) to watch the agent drive the browser.",
-        "action selects the operation: current (show the active session), list (all sessions), close (close one session; pass session), close_all (close every session and free the browser), or stream (headed mode only — start a live-view stream on stream_port so a human can watch). Closing sessions frees memory; the stealth backend stays up for reuse.",
+        "Manage isolated stealth browser identities and the optional loopback-only live-view stream. Each session has its own cookies, storage, history, and fingerprint context.",
+        "Use to run independent identities, list sessions, close contexts, or watch the selected session through the configured host-loopback stream.",
+        "action selects current, list, close, close_all, or stream. Stream discovers the selected session's loopback WebSocket and safely relays it to the configured host port. Closing sessions frees memory.",
         "browser_session(action='list')\nbrowser_session(action='close', session='recon')\nbrowser_session(action='stream', stream_port=4848)",
     ),
     "browser_skill": _desc(
@@ -377,7 +334,7 @@ TOOL_DESCRIPTIONS = {
     "browser_cmd": _desc(
         "Escape hatch that runs ANY agent-browser command against the current stealth session — giving access to the COMPLETE browser feature set beyond the convenience tools. This is to browser_* what shell_exec is to the shell.",
         "Use for any capability not covered by browser_open/snapshot/act/read/screenshot/eval/wait: cookies, storage, network capture, device/geo emulation, tabs, frames, dialogs, diffs, tracing, React inspection, web vitals, and more. Call browser_skill(name='core', full=True) first if unsure of exact syntax.",
-        "Full command groups available: interaction (dblclick, focus, keyboard, keydown, keyup, scroll, scrollintoview, drag, upload), capture (pdf), info (get count|box|styles|cdp-url; is visible|enabled|checked), find (role/text/label/placeholder/alt/title/testid/first/last/nth), batch, clipboard, set (viewport/device/geo/offline/headers/credentials/media), cookies, storage, network (route/unroute/requests/har), tab, window, frame, dialog (accept/dismiss), diff (snapshot/screenshot/url), debug (trace/profiler/console/errors/highlight/inspect/state), react (tree/inspect/renders/suspense), vitals, addinitscript/removeinitscript, pushstate, stream, connect, doctor. args is the raw agent-browser subcommand string (run with --json against the session's CDP). Every invocation is audit-logged.",
+        "Call browser_skill(name='core', full=True) first. args is raw administrator input for controller features absent from structured tools; target/sensitive guarantees are limited and every call is audit-logged.",
         "browser_cmd(args='cookies list', session='recon')\nbrowser_cmd(args=\"set device 'iPhone 15'\", session='recon')\nbrowser_cmd(args='network har /opt/workspace/browser/recon.har', session='recon')\nbrowser_cmd(args='get attr e5 href', session='recon')",
     ),
 }
@@ -470,14 +427,14 @@ def missing_param_error(
 
 
 def target_error(tool: str, target: str, exc: Exception, config: Any = None) -> dict:
-    message = str(exc)
+    message = redact_secrets(str(exc))
     lowered = message.lower()
     error_type = "target_not_allowed" if "blocked" in lowered or "allowed targets" in lowered else "invalid_target"
     return usage_error(
         tool,
         error_type,
         message,
-        received={"target": target},
+        received={"target": redact_secrets(target)},
         expected={
             "allowed_targets": getattr(config, "allowed_targets", None),
             "blocked_targets": getattr(config, "blocked_targets", None),

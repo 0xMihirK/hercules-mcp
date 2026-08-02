@@ -7,15 +7,18 @@ Includes whois, dig, amass, and dnsx.
 from __future__ import annotations
 
 import logging
+import shlex
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
+
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     missing_param_error,
     selector_error,
     target_error,
 )
+from hercules.core.security import safe_identifier, shell_quote, validate_target_async
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -23,7 +26,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.recon")
 
 
-def register_recon_tools(mcp: "FastMCP") -> None:
+def register_recon_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["recon_whois"])
     async def recon_whois(
@@ -34,9 +37,15 @@ def register_recon_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Domain OSINT via whois."""
         docker = ctx.lifespan_context["docker"]
+        config = ctx.lifespan_context["config"]
         concurrency = ctx.lifespan_context["concurrency"]
 
-        cmd = f"whois {extra_args} {domain}"
+        try:
+            await validate_target_async(config, domain)
+        except ValueError as exc:
+            return target_error("recon_whois", domain, exc, config)
+
+        cmd = f"whois {extra_args} {shell_quote(domain, label='domain')}"
 
         async with concurrency.acquire_light("recon_whois"):
             result = await docker.exec_command(
@@ -63,11 +72,11 @@ def register_recon_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(domain)
+            await validate_target_async(config, domain)
         except ValueError as exc:
             return target_error("recon_amass", domain, exc, config)
 
-        parts = ["amass enum -d", domain]
+        parts = ["amass enum -d", shell_quote(domain, label="domain")]
         if active:
             parts.append("-active")
         else:
@@ -102,6 +111,7 @@ def register_recon_tools(mcp: "FastMCP") -> None:
     ) -> dict:
         """Run DNS lookups with dig or bulk DNS resolution with dnsx."""
         docker = ctx.lifespan_context["docker"]
+        config = ctx.lifespan_context["config"]
         concurrency = ctx.lifespan_context["concurrency"]
 
         tool = (tool or "").lower()
@@ -114,10 +124,20 @@ def register_recon_tools(mcp: "FastMCP") -> None:
                     when="tool='dig'",
                     examples="recon_dns(tool='dig', target='example.com', record_type='MX')",
                 )
+            try:
+                await validate_target_async(config, target)
+                if server:
+                    await validate_target_async(config, server.lstrip("@"))
+                record_type = safe_identifier(
+                    record_type.upper(), label="DNS record type", maximum=16
+                )
+            except ValueError as exc:
+                return target_error("recon_dns", target or server, exc, config)
             parts = ["dig"]
             if server:
-                parts.append(server if server.startswith("@") else f"@{server}")
-            parts.append(target)
+                server_value = server if server.startswith("@") else f"@{server}"
+                parts.append(shell_quote(server_value, label="DNS server"))
+            parts.append(shell_quote(target, label="DNS target"))
             if axfr:
                 parts.append("AXFR")
             else:
@@ -143,7 +163,12 @@ def register_recon_tools(mcp: "FastMCP") -> None:
                     when="tool='dnsx' and target is not provided",
                     examples="recon_dns(tool='dnsx', domains='a.example.com,b.example.com')",
                 )
-            domain_str = "\\n".join([d.strip() for d in source_domains.split(",") if d.strip()])
+            domain_values = [d.strip() for d in source_domains.split(",") if d.strip()]
+            try:
+                for domain in domain_values:
+                    await validate_target_async(config, domain)
+            except ValueError as exc:
+                return target_error("recon_dns", domain, exc, config)
 
             parts = ["dnsx"]
             if silent:
@@ -151,7 +176,8 @@ def register_recon_tools(mcp: "FastMCP") -> None:
             if extra_args:
                 parts.append(extra_args)
 
-            cmd = f"echo -e '{domain_str}' | " + " ".join(parts)
+            quoted_domains = " ".join(shlex.quote(domain) for domain in domain_values)
+            cmd = f"printf '%s\\n' {quoted_domains} | " + " ".join(parts)
 
             async with concurrency.acquire_light("recon_dnsx"):
                 result = await docker.exec_command(cmd, timeout=300)

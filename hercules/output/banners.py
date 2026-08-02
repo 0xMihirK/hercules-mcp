@@ -8,10 +8,9 @@ to avoid false positives on exploit code, certificates, hexdumps, and payloads.
 from __future__ import annotations
 
 import re
-from typing import Dict, List
 
 # Each entry maps a tool name to regexes matched against individual lines.
-KNOWN_BANNERS: Dict[str, List[str]] = {
+KNOWN_BANNERS: dict[str, list[str]] = {
     "sqlmap": [
         r"^\s*___\s*$",
         r"^\s*__H__\s*$",
@@ -38,11 +37,6 @@ KNOWN_BANNERS: Dict[str, List[str]] = {
         r"^\s*/\s*\\\s*$",
         r"^\s*\(\s*Woof!\s*\)\s*$",
         r"^\s*\(\s*W00f!\s*\)\s*$",
-        r"^.*404 Hack Not Found.*$",
-        r"^.*405 Not Allowed.*$",
-        r"^.*403 Forbidden.*$",
-        r"^.*502 Bad Gateway.*$",
-        r"^.*500 Internal Error.*$",
         r"^\s*\\\s*____/.*\)$",
         r"^\s*,,.*\)\s*\(_\s*$",
         r"^\s*\.-\.\s*-\s*_______\s*\(.*$",
@@ -85,11 +79,11 @@ KNOWN_BANNERS: Dict[str, List[str]] = {
         r"^\s*_\s*$",
         r"^\s*/_\|.*v\d+.*$",
         r"^\s*\(\s*\|/ /\(//\).*$",
-        r"^\s*_/.*$",
+        r"^\s*_/+\s*$",
     ],
 }
 
-_COMPILED_BANNERS: Dict[str, List[re.Pattern]] = {
+_COMPILED_BANNERS: dict[str, list[re.Pattern]] = {
     tool: [re.compile(pattern) for pattern in patterns]
     for tool, patterns in KNOWN_BANNERS.items()
 }
@@ -101,6 +95,12 @@ def strip_known_banners(text: str, tool_name: str) -> str:
     if not patterns:
         return text
 
-    lines = text.splitlines()
-    cleaned = [line for line in lines if not any(pattern.match(line) for pattern in patterns)]
-    return "\n".join(cleaned)
+    lines = text.splitlines(keepends=True)
+    cleaned = [
+        line
+        for line in lines
+        if not any(pattern.match(line.rstrip("\r\n")) for pattern in patterns)
+    ]
+    if len(cleaned) == len(lines):
+        return text
+    return "".join(cleaned)

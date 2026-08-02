@@ -10,10 +10,12 @@ from __future__ import annotations
 import logging
 import posixpath
 import shlex
+import uuid
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
-from hercules.core.guidance import TOOL_DESCRIPTIONS, selector_error
+
+from hercules.core.guidance import TOOL_DESCRIPTIONS, path_error, selector_error
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -21,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.ctf")
 
 
-def register_ctf_tools(mcp: "FastMCP") -> None:
+def register_ctf_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["ctf_binwalk"])
     async def ctf_binwalk(
@@ -33,6 +35,12 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
         """Firmware/archive analysis and extraction using binwalk."""
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
+        if hasattr(docker, "normalize_workspace_path"):
+            try:
+                filepath = docker.normalize_workspace_path(filepath)
+                await docker.validate_workspace_file(filepath)
+            except (OSError, ValueError) as exc:
+                return path_error("ctf_binwalk", filepath, str(exc))
 
         parts = ["binwalk"]
         if extract:
@@ -67,13 +75,31 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
         """Steganography analysis and extraction via steghide."""
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
+        if hasattr(docker, "normalize_workspace_path"):
+            try:
+                filepath = docker.normalize_workspace_path(filepath)
+                await docker.validate_workspace_file(filepath)
+            except (OSError, ValueError) as exc:
+                return path_error("ctf_steghide", filepath, str(exc))
 
         action = (action or "").lower()
 
         if action == "info":
             parts = ["steghide", action, shlex.quote(filepath)]
+            output_path = ""
         elif action == "extract":
             parts = ["steghide", action, "-sf", shlex.quote(filepath)]
+            output_dir = f"/opt/workspace/steghide/{uuid.uuid4().hex[:12]}"
+            output_path = f"{output_dir}/extracted.bin"
+            if hasattr(docker, "ensure_workspace_directory"):
+                await docker.ensure_workspace_directory(output_dir)
+            else:
+                await docker.exec_command(
+                    f"mkdir -p {shlex.quote(output_dir)}",
+                    timeout=15,
+                    clean_output=False,
+                )
+            parts.extend(["-xf", shlex.quote(output_path), "-f"])
         else:
             return selector_error(
                 "ctf_steghide",
@@ -98,6 +124,17 @@ def register_ctf_tools(mcp: "FastMCP") -> None:
         cmd = " ".join(parts)
 
         async with concurrency.acquire_light("ctf_steghide"):
-            result = await docker.exec_command(cmd, timeout=60)
+            result = await docker.exec_command(
+                cmd,
+                timeout=60,
+                sensitive_values=[passphrase],
+                workdir=(output_dir if action == "extract" else None),
+            )
 
-        return {"tool": "ctf_steghide", "action": action, "filepath": filepath, **result.to_dict()}
+        return {
+            "tool": "ctf_steghide",
+            "action": action,
+            "filepath": filepath,
+            "extracted_path": output_path,
+            **result.to_dict(),
+        }

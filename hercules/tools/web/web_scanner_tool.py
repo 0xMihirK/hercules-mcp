@@ -7,18 +7,27 @@ scanners into web_vuln_scan while keeping directory fuzzing standalone.
 
 from __future__ import annotations
 
-import logging
-import shlex
 import json
+import logging
+import re
+import shlex
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
+
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     missing_param_error,
     selector_error,
     target_error,
     usage_error,
+)
+from hercules.core.security import (
+    redact_secrets,
+    redact_url,
+    safe_identifier,
+    shell_quote,
+    validate_target_async,
 )
 
 if TYPE_CHECKING:
@@ -53,6 +62,22 @@ def _jsonl_results(stdout: str) -> list[dict]:
     return results
 
 
+def _jsonl_diagnostics(stdout: str) -> str:
+    """Return non-JSONL stdout without duplicating parsed records."""
+    lines: list[str] = []
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        try:
+            if stripped.startswith("{") and isinstance(json.loads(stripped), dict):
+                continue
+        except json.JSONDecodeError:
+            pass
+        lines.append(line)
+    return "\n".join(lines)
+
+
 async def _run_httpx(
     ctx: Context,
     urls: str,
@@ -65,10 +90,23 @@ async def _run_httpx(
     include_raw: bool,
 ) -> dict:
     docker = ctx.lifespan_context["docker"]
+    config = ctx.lifespan_context["config"]
     concurrency = ctx.lifespan_context["concurrency"]
 
     source_urls = urls or target
-    url_str = "\\n".join([u.strip() for u in source_urls.split(",") if u.strip()])
+    url_values = [u.strip() for u in source_urls.split(",") if u.strip()]
+    try:
+        for url in url_values:
+            await validate_target_async(config, url)
+    except ValueError as exc:
+        return target_error("web_scan", url, exc, config)
+    if not 0 <= int(threads) <= 10_000:
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "threads",
+            "error": "threads must be between 0 and 10000",
+        }
 
     parts = ["httpx", "-silent"]
     if title:
@@ -79,15 +117,42 @@ async def _run_httpx(
         parts.append("-status-code")
     if threads > 0:
         parts.extend(["-threads", str(threads)])
+    if not include_raw and not _has_flag(extra_args, "-json", "-jsonl"):
+        parts.append("-json")
     if extra_args:
         parts.append(extra_args)
 
-    cmd = f"echo -e '{url_str}' | " + " ".join(parts)
+    quoted_urls = " ".join(shlex.quote(url) for url in url_values)
+    cmd = f"printf '%s\\n' {quoted_urls} | " + " ".join(parts)
 
     async with concurrency.acquire_light("web_httpx"):
-        result = await docker.exec_command(cmd, timeout=300, compact_output=not include_raw)
+        result = await docker.exec_command(
+            cmd,
+            timeout=300,
+            compact_output=not include_raw,
+            preserve_raw=not include_raw,
+        )
 
-    return {"tool": "web_scan", "selected_tool": "httpx", "urls": source_urls, **result.to_dict()}
+    response = {
+        "tool": "web_scan",
+        "selected_tool": "httpx",
+        "urls": redact_secrets(source_urls),
+        **result.to_dict(),
+    }
+    results = _jsonl_results(result.stdout)
+    if results:
+        response["results"] = results
+        response["result_count"] = len(results)
+        if not include_raw:
+            diagnostics = _jsonl_diagnostics(result.stdout)
+            if diagnostics:
+                response["stdout"] = diagnostics
+            else:
+                response.pop("stdout", None)
+            response["inline_stdout_chars"] = len(diagnostics)
+            response["structured_output"] = True
+            response["stdout_replaced_by"] = "results"
+    return response
 
 
 async def _run_whatweb(ctx: Context, target: str, agg_level: int, extra_args: str) -> dict:
@@ -96,15 +161,22 @@ async def _run_whatweb(ctx: Context, target: str, agg_level: int, extra_args: st
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target)
+        await validate_target_async(config, target)
     except ValueError as exc:
         return target_error("web_scan", target, exc, config)
+    if not 1 <= int(agg_level) <= 4:
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "agg_level",
+            "error": "agg_level must be between 1 and 4",
+        }
     cmd = f"whatweb -a {agg_level} --color=NEVER {extra_args} {shlex.quote(target)}"
 
     async with concurrency.acquire_light("web_whatweb"):
         result = await docker.exec_command(cmd, timeout=120, tool_name="whatweb")
 
-    return {"tool": "web_scan", "selected_tool": "whatweb", "target": target, **result.to_dict()}
+    return {"tool": "web_scan", "selected_tool": "whatweb", "target": redact_url(target), **result.to_dict()}
 
 
 async def _run_wafw00f(ctx: Context, target: str, extra_args: str, include_raw: bool) -> dict:
@@ -113,7 +185,7 @@ async def _run_wafw00f(ctx: Context, target: str, extra_args: str, include_raw: 
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target)
+        await validate_target_async(config, target)
     except ValueError as exc:
         return target_error("web_scan", target, exc, config)
     parts = ["wafw00f"]
@@ -133,7 +205,7 @@ async def _run_wafw00f(ctx: Context, target: str, extra_args: str, include_raw: 
             preserve_raw=not include_raw,
         )
 
-    return {"tool": "web_scan", "selected_tool": "wafw00f", "target": target, **result.to_dict()}
+    return {"tool": "web_scan", "selected_tool": "wafw00f", "target": redact_url(target), **result.to_dict()}
 
 
 async def _run_nikto(ctx: Context, target: str, tuning: str, extra_args: str, include_raw: bool) -> dict:
@@ -142,13 +214,20 @@ async def _run_nikto(ctx: Context, target: str, tuning: str, extra_args: str, in
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target)
+        await validate_target_async(config, target)
     except ValueError as exc:
         return target_error("web_scan", target, exc, config)
+    if tuning and not re.fullmatch(r"[0-9A-Za-zx]+", tuning):
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "tuning",
+            "error": "tuning contains unsupported characters",
+        }
 
     parts = ["nikto", "-h", shlex.quote(target), "-maxtime", "10m"]
     if tuning:
-        parts.extend(["-Tuning", tuning])
+        parts.extend(["-Tuning", shlex.quote(tuning)])
     if extra_args:
         parts.append(extra_args)
 
@@ -163,7 +242,7 @@ async def _run_nikto(ctx: Context, target: str, tuning: str, extra_args: str, in
             preserve_raw=not include_raw,
         )
 
-    return {"tool": "web_scan", "selected_tool": "nikto", "target": target, **result.to_dict()}
+    return {"tool": "web_scan", "selected_tool": "nikto", "target": redact_url(target), **result.to_dict()}
 
 
 async def _run_wpscan(
@@ -179,15 +258,22 @@ async def _run_wpscan(
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target)
+        await validate_target_async(config, target)
     except ValueError as exc:
         return target_error("web_scan", target, exc, config)
+    if enumerate and not re.fullmatch(r"[A-Za-z0-9,._-]+", enumerate):
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "enumerate",
+            "error": "enumerate contains unsupported characters",
+        }
 
     parts = ["wpscan", "--url", shlex.quote(target), "--no-banner"]
     if enumerate:
-        parts.extend(["-e", enumerate])
+        parts.extend(["-e", shlex.quote(enumerate)])
     if api_token:
-        parts.extend(["--api-token", api_token])
+        parts.extend(["--api-token", shell_quote(api_token, label="WPScan API token")])
     if extra_args:
         parts.append(extra_args)
 
@@ -200,9 +286,10 @@ async def _run_wpscan(
             tool_name="wpscan",
             compact_output=not include_raw,
             preserve_raw=not include_raw,
+            sensitive_values=[api_token],
         )
 
-    return {"tool": "web_scan", "selected_tool": "wpscan", "target": target, **result.to_dict()}
+    return {"tool": "web_scan", "selected_tool": "wpscan", "target": redact_url(target), **result.to_dict()}
 
 
 async def _run_arjun(ctx: Context, target: str, method: str, threads: int, extra_args: str, include_raw: bool) -> dict:
@@ -211,9 +298,25 @@ async def _run_arjun(ctx: Context, target: str, method: str, threads: int, extra
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target)
+        await validate_target_async(config, target)
     except ValueError as exc:
         return target_error("web_scan", target, exc, config)
+    try:
+        method = safe_identifier(method.upper(), label="HTTP method", maximum=16)
+    except ValueError as exc:
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "method",
+            "error": str(exc),
+        }
+    if not 0 <= int(threads) <= 10_000:
+        return {
+            "tool": "web_scan",
+            "status": "invalid_parameter",
+            "parameter": "threads",
+            "error": "threads must be between 0 and 10000",
+        }
     parts = ["arjun", "-u", shlex.quote(target), "-m", method, "-T", "5", "--disable-redirects"]
     if threads > 0:
         parts.extend(["-t", str(threads)])
@@ -230,7 +333,7 @@ async def _run_arjun(ctx: Context, target: str, method: str, threads: int, extra
             preserve_raw=not include_raw,
         )
 
-    return {"tool": "web_scan", "selected_tool": "arjun", "target": target, **result.to_dict()}
+    return {"tool": "web_scan", "selected_tool": "arjun", "target": redact_url(target), **result.to_dict()}
 
 
 async def _run_dalfox(
@@ -246,9 +349,16 @@ async def _run_dalfox(
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target_url)
+        await validate_target_async(config, target_url)
     except ValueError as exc:
         return target_error("web_vuln_scan", target_url, exc, config)
+    if not 0 <= int(threads) <= 10_000:
+        return {
+            "tool": "web_vuln_scan",
+            "status": "invalid_parameter",
+            "parameter": "threads",
+            "error": "threads must be between 0 and 10000",
+        }
 
     parts = ["dalfox", "url", shlex.quote(target_url), "--silence"]
     if not _has_flag(extra_args, "--no-color"):
@@ -269,9 +379,10 @@ async def _run_dalfox(
             tool_name="dalfox",
             compact_output=not include_raw,
             preserve_raw=not include_raw,
+            sensitive_values=[cookie],
         )
 
-    return {"tool": "web_vuln_scan", "selected_tool": "dalfox", "target": target_url, **result.to_dict()}
+    return {"tool": "web_vuln_scan", "selected_tool": "dalfox", "target": redact_url(target_url), **result.to_dict()}
 
 
 async def _run_commix(
@@ -288,9 +399,16 @@ async def _run_commix(
     concurrency = ctx.lifespan_context["concurrency"]
 
     try:
-        config.validate_target(target_url)
+        await validate_target_async(config, target_url)
     except ValueError as exc:
         return target_error("web_vuln_scan", target_url, exc, config)
+    if not 0 <= int(threads) <= 10_000:
+        return {
+            "tool": "web_vuln_scan",
+            "status": "invalid_parameter",
+            "parameter": "threads",
+            "error": "threads must be between 0 and 10000",
+        }
 
     parts = ["commix", "--url", shlex.quote(target_url)]
     if not _has_flag(extra_args, "--disable-coloring"):
@@ -318,12 +436,13 @@ async def _run_commix(
             tool_name="commix",
             compact_output=not include_raw,
             preserve_raw=not include_raw,
+            sensitive_values=[data, cookie],
         )
 
-    return {"tool": "web_vuln_scan", "selected_tool": "commix", "target": target_url, **result.to_dict()}
+    return {"tool": "web_vuln_scan", "selected_tool": "commix", "target": redact_url(target_url), **result.to_dict()}
 
 
-def register_web_scanner_tools(mcp: "FastMCP") -> None:
+def register_web_scanner_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["web_scan"])
     async def web_scan(
@@ -389,7 +508,7 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
     async def fuzz_dirs(
         target_url: str,
         wordlist: str = "",
-        tool: str = "gobuster",
+        tool: Literal["gobuster", "ffuf"] = "gobuster",
         extensions: str = "",
         threads: int = 50,
         extra_args: str = "",
@@ -408,9 +527,31 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(target_url)
+            await validate_target_async(config, target_url)
         except ValueError as exc:
             return target_error("fuzz_dirs", target_url, exc, config)
+        tool = (tool or "").lower()
+        if tool not in {"gobuster", "ffuf"}:
+            return selector_error(
+                "fuzz_dirs",
+                "tool",
+                tool,
+                ["gobuster", "ffuf"],
+            )
+        if not 1 <= int(threads) <= 10_000:
+            return {
+                "tool": "fuzz_dirs",
+                "status": "invalid_parameter",
+                "parameter": "threads",
+                "error": "threads must be between 1 and 10000",
+            }
+        if extensions and not re.fullmatch(r"[A-Za-z0-9,._-]+", extensions):
+            return {
+                "tool": "fuzz_dirs",
+                "status": "invalid_parameter",
+                "parameter": "extensions",
+                "error": "extensions contains unsupported characters",
+            }
         wl = wordlist or _DEFAULT_WORDLIST
 
         # Wordlist resolution
@@ -423,10 +564,12 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
                 wl = f"/usr/share/wordlists/{wl}"
 
         # Verification Constraint
-        check = await docker.exec_command(f"test -f {wl}", clean_output=False)
+        check = await docker.exec_command(f"test -f {shlex.quote(wl)}", clean_output=False)
         if check.exit_code != 0 and not wordlist:
             for candidate in (_SECLISTS_DIRBUSTER_WORDLIST, _FALLBACK_WORDLIST):
-                candidate_check = await docker.exec_command(f"test -f {candidate}", clean_output=False)
+                candidate_check = await docker.exec_command(
+                    f"test -f {shlex.quote(candidate)}", clean_output=False
+                )
                 if candidate_check.exit_code == 0:
                     wl = candidate
                     check = candidate_check
@@ -448,15 +591,18 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
                 ],
                 next_steps=[
                     "Choose an existing wordlist path inside the container.",
-                    "Run python hercules_setup.py on the host to download and mount SecLists or rockyou.txt.",
+                    "Run hercules-install install to provision the wordlist required by the selected capability.",
                 ],
                 target=target_url,
             )
 
-        if tool.lower() == "ffuf":
-            parts = [f"ffuf -u {target_url}/FUZZ -w {wl} -t {threads}"]
+        if tool == "ffuf":
+            fuzz_url = target_url.rstrip("/") + "/FUZZ"
+            parts = [
+                f"ffuf -u {shlex.quote(fuzz_url)} -w {shlex.quote(wl)} -t {threads}"
+            ]
             if extensions:
-                parts.append(f"-e {extensions}")
+                parts.append(f"-e {shlex.quote(extensions)}")
             if not include_raw:
                 for flag in ("-ic", "-s", "-json"):
                     if not _has_flag(extra_args, flag):
@@ -464,9 +610,14 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
             if extra_args:
                 parts.append(extra_args)
         else:
-            parts = [f"gobuster dir -u {target_url} -w {wl} -t {threads}"]
+            parts = [
+                (
+                    f"gobuster dir -u {shlex.quote(target_url)} "
+                    f"-w {shlex.quote(wl)} -t {threads}"
+                )
+            ]
             if extensions:
-                parts.append(f"-x {extensions}")
+                parts.append(f"-x {shlex.quote(extensions)}")
             if not include_raw:
                 for flag in ("--no-progress", "--no-color", "--quiet"):
                     if not _has_flag(extra_args, flag):
@@ -484,12 +635,26 @@ def register_web_scanner_tools(mcp: "FastMCP") -> None:
                 preserve_raw=not include_raw,
             )
 
-        response = {"tool": "fuzz_dirs", "target": target_url, "fuzzer": tool, **result.to_dict()}
-        if tool.lower() == "ffuf":
+        response = {
+            "tool": "fuzz_dirs",
+            "target": redact_url(target_url),
+            "fuzzer": tool,
+            **result.to_dict(),
+        }
+        if tool == "ffuf":
             results = _jsonl_results(result.stdout)
             if results:
                 response["results"] = results
                 response["result_count"] = len(results)
+                if not include_raw:
+                    diagnostics = _jsonl_diagnostics(result.stdout)
+                    if diagnostics:
+                        response["stdout"] = diagnostics
+                    else:
+                        response.pop("stdout", None)
+                    response["inline_stdout_chars"] = len(diagnostics)
+                    response["structured_output"] = True
+                    response["stdout_replaced_by"] = "results"
         return response
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["web_vuln_scan"])

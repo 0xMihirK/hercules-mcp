@@ -9,15 +9,24 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import re
+import shlex
 import uuid
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
+
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     missing_param_error,
     selector_error,
     target_error,
+)
+from hercules.core.security import (
+    redact_url,
+    safe_filename,
+    shell_quote,
+    validate_target_async,
 )
 
 if TYPE_CHECKING:
@@ -26,7 +35,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.network")
 
 
-def register_network_tools(mcp: "FastMCP") -> None:
+def register_network_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["network_curl"])
     async def network_curl(
@@ -46,38 +55,61 @@ def register_network_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(url)
+            await validate_target_async(config, url)
         except ValueError as exc:
             return target_error("network_curl", url, exc, config)
 
-        parts = ["curl", "-s", "-X", method]
+        method = (method or "GET").upper()
+        if not re.fullmatch(r"[A-Z]{1,16}", method):
+            return {
+                "tool": "network_curl",
+                "status": "invalid_parameter",
+                "parameter": "method",
+                "error": "HTTP method must contain 1-16 ASCII letters.",
+            }
+        parts = ["curl", "-s", "-X", method, "--proto", "=http,https"]
         if include_headers:
             parts.append("-i")
-        if follow_redirects:
+        scoped = bool(config.allowed_targets or config.blocked_targets)
+        if follow_redirects and not scoped:
             parts.append("-L")
 
         if headers:
             for h in headers.split(","):
                 if h.strip():
-                    parts.extend(["-H", f"'{h.strip()}'"])
+                    parts.extend(["-H", shell_quote(h.strip(), label="HTTP header")])
 
         if data:
-            parts.extend(["-d", f"'{data}'"])
+            parts.extend(["-d", shell_quote(data, label="request data")])
 
         if cookie:
-            parts.extend(["-b", f"'{cookie}'"])
+            parts.extend(["-b", shell_quote(cookie, label="cookie")])
 
         if extra_args:
             parts.append(extra_args)
 
-        parts.append(f"'{url}'")
+        parts.append(shell_quote(url, label="URL"))
 
         cmd = " ".join(parts)
 
         async with concurrency.acquire_light("network_curl"):
-            result = await docker.exec_command(cmd, timeout=60)
+            result = await docker.exec_command(
+                cmd,
+                timeout=60,
+                sensitive_values=[headers, data, cookie],
+            )
 
-        return {"tool": "network_curl", "url": url, **result.to_dict()}
+        return {
+            "tool": "network_curl",
+            "url": redact_url(url),
+            "redirects_followed": bool(follow_redirects and not scoped),
+            "redirect_note": (
+                "Redirect following is disabled while target scopes are configured."
+                if follow_redirects and scoped
+                else ""
+            ),
+            **result.to_dict(),
+        }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["ncat"])
     async def ncat(
@@ -100,6 +132,13 @@ def register_network_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         action = (action or "").lower()
+        if not 0 <= int(port or 0) <= 65_535 or not 1 <= int(listen_port or 0) <= 65_535:
+            return {
+                "tool": "ncat",
+                "status": "invalid_parameter",
+                "parameter": "port",
+                "error": "Ports must be between 1 and 65535.",
+            }
 
         if action == "connect":
             if not target:
@@ -117,16 +156,16 @@ def register_network_tools(mcp: "FastMCP") -> None:
                     examples="ncat(action='connect', target='10.0.0.1', port=4444)",
                 )
             try:
-                config.validate_target(target)
+                await validate_target_async(config, target)
             except ValueError as exc:
                 return target_error("ncat", target, exc, config)
 
             parts = ["ncat"]
             if udp:
                 parts.append("-u")
-            parts.extend([target, str(port)])
+            parts.extend([shell_quote(target, label="target"), str(port)])
             if execute:
-                parts.extend(["-e", execute])
+                parts.extend(["-e", shell_quote(execute, label="execute path")])
             if extra_args:
                 parts.append(extra_args)
 
@@ -143,6 +182,15 @@ def register_network_tools(mcp: "FastMCP") -> None:
             if background:
                 if not job_id:
                     job_id = f"ncat_{uuid.uuid4().hex[:6]}"
+                try:
+                    job_id = safe_filename(job_id, label="job_id", maximum=64)
+                except ValueError as exc:
+                    return {
+                        "tool": "ncat",
+                        "status": "invalid_parameter",
+                        "parameter": "job_id",
+                        "error": str(exc),
+                    }
 
                 await docker.exec_command("mkdir -p /opt/workspace/jobs")
 
@@ -153,7 +201,8 @@ def register_network_tools(mcp: "FastMCP") -> None:
                 parts.extend(["-lvnp", str(effective_port)])
                 if extra_args:
                     parts.append(extra_args)
-                cmd = f"touch {pipe_in} && tail -f {pipe_in} | " + " ".join(parts)
+                quoted_pipe = shlex.quote(pipe_in)
+                cmd = f"touch {quoted_pipe} && tail -f {quoted_pipe} | " + " ".join(parts)
 
                 assigned_id = await docker.exec_background(cmd, job_id)
 
@@ -171,7 +220,7 @@ def register_network_tools(mcp: "FastMCP") -> None:
                 parts.append("-u")
             parts.extend(["-l", "-p", str(effective_port)])
             if execute:
-                parts.extend(["-e", execute])
+                parts.extend(["-e", shell_quote(execute, label="execute path")])
             if extra_args:
                 parts.append(extra_args)
 
@@ -190,12 +239,24 @@ def register_network_tools(mcp: "FastMCP") -> None:
                     when="action='interact'",
                     examples="ncat(action='interact', job_id='listener1', command='id')",
                 )
+            try:
+                job_id = safe_filename(job_id, label="job_id", maximum=64)
+            except ValueError as exc:
+                return {
+                    "tool": "ncat",
+                    "status": "invalid_parameter",
+                    "parameter": "job_id",
+                    "error": str(exc),
+                }
 
             pipe_in = f"/opt/workspace/jobs/{job_id}.in"
 
             if command:
                 encoded = base64.b64encode(command.encode("utf-8") + b"\n").decode("utf-8")
-                await docker.exec_command(f"echo '{encoded}' | base64 -d >> {pipe_in}", clean_output=False)
+                await docker.exec_command(
+                    f"printf %s {shlex.quote(encoded)} | base64 -d >> {shlex.quote(pipe_in)}",
+                    clean_output=False,
+                )
                 await asyncio.sleep(1.5)
 
             result = await docker.check_job(job_id, tail_lines=tail_lines)
@@ -227,9 +288,15 @@ def register_network_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(target)
+            await validate_target_async(config, target)
         except ValueError as exc:
             return target_error("network_hping3", target, exc, config)
+        if not 1 <= int(count) <= 100_000 or not 0 <= int(port or 0) <= 65_535:
+            return {
+                "tool": "network_hping3",
+                "status": "invalid_parameter",
+                "error": "count must be 1-100000 and port must be 0-65535.",
+            }
 
         parts = ["hping3", "-c", str(count)]
         if syn:
@@ -239,7 +306,7 @@ def register_network_tools(mcp: "FastMCP") -> None:
         if extra_args:
             parts.append(extra_args)
 
-        parts.append(target)
+        parts.append(shell_quote(target, label="target"))
 
         cmd = " ".join(parts)
 

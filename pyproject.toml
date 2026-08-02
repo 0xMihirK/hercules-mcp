@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
@@ -10,31 +10,63 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
-    "fastmcp>=2.0.0",
-    "mcp>=1.0.0",
-    "docker>=7.0.0",
-    "pymetasploit3>=1.0.0",
-    "python-dotenv>=1.0.0",
-    "httpx>=0.27.0",
-    # Interactive setup UI (python hercules_setup.py). Pulled in so the TUI is
-    # available without an on-demand install; the script still degrades to a
-    # classic non-interactive flow if textual is somehow missing.
-    "textual>=0.60",
+    "fastmcp>=3.4.5,<4",
+    "mcp>=1.29,<2",
+    "docker>=7.1,<8",
+    # No fixed upstream release exists for GHSA-qpc3-8vqg-8g6w. Hercules does
+    # not call the affected run_module_with_output API and rejects CR/LF in all
+    # option keys/values before RPC dispatch.
+    "pymetasploit3==1.0.6",
+    "python-dotenv>=1.2,<2",
+    "httpx>=0.28.1,<1",
+    "defusedxml>=0.7.1,<1",
 ]
 
 [project.optional-dependencies]
-# Dev-only: snapshot-test the setup TUI (python -m pytest tests/test_setup_tui_snapshot.py).
 dev = [
-    "pytest>=8.0.0",
-    "pytest-textual-snapshot>=1.0.0",
+    "pytest>=9,<10",
 ]
 
 [project.scripts]
 hercules = "hercules.main:main"
+hercules-install = "hercules.installer:main"
+hercules-workspace = "hercules.workspace_cli:main"
+
+[tool.hatch.build]
+# The acceptance suite and CI experiments are intentionally local-only.
+exclude = [
+    "tests",
+    "tests/**",
+    ".github",
+    ".github/**",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["hercules"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"hercules/resources/nse_skills.md" = "hercules/resources/nse_skills.md"
-"hercules/resources/nuclei_skills.md" = "hercules/resources/nuclei_skills.md"
+"skills/hercules-mcp" = "hercules/_bundled_skill/hercules-mcp"
+"install.md" = "hercules/_bundled_install.md"
+".codex-plugin" = "hercules/_bundled_plugin/.codex-plugin"
+".claude-plugin" = "hercules/_bundled_plugin/.claude-plugin"
+".cursor-plugin" = "hercules/_bundled_plugin/.cursor-plugin"
+".mcp.json" = "hercules/_bundled_plugin/.mcp.json"
+"mcp.json" = "hercules/_bundled_plugin/mcp.json"
+"hercules-mcp.json" = "hercules/_bundled_plugin/hercules-mcp.json"
+
+[tool.hatch.build.targets.sdist.force-include]
+"skills/hercules-mcp" = "skills/hercules-mcp"
+"install.md" = "install.md"
+".codex-plugin" = ".codex-plugin"
+".claude-plugin" = ".claude-plugin"
+".cursor-plugin" = ".cursor-plugin"
+".mcp.json" = ".mcp.json"
+"mcp.json" = "mcp.json"
+"hercules-mcp.json" = "hercules-mcp.json"
+
+[tool.ruff.lint]
+# MCP, Docker, RPC, and installer entrypoints deliberately normalize heterogeneous
+# third-party failures, while cleanup paths are best-effort. Those boundaries
+# must catch Exception without swallowing BaseException; all other Ruff rules
+# remain enabled.
+ignore = ["BLE001", "S110"]

@@ -112,6 +112,18 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
             ],
         )
 
+    if name == "NotFoundError" and "unknown tool" in msg.lower():
+        return usage_error(
+            tool,
+            "tool_not_found",
+            f"Unknown MCP tool: {tool}",
+            recoverable=False,
+            next_steps=[
+                "List the server's current tools and use an exact registered name.",
+                "Check whether the capability was disabled by configuration.",
+            ],
+        )
+
     # Unknown / internal error — visibly "server bug, not your fault".
     return usage_error(
         tool,
@@ -155,3 +167,34 @@ class ToolExceptionFirewall(Middleware):
                         "message": "Internal server error.",
                     }
                 )
+
+
+class ParameterFilterMiddleware(Middleware):
+    """Drop unknown tool arguments through FastMCP's supported middleware API."""
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext,
+        call_next: CallNext,
+    ) -> ToolResult:
+        message = getattr(context, "message", None)
+        tool_name = getattr(message, "name", "")
+        arguments = getattr(message, "arguments", None) or {}
+        fastmcp_context = getattr(context, "fastmcp_context", None)
+        server = getattr(fastmcp_context, "fastmcp", None)
+        if server is not None and tool_name:
+            try:
+                tool = await server.get_tool(tool_name)
+                expected = set((tool.parameters or {}).get("properties", {}))
+                filtered = {key: value for key, value in arguments.items() if key in expected}
+                dropped = set(arguments) - set(filtered)
+                if dropped:
+                    logger.debug(
+                        "Stripped unknown injected parameters from '%s': %s",
+                        tool_name,
+                        sorted(dropped),
+                    )
+                    message.arguments = filtered
+            except Exception as exc:
+                logger.debug("Parameter filter failed for '%s': %s", tool_name, exc)
+        return await call_next(context)

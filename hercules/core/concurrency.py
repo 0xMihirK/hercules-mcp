@@ -14,8 +14,8 @@ import asyncio
 import logging
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 logger = logging.getLogger("hercules.concurrency")
 
@@ -58,7 +58,7 @@ class ConcurrencyManager:
             await asyncio.wait_for(
                 self._heavy_sem.acquire(), timeout=self._heavy_timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Heavy concurrency limit reached: %s could not be scheduled.", tool_name
             )
@@ -92,7 +92,7 @@ class ConcurrencyManager:
             await asyncio.wait_for(
                 self._light_sem.acquire(), timeout=self._light_timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(
                 "Light concurrency limit reached: %s could not be scheduled.", tool_name
             )

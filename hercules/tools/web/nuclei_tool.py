@@ -7,19 +7,27 @@ and authoring custom YAML templates with path traversal protection.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import shlex
 import uuid
-import json
 from typing import TYPE_CHECKING
 
 from fastmcp import Context
+
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     missing_param_error,
     path_error,
     target_error,
+)
+from hercules.core.security import (
+    redact_secrets,
+    reject_control_chars,
+    safe_identifier,
+    validate_target_async,
 )
 
 if TYPE_CHECKING:
@@ -63,7 +71,7 @@ def _compact_nuclei_jsonl(stdout: str, include_raw: bool) -> tuple[str, list[dic
     return "\n".join(compact_lines), matches
 
 
-def register_nuclei_tools(mcp: "FastMCP") -> None:
+def register_nuclei_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["nuclei_run"])
     async def nuclei_run(
@@ -91,11 +99,41 @@ def register_nuclei_tools(mcp: "FastMCP") -> None:
             )
         for t in target_values:
             try:
-                config.validate_target(t)
+                await validate_target_async(config, t)
             except ValueError as exc:
                 return target_error("nuclei_run", t, exc, config)
+        if not 1 <= int(rate_limit) <= 1_000_000:
+            return {
+                "tool": "nuclei_run",
+                "status": "invalid_parameter",
+                "parameter": "rate_limit",
+                "error": "rate_limit must be between 1 and 1000000",
+            }
+        try:
+            severity = (
+                safe_identifier(severity, label="severity", maximum=64)
+                if severity
+                else ""
+            )
+            if tags and not re.fullmatch(r"[A-Za-z0-9,._:-]{1,256}", tags):
+                raise ValueError("tags contains unsupported characters")
+        except ValueError as exc:
+            return {
+                "tool": "nuclei_run",
+                "status": "invalid_parameter",
+                "error": str(exc),
+            }
 
         parts = ["nuclei", "-jsonl", "-nc"]
+        if templates.startswith("/opt/workspace/") and hasattr(
+            docker,
+            "validate_workspace_entry",
+        ):
+            try:
+                await docker.validate_workspace_entry(templates)
+            except (OSError, ValueError) as exc:
+                return path_error("nuclei_run", templates, str(exc))
+        target_file = ""
         if not include_raw:
             for flag in ("-or", "-ot", "-silent", "-duc"):
                 if not _has_flag(extra_args, flag):
@@ -118,21 +156,55 @@ def register_nuclei_tools(mcp: "FastMCP") -> None:
 
         cmd = " ".join(parts)
 
-        async with concurrency.acquire_heavy("nuclei_run"):
-            result = await docker.exec_command(
-                cmd,
-                timeout=600,
-                tool_name="nuclei",
-                compact_output=not include_raw,
-                preserve_raw=not include_raw,
-            )
+        try:
+            async with concurrency.acquire_heavy("nuclei_run"):
+                result = await docker.exec_command(
+                    cmd,
+                    timeout=600,
+                    tool_name="nuclei",
+                    compact_output=not include_raw,
+                    preserve_raw=not include_raw,
+                )
+        finally:
+            if target_file:
+                await docker.exec_command(
+                    f"rm -f {shlex.quote(target_file)}",
+                    timeout=15,
+                    clean_output=False,
+                )
 
         compact_stdout, matches = _compact_nuclei_jsonl(result.stdout, include_raw=include_raw)
         result.stdout = compact_stdout
-        response = {"tool": "nuclei_run", "targets": targets, **result.to_dict()}
+        response = {
+            "tool": "nuclei_run",
+            "targets": redact_secrets(targets),
+            **result.to_dict(),
+        }
         if matches:
             response["matches"] = matches
             response["match_count"] = len(matches)
+            if not include_raw:
+                diagnostic_lines: list[str] = []
+                for line in compact_stdout.splitlines():
+                    stripped = line.strip()
+                    try:
+                        if stripped.startswith("{") and isinstance(
+                            json.loads(stripped),
+                            dict,
+                        ):
+                            continue
+                    except json.JSONDecodeError:
+                        pass
+                    if stripped:
+                        diagnostic_lines.append(line)
+                diagnostics = "\n".join(diagnostic_lines)
+                if diagnostics:
+                    response["stdout"] = diagnostics
+                else:
+                    response.pop("stdout", None)
+                response["inline_stdout_chars"] = len(diagnostics)
+                response["structured_output"] = True
+                response["stdout_replaced_by"] = "matches"
         return response
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["nuclei_write_template"])
@@ -141,14 +213,23 @@ def register_nuclei_tools(mcp: "FastMCP") -> None:
         docker = ctx.lifespan_context["docker"]
 
         # Path traversal sanitization
-        safe_path = os.path.normpath(path).replace("\\", "/")
+        try:
+            requested_path = reject_control_chars(path, label="template path")
+        except ValueError as exc:
+            return path_error("nuclei_write_template", path, str(exc))
+        safe_path = os.path.normpath(requested_path).replace("\\", "/")
         # Remove leading slashes
         safe_path = safe_path.lstrip("/")
-        if ".." in safe_path:
+        if (
+            not safe_path
+            or safe_path == "."
+            or any(part in {"", ".", ".."} for part in safe_path.split("/"))
+            or not re.fullmatch(r"[A-Za-z0-9_./-]+", safe_path)
+        ):
             return path_error(
                 "nuclei_write_template",
                 path,
-                f"Path traversal detected in template path: {path}",
+                "Template path must use safe relative filename segments.",
                 examples="nuclei_write_template(path='custom/check.yaml', content='id: custom-check\\ninfo: ...')",
             )
 

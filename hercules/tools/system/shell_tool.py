@@ -14,7 +14,9 @@ import uuid
 from typing import TYPE_CHECKING
 
 from fastmcp import Context
+
 from hercules.core.guidance import TOOL_DESCRIPTIONS
+from hercules.core.security import redact_secrets, safe_filename
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -33,7 +35,7 @@ def _usage_warnings(command: str) -> list[str]:
     return warnings
 
 
-def register_shell_tools(mcp: "FastMCP") -> None:
+def register_shell_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["shell_exec"])
     async def shell_exec(command: str, timeout: int = 60, raw: bool = False, ctx: Context = None) -> dict:
@@ -53,18 +55,36 @@ def register_shell_tools(mcp: "FastMCP") -> None:
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
 
-        # WARN-level audit log for every shell command
-        logger.warning("shell_exec invoked: %s", command)
+        if not 1 <= int(timeout) <= 3600:
+            return {
+                "tool": "shell_exec",
+                "status": "invalid_parameter",
+                "error": "timeout must be between 1 and 3600 seconds",
+            }
+
+        # WARN-level audit log for every shell command, with common secrets hidden.
+        logger.warning("shell_exec invoked: %s", redact_secrets(command))
 
         async with concurrency.acquire_light("shell_exec"):
             # Write to a per-call temp script to safely handle complex quotes/newlines.
-            script_path = f"/opt/workspace/tmp_shell_{uuid.uuid4().hex}.sh"
+            script_path = f"/opt/workspace/tmp/shell_{uuid.uuid4().hex}.sh"
             await docker.write_file(script_path, command, mode=0o755)
-            result = await docker.exec_command(
-                f"bash {script_path}; rc=$?; rm -f {script_path}; exit $rc",
-                timeout=timeout,
-                clean_output=not raw,
-            )
+            try:
+                result = await docker.exec_command(
+                    f"bash {script_path}",
+                    timeout=timeout,
+                    clean_output=not raw,
+                )
+            finally:
+                try:
+                    await docker.exec_command(
+                        f"rm -f -- {script_path}",
+                        timeout=15,
+                        clean_output=False,
+                        require_ready=False,
+                    )
+                except Exception:
+                    logger.warning("Failed to remove shell temp script: %s", script_path)
 
         response = {"tool": "shell_exec", **result.to_dict()}
         warnings = _usage_warnings(command)
@@ -76,9 +96,29 @@ def register_shell_tools(mcp: "FastMCP") -> None:
     async def shell_exec_background(command: str, job_id: str, ctx: Context = None) -> dict:
         """Run a long shell command in the background, returning a job_id."""
         docker = ctx.lifespan_context["docker"]
-        logger.warning("shell_exec_background invoked: %s (job_id: %s)", command, job_id)
+        try:
+            job_id = safe_filename(job_id, label="job_id", maximum=64)
+        except ValueError as exc:
+            return {
+                "tool": "shell_exec_background",
+                "status": "invalid_parameter",
+                "error": str(exc),
+            }
+        logger.warning(
+            "shell_exec_background invoked: %s (job_id: %s)",
+            redact_secrets(command),
+            job_id,
+        )
         
-        assigned_id = await docker.exec_background(command, job_id)
+        try:
+            assigned_id = await docker.exec_background(command, job_id)
+        except (RuntimeError, ValueError) as exc:
+            return {
+                "tool": "shell_exec_background",
+                "job_id": job_id,
+                "status": "conflict" if "active" in str(exc).lower() else "error",
+                "error": str(exc),
+            }
         return {
             "tool": "shell_exec_background",
             "job_id": assigned_id,
@@ -89,6 +129,14 @@ def register_shell_tools(mcp: "FastMCP") -> None:
     async def shell_check_job(job_id: str, tail_lines: int = 50, ctx: Context = None) -> dict:
         """Check the status and read live output of a background shell job. Use tail_lines to control how many lines to retrieve."""
         docker = ctx.lifespan_context["docker"]
+        try:
+            job_id = safe_filename(job_id, label="job_id", maximum=64)
+        except ValueError as exc:
+            return {
+                "tool": "shell_check_job",
+                "status": "invalid_parameter",
+                "error": str(exc),
+            }
         result = await docker.check_job(job_id, tail_lines=tail_lines)
         return {"tool": "shell_check_job", **result}
         
@@ -96,9 +144,21 @@ def register_shell_tools(mcp: "FastMCP") -> None:
     async def shell_kill_job(job_id: str, ctx: Context = None) -> dict:
         """Kill a running background shell job (useful for stuck commands)."""
         docker = ctx.lifespan_context["docker"]
-        killed = await docker.kill_job(job_id)
+        try:
+            job_id = safe_filename(job_id, label="job_id", maximum=64)
+        except ValueError as exc:
+            return {
+                "tool": "shell_kill_job",
+                "status": "invalid_parameter",
+                "error": str(exc),
+            }
+        termination = (
+            await docker.terminate_job(job_id)
+            if hasattr(docker, "terminate_job")
+            else {"killed": await docker.kill_job(job_id)}
+        )
         return {
             "tool": "shell_kill_job",
             "job_id": job_id,
-            "killed": killed
+            **termination,
         }

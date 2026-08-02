@@ -5,6 +5,19 @@ validate, debug, and run custom Nuclei templates through Hercules. Use it before
 generating content for `nuclei_write_template`, and keep it open while choosing
 `nuclei_run` parameters.
 
+## Contents
+
+- [Hercules workflow](#hercules-workflow)
+- [Template decision tree](#template-decision-tree)
+- [Required shape and metadata](#required-template-shape)
+- [HTTP, matchers, and extractors](#http-request-patterns)
+- [DSL, payloads, fuzzing, and flow](#dsl-notes)
+- [OOB and headless patterns](#oob-and-interactsh)
+- [Network and executable protocols](#network-dns-ssl-and-websocket-patterns)
+- [Race, timing, and template skeletons](#race-and-timing-patterns)
+- [Validation and failure fixes](#validation-loop)
+- [Hercules examples](#hercules-examples)
+
 ## Hercules Workflow
 
 1. Define the detection goal and strongest observable evidence.

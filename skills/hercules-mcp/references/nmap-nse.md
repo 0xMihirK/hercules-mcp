@@ -5,6 +5,19 @@ validate, debug, and run custom Nmap Scripting Engine scripts through Hercules.
 Use it before generating content for `nmap_write_nse_script`, and keep it open
 while choosing `nmap_run_nse_script` parameters.
 
+## Contents
+
+- [Hercules workflow](#hercules-workflow)
+- [NSE mental model](#nse-mental-model)
+- [Required script shape](#required-script-shape)
+- [Lua and NSE discipline](#lua-and-nse-discipline)
+- [Rule, output, and library selection](#rule-selection-patterns)
+- [Vulnerability and credential patterns](#vulnerability-reporting-with-vulns)
+- [Performance and skeletons](#performance-and-concurrency)
+- [Agent decision tree](#agent-decision-tree)
+- [Validation and failure fixes](#validation-loop)
+- [Hercules examples](#hercules-examples)
+
 ## Hercules Workflow
 
 1. Define the target condition and expected evidence.
@@ -17,9 +30,10 @@ while choosing `nmap_run_nse_script` parameters.
 7. For debugging, add `-d`, `-v`, `--script-trace`, `--packet-trace`, or
    `--reason` in `extra_args`.
 
-Hercules stores custom scripts under Nmap's custom script directory and runs
-`nmap --script-updatedb` after writing them. The script name passed to
-`nmap_run_nse_script` is sanitized and executed as `custom/<name>.nse`.
+Hercules stores custom scripts under the managed workspace at
+`/opt/workspace/nmap-scripts/<name>.nse`. The script name passed to
+`nmap_run_nse_script` is sanitized and the explicit workspace artifact is run;
+the global Nmap script database is not modified.
 
 ## NSE Mental Model
 
@@ -552,7 +566,7 @@ After writing:
    `nmap_run_nse_script(target, script_name, extra_args="-p 8080 -d")`.
 2. If there is no output, add `--script-trace` and check rule targeting.
 3. If the script is not found, write it again and confirm the returned
-   `script_db_updated` field from `nmap_write_nse_script`.
+   `script_ready` field and `script_path` from `nmap_write_nse_script`.
 4. If XML parsing fails in Hercules output, inspect raw stdout via tool output
    and simplify returned table keys.
 5. If sockets hang, add or lower `socket:set_timeout`.
