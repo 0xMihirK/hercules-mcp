@@ -1,0 +1,20 @@
+{
+  "name": "hercules-mcp",
+  "displayName": "Hercules MCP",
+  "version": "0.1.0",
+  "description": "Route authorized security workflows through the local Hercules MCP server.",
+  "author": {
+    "name": "0xMihirK",
+    "url": "https://github.com/0xMihirK"
+  },
+  "homepage": "https://github.com/0xMihirK/hercules-mcp",
+  "repository": "https://github.com/0xMihirK/hercules-mcp",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "security",
+    "kali",
+    "nmap",
+    "nuclei"
+  ]
+}

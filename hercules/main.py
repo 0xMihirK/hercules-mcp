@@ -9,6 +9,8 @@ modules and post-exploitation resources.
 from __future__ import annotations
 
 import asyncio
+import importlib
+import json
 import logging
 import logging.handlers
 import sys
@@ -20,27 +22,11 @@ from fastmcp.server.lifespan import lifespan
 from hercules.core.concurrency import ConcurrencyManager
 from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager
+from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirewall
 from hercules.core.guidance import SERVER_INSTRUCTIONS
 from hercules.core.instance_lock import HerculesInstanceLock, InstanceLockError
-from hercules.core.tool_catalog import CORE_TOOLS
-
-# Tool registrations
-from hercules.tools.network.nmap_tool import register_nmap_tools
-from hercules.tools.exploitation.metasploit_tool import register_metasploit_tools
-from hercules.tools.exploitation.sqlmap_tool import register_sqlmap_tools
-from hercules.tools.web.nuclei_tool import register_nuclei_tools
-from hercules.tools.exploitation.searchsploit_tool import register_searchsploit_tools
-from hercules.tools.system.shell_tool import register_shell_tools
-from hercules.tools.system.file_tool import register_file_tools
-from hercules.tools.system.system_tool import register_system_tools
-
-# New grouped categories
-from hercules.tools.recon.recon_tool import register_recon_tools
-from hercules.tools.web.web_scanner_tool import register_web_scanner_tools
-from hercules.tools.network.network_tool import register_network_tools
-from hercules.tools.cracking.cracking_tool import register_cracking_tools
-from hercules.tools.ctf.ctf_tool import register_ctf_tools
-from hercules.tools.browser.browser_tool import register_browser_tools
+from hercules.core.runtime import RuntimeServices
+from hercules.core.tool_catalog import CORE_TOOLS, TOOL_REGISTRARS
 
 # Resource registrations
 from hercules.resources.agent_skills import register_agent_skill_resources
@@ -54,6 +40,11 @@ from hercules.resources.post_exploitation import register_post_exploitation_reso
 # changes only on a deliberate rotation (system_start_new_session), not on
 # recovery (recovery preserves the session id).
 _LOG_SESSION = {"id": "-"}
+
+
+def set_log_session_id(session_id: str) -> None:
+    """Update the session tag injected into subsequent log records."""
+    _LOG_SESSION["id"] = session_id
 
 _LOG_FORMAT = "%(asctime)s [%(session_id)s] [%(name)s] %(levelname)s: %(message)s"
 _LOG_DATEFMT = "%Y-%m-%d %H:%M:%S"
@@ -82,11 +73,11 @@ def _configure_stderr_logging() -> None:
     root.addHandler(handler)
 
 
-def _add_file_logging(project_root: Path, session_id: str) -> None:
+def _add_file_logging(workspace_root: Path, session_id: str) -> None:
     """Attach a rotating file handler on the HOST workspace (survives container
     kills) so a mid-session crash leaves a durable post-mortem log. Idempotent."""
-    _LOG_SESSION["id"] = session_id
-    log_path = project_root / "workspace" / "hercules.log"
+    set_log_session_id(session_id)
+    log_path = workspace_root / "hercules.log"
     try:
         log_path.parent.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -114,7 +105,7 @@ logger = logging.getLogger("hercules")
 
 class _RegistrationFilter:
     """Thin proxy around the FastMCP server that lets the operator opt out of
-    individual MCP tools (set via the setup TUI / ``HERCULES_DISABLED_TOOLS``).
+    individual installed MCP tools (set via ``HERCULES_DISABLED_TOOLS``).
 
     A disabled tool simply isn't registered, so its name/description/schema never
     enters the model's context — that is the token saving. The binary is still in
@@ -124,7 +115,7 @@ class _RegistrationFilter:
     resources, and the request-handler patch below all see the genuine FastMCP.
     """
 
-    def __init__(self, mcp, disabled: "frozenset[str] | set[str]"):
+    def __init__(self, mcp, disabled: frozenset[str] | set[str]):
         self._mcp = mcp
         self._disabled = {d for d in disabled if d not in CORE_TOOLS}
         self.skipped: list[str] = []
@@ -208,7 +199,7 @@ async def docker_lifespan(server):
     docker_mgr = DockerManager(config)
 
     # Durable, host-side, session-tagged log for post-mortem of mid-session crashes.
-    _add_file_logging(config.project_root, docker_mgr.session_id)
+    _add_file_logging(config.resolved_workspace_root, docker_mgr.session_id)
 
     logger.info("=== Hercules starting ===")
     logger.info("Session ID: %s", docker_mgr.session_id)
@@ -217,10 +208,17 @@ async def docker_lifespan(server):
 
     try:
         await docker_mgr.start_container()
-    except Exception:
-        instance_lock.release()
+        # Do not publish an MCP session backed by a half-started container.
+        # Readiness failures include recent entrypoint logs and are fatal here.
+        await docker_mgr.ensure_ready()
+    except BaseException:
+        docker_mgr.begin_shutdown()
+        try:
+            await docker_mgr.stop_container()
+        finally:
+            instance_lock.release()
         raise
-    logger.info("Workspace: workspace/%s/", docker_mgr.session_id)
+    logger.info("Workspace: %s", docker_mgr.workspace_path)
 
     # Connect to msfrpcd in the background if Metasploit is enabled.
     msf_state = {
@@ -238,6 +236,23 @@ async def docker_lifespan(server):
         "msf_status": msf_state["status"],
         "msf_error": "",
     }
+    services = RuntimeServices(
+        config=config,
+        docker=docker_mgr,
+        workspace=docker_mgr.workspace_manager,
+        msf_state=msf_state,
+        legacy_context=lifespan_context,
+    )
+    from hercules.tools.browser.browser_tool import reset_browser_runtime_state
+    from hercules.tools.exploitation.metasploit_tool import (
+        reset_metasploit_runtime_state,
+    )
+
+    services.register_generation_resetter(reset_browser_runtime_state)
+    services.register_generation_resetter(reset_metasploit_runtime_state)
+    services.register_session_callback(set_log_session_id)
+    docker_mgr.register_generation_callback(services.on_generation_change)
+    lifespan_context["services"] = services
     if not config.skip_metasploit:
         try:
             task = asyncio.create_task(_connect_metasploit_background(lifespan_context))
@@ -259,7 +274,7 @@ async def docker_lifespan(server):
             # Signal teardown so the watchdog/recovery never resurrect a
             # container we are deliberately removing, and cancel the watchdog
             # BEFORE stopping the container.
-            docker_mgr._shutting_down = True
+            docker_mgr.begin_shutdown()
             wtask = lifespan_context.get("watchdog_task")
             if wtask is not None and not wtask.done():
                 wtask.cancel()
@@ -306,37 +321,25 @@ mcp = FastMCP(
     lifespan=docker_lifespan | concurrency_lifespan,
 )
 
-# Register all tools. Operator opt-outs (HERCULES_DISABLED_TOOLS, set via the
-# setup TUI) are honored by the registration filter: a disabled tool is not
-# registered, so its schema/description never costs context tokens — but its
-# binary remains in the image and stays reachable via shell_exec.
+# Register tools installed in the confirmed capability profile, minus any
+# independently hidden HERCULES_DISABLED_TOOLS entries. Core tools are fixed.
 config = HerculesConfig.from_env()
 _reg = _RegistrationFilter(mcp, config.disabled_tools)
 
-register_nmap_tools(_reg)
-if not config.skip_metasploit:
-    register_metasploit_tools(_reg)
-else:
-    logger.info("SKIP_METASPLOIT=true: Metasploit tools will not be registered.")
-
-register_sqlmap_tools(_reg)
-register_nuclei_tools(_reg)
-register_searchsploit_tools(_reg)
-register_shell_tools(_reg)
-register_file_tools(_reg)
-register_system_tools(_reg)
-
-# New categorized tools
-register_recon_tools(_reg)
-register_web_scanner_tools(_reg)
-register_network_tools(_reg)
-register_cracking_tools(_reg)
-register_ctf_tools(_reg)
-register_browser_tools(_reg)
+for registrar in TOOL_REGISTRARS:
+    if registrar.metasploit and config.skip_metasploit:
+        logger.info(
+            "SKIP_METASPLOIT=true: Metasploit tools will not be registered."
+        )
+        continue
+    module_name, function_name = registrar.path.split(":", 1)
+    module = importlib.import_module(module_name)
+    register = getattr(module, function_name)
+    register(_reg)
 
 if _reg.skipped:
     logger.info(
-        "Operator-disabled tools (not registered; still reachable via shell_exec): %s",
+        "Uninstalled or operator-hidden tools (not registered): %s",
         ", ".join(sorted(set(_reg.skipped))),
     )
 
@@ -345,53 +348,40 @@ register_agent_skill_resources(mcp)
 register_post_exploitation_resources(mcp)
 
 # ---------------------------------------------------------------------------
-# Universal Parameter Leakage Interceptor
-# ---------------------------------------------------------------------------
-from mcp.types import CallToolRequest
-
-original_call_tool_handler = mcp._mcp_server.request_handlers.get(CallToolRequest)
-if original_call_tool_handler:
-    async def patched_call_tool(request: CallToolRequest, *args, **kwargs):
-        tool_name = request.params.name
-        tool_args = request.params.arguments or {}
-        
-        try:
-            tool = await mcp.get_tool(tool_name)
-            if tool:
-                expected_keys = tool.parameters.get("properties", {}).keys()
-                stripped_args = {k: v for k, v in tool_args.items() if k in expected_keys}
-                
-                dropped = set(tool_args.keys()) - set(stripped_args.keys())
-                if dropped:
-                    logger.debug("Stripped unknown injected parameters from '%s': %s", tool_name, dropped)
-                    
-                request.params.arguments = stripped_args
-        except Exception as exc:
-            logger.debug("Interceptor failed to process tool '%s': %s", tool_name, exc)
-            
-        return await original_call_tool_handler(request, *args, **kwargs)
-
-    mcp._mcp_server.request_handlers[CallToolRequest] = patched_call_tool
-
-# ---------------------------------------------------------------------------
 # Universal Tool Exception Firewall
 # Converts any uncaught tool exception into a structured, agent-repairable
 # ToolResult so a single tool failure can never crash or wedge the session.
 # Complements the parameter interceptor above (different layer).
 # ---------------------------------------------------------------------------
-from hercules.core.firewall import ToolExceptionFirewall
-
+mcp.add_middleware(ParameterFilterMiddleware())
 mcp.add_middleware(ToolExceptionFirewall())
 
-logger.info("Hercules MCP server configured with all tools and resources.")
+logger.info("Hercules MCP server configured with the selected tools and resources.")
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
+async def _installation_probe() -> dict[str, object]:
+    """Inspect the installed FastMCP surface without entering its Docker lifespan."""
+    tools = await mcp.list_tools(run_middleware=False)
+    resources = await mcp.list_resources(run_middleware=False)
+    return {
+        "tools": len(tools),
+        "resources": len(resources),
+        "metasploit_enabled": not config.skip_metasploit,
+        "installed_capabilities": sorted(config.installed_capabilities),
+        "operator_disabled_tools": sorted(config.operator_disabled_tools),
+        "unavailable_or_hidden_tools": sorted(set(_reg.skipped)),
+    }
+
+
 def main():
     """Run the Hercules MCP server."""
+    if "--validate-install-json" in sys.argv[1:]:
+        print(json.dumps(asyncio.run(_installation_probe()), sort_keys=True))
+        return
     mcp.run()
 
 

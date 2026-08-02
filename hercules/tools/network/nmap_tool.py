@@ -5,16 +5,20 @@ Nmap scanning tools for Hercules MCP server.
 from __future__ import annotations
 
 import logging
-import xml.etree.ElementTree as ET
-from typing import TYPE_CHECKING, Literal
+import re
+import shlex
+from typing import TYPE_CHECKING, Any, Literal
 
+from defusedxml.ElementTree import fromstring as safe_xml_fromstring
 from fastmcp import Context
+
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     missing_param_error,
     selector_error,
     target_error,
 )
+from hercules.core.security import safe_filename, validate_target_async
 from hercules.output.truncator import truncate_output
 
 if TYPE_CHECKING:
@@ -23,7 +27,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.nmap")
 
 
-def register_nmap_tools(mcp: "FastMCP") -> None:
+def register_nmap_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["nmap_scan"])
     async def nmap_scan(
@@ -51,11 +55,11 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
                     examples="nmap_scan(mode='quick', target='scanme.nmap.org')",
                 )
             try:
-                config.validate_target(target)
+                await validate_target_async(config, target)
             except ValueError as exc:
                 return target_error("nmap_scan", target, exc, config)
             async with concurrency.acquire_light("nmap_quick_scan"):
-                cmd = f"nmap -T4 -F {extra_args} -oX - {_sanitize(target)}"
+                cmd = f"nmap -T4 -F {extra_args} -oX - {shlex.quote(target)}"
                 result = await docker.exec_command(
                     cmd.strip(),
                     timeout=120,
@@ -73,11 +77,11 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
                     examples="nmap_scan(mode='aggressive', target='scanme.nmap.org')",
                 )
             try:
-                config.validate_target(target)
+                await validate_target_async(config, target)
             except ValueError as exc:
                 return target_error("nmap_scan", target, exc, config)
             async with concurrency.acquire_heavy("nmap_aggressive_scan"):
-                cmd = f"nmap -T4 -A -v {extra_args} -oX - {_sanitize(target)}"
+                cmd = f"nmap -T4 -A -v {extra_args} -oX - {shlex.quote(target)}"
                 result = await docker.exec_command(
                     cmd.strip(),
                     timeout=600,
@@ -102,11 +106,18 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
                     examples="nmap_scan(mode='port', target='host', ports='22,80')",
                 )
             try:
-                config.validate_target(target)
+                await validate_target_async(config, target)
             except ValueError as exc:
                 return target_error("nmap_scan", target, exc, config)
+            if not re.fullmatch(r"[0-9,\-:TUtu]+", ports):
+                return {
+                    "tool": "nmap_scan",
+                    "status": "invalid_parameter",
+                    "parameter": "ports",
+                    "error": "ports contains unsupported characters",
+                }
             async with concurrency.acquire_light("nmap_port_scan"):
-                cmd = f"nmap -p {_sanitize(ports)} {extra_args} -oX - {_sanitize(target)}"
+                cmd = f"nmap -p {shlex.quote(ports)} {extra_args} -oX - {shlex.quote(target)}"
                 result = await docker.exec_command(
                     cmd.strip(),
                     timeout=300,
@@ -131,11 +142,21 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
                     examples="nmap_scan(mode='script', target='host', scripts='vuln')",
                 )
             try:
-                config.validate_target(target)
+                await validate_target_async(config, target)
             except ValueError as exc:
                 return target_error("nmap_scan", target, exc, config)
+            if not re.fullmatch(r"[A-Za-z0-9_.,*+\-]+", scripts):
+                return {
+                    "tool": "nmap_scan",
+                    "status": "invalid_parameter",
+                    "parameter": "scripts",
+                    "error": "scripts contains unsupported characters",
+                }
             timeout_arg = "" if "--script-timeout" in extra_args else "--script-timeout 60s"
-            cmd = f"nmap --script {_sanitize(scripts)} {timeout_arg} {extra_args} -oX - {_sanitize(target)}"
+            cmd = (
+                f"nmap --script {shlex.quote(scripts)} {timeout_arg} {extra_args} "
+                f"-oX - {shlex.quote(target)}"
+            )
             async with concurrency.acquire_light("nmap_script_scan"):
                 result = await docker.exec_command(
                     cmd.strip(),
@@ -174,16 +195,25 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
     async def nmap_write_nse_script(name: str, content: str, ctx: Context) -> dict:
         """Write custom NSE script and update DB."""
         docker = ctx.lifespan_context["docker"]
-        safe_name = name.replace("/", "").replace("..", "").replace("\\", "")
-        container_path = f"/usr/share/nmap/scripts/custom/{safe_name}.nse"
-
+        try:
+            safe_name = safe_filename(name, label="NSE script name", maximum=80)
+        except ValueError as exc:
+            return {
+                "tool": "nmap_write_nse_script",
+                "status": "invalid_parameter",
+                "parameter": "name",
+                "error": str(exc),
+            }
+        container_path = f"/opt/workspace/nmap-scripts/{safe_name}.nse"
         await docker.write_file(container_path, content)
-        update_result = await docker.exec_command("nmap --script-updatedb", timeout=60)
 
         return {
             "tool": "nmap_write_nse_script",
             "script_path": container_path,
-            "script_db_updated": update_result.exit_code == 0,
+            "script_db_updated": False,
+            "script_db_update_required": False,
+            "script_ready": True,
+            "storage": "managed_workspace",
         }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["nmap_run_nse_script"])
@@ -194,12 +224,36 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(target)
+            await validate_target_async(config, target)
         except ValueError as exc:
             return target_error("nmap_run_nse_script", target, exc, config)
 
-        safe_name = script_name.replace("/", "").replace("..", "").replace("\\", "")
-        cmd = f"nmap --script custom/{safe_name}.nse {extra_args} -oX - {_sanitize(target)}"
+        try:
+            safe_name = safe_filename(
+                script_name, label="NSE script name", maximum=80
+            )
+        except ValueError as exc:
+            return {
+                "tool": "nmap_run_nse_script",
+                "status": "invalid_parameter",
+                "parameter": "script_name",
+                "error": str(exc),
+            }
+        script_path = f"/opt/workspace/nmap-scripts/{safe_name}.nse"
+        try:
+            await docker.validate_workspace_file(script_path)
+        except (FileNotFoundError, ValueError) as exc:
+            return {
+                "tool": "nmap_run_nse_script",
+                "status": "invalid_parameter",
+                "parameter": "script_name",
+                "error": f"custom NSE script is unavailable: {exc}",
+                "script_path": script_path,
+            }
+        cmd = (
+            f"nmap --script {shlex.quote(script_path)} {extra_args} "
+            f"-oX - {shlex.quote(target)}"
+        )
 
         async with concurrency.acquire_light("nmap_run_nse_script"):
             result = await docker.exec_command(
@@ -209,13 +263,13 @@ def register_nmap_tools(mcp: "FastMCP") -> None:
                 preserve_raw=True,
             )
 
-        return {"tool": "nmap_run_nse_script", "target": target, "script": safe_name, **_format_result(result)}
-
-
-def _sanitize(value: str) -> str:
-    forbidden = set(";|&$`(){}[]!><\n\r")
-    return "".join(c for c in value if c not in forbidden)
-
+        return {
+            "tool": "nmap_run_nse_script",
+            "target": target,
+            "script": safe_name,
+            "script_path": script_path,
+            **_format_result(result),
+        }
 
 def _format_result(result) -> dict:
     base = result.to_dict()
@@ -224,7 +278,9 @@ def _format_result(result) -> dict:
             base["parsed"] = _parse_nmap_xml(result.stdout)
             # Remove raw XML output to save tokens when parsed successfully
             base.pop("stdout", None)
-            base.pop("stderr", None)
+            base["inline_stdout_chars"] = 0
+            base["structured_output"] = True
+            base["stdout_replaced_by"] = "parsed"
         except Exception as exc:
             base["xml_parse_error"] = str(exc)
     elif result.exit_code == 0 and len(base.get("stdout", "")) > 8000:
@@ -240,7 +296,7 @@ def _format_result(result) -> dict:
 
 
 def _parse_nmap_xml(xml_str: str) -> dict:
-    root = ET.fromstring(xml_str)
+    root = safe_xml_fromstring(xml_str)
     hosts = []
     for host_el in root.findall("host"):
         host_info: dict = {}
@@ -259,7 +315,8 @@ def _parse_nmap_xml(xml_str: str) -> dict:
             for port_el in ports_el.findall("port"):
                 port_info = {"portid": port_el.get("portid"), "protocol": port_el.get("protocol")}
                 state_el = port_el.find("state")
-                if state_el is not None: port_info["state"] = state_el.get("state")
+                if state_el is not None:
+                    port_info["state"] = state_el.get("state")
                 service_el = port_el.find("service")
                 if service_el is not None:
                     port_info["service"] = {
@@ -290,7 +347,7 @@ def _parse_nmap_xml(xml_str: str) -> dict:
     }
 
 
-def _parse_script_el(script_el: ET.Element) -> dict:
+def _parse_script_el(script_el: Any) -> dict:
     script: dict = {
         "id": script_el.get("id"),
         "output": script_el.get("output", ""),
@@ -304,7 +361,7 @@ def _parse_script_el(script_el: ET.Element) -> dict:
     return script
 
 
-def _parse_table_el(table_el: ET.Element) -> dict:
+def _parse_table_el(table_el: Any) -> dict:
     table: dict = {}
     key = table_el.get("key")
     if key:
@@ -318,7 +375,7 @@ def _parse_table_el(table_el: ET.Element) -> dict:
     return table
 
 
-def _parse_elem_el(elem_el: ET.Element) -> dict:
+def _parse_elem_el(elem_el: Any) -> dict:
     elem = {"value": elem_el.text or ""}
     key = elem_el.get("key")
     if key:

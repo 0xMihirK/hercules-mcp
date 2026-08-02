@@ -13,9 +13,8 @@ import os
 import platform
 import subprocess
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-
 
 _HELD_LOCKS: set[str] = set()
 
@@ -97,7 +96,7 @@ class HerculesInstanceLock:
             "pid": os.getpid(),
             "project_root": str(self.project_root),
             "command": " ".join(sys.argv),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
         }
         self._file.seek(0)
         self._file.truncate()

@@ -1,16 +1,17 @@
-"""
-Per-tool output filters for high-noise tools.
-
-The filters in this module are intentionally explicit. They remove known
-banner, progress, and legal boilerplate while keeping findings, payloads,
-credentials, target metadata, and no-finding messages.
-"""
+"""Conservative, evidence-first compaction for characterized scanner noise."""
 
 from __future__ import annotations
 
 import re
+from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Dict
+
+FILTER_VERSION = 2
+_DIAGNOSTIC_RE = re.compile(
+    r"(?i)(?:^|\W)(?:warn(?:ing)?|err(?:or)?|critical|fatal|failed|failure|"
+    r"timeout|incomplete|denied|locked|rate.?limit|traceback|exception)(?:\W|$)"
+)
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,10 @@ class FilteredOutput:
     text: str
     changed: bool
     note: str = ""
+    removed_lines: int = 0
+    removed_chars: int = 0
+    version: int = FILTER_VERSION
+    semantic: bool = True
 
 
 def _lines(text: str) -> list[str]:
@@ -25,119 +30,114 @@ def _lines(text: str) -> list[str]:
 
 
 def _join_kept(original: str, kept: list[str]) -> str:
+    if kept == original.splitlines():
+        return original
     if not kept and original.strip():
         return original
-    return "\n".join(kept).strip()
+    joined = "\n".join(kept)
+    if original.endswith(("\n", "\r")) and joined:
+        joined += "\n"
+    return joined
 
 
 def _filter_by_line(text: str, predicate: Callable[[str], bool]) -> str:
-    return _join_kept(text, [line for line in _lines(text) if predicate(line)])
+    kept = [line for line in _lines(text) if predicate(line)]
+    return _join_kept(text, kept)
+
+
+def _diagnostic(line: str) -> bool:
+    return bool(_DIAGNOSTIC_RE.search(line))
 
 
 def filter_hydra(output: str) -> str:
-    """Keep successful credentials and the summary."""
-    kept = []
-    for line in _lines(output):
-        if re.search(r"\[\d+\]\[", line) and ("login:" in line or "host:" in line):
-            kept.append(line)
-        elif "successfully completed" in line.lower():
-            kept.append(line)
-        elif "valid password" in line.lower():
-            kept.append(line)
-    return _join_kept(output, kept)
+    """Remove only Hydra banner/attempt progress; keep all result semantics."""
+    noisy = (
+        re.compile(r"^Hydra v[\d.]+\s+starting\b", re.IGNORECASE),
+        re.compile(r"^Hydra \(.+thc\.org", re.IGNORECASE),
+        re.compile(r"^\[DATA\]\s+(?:max \d+ tasks|attacking )", re.IGNORECASE),
+        re.compile(r"^\[ATTEMPT\]\s+target ", re.IGNORECASE),
+    )
+    return _filter_by_line(
+        output,
+        lambda line: bool(line.strip())
+        and (_diagnostic(line) or not any(pattern.search(line.strip()) for pattern in noisy)),
+    )
 
 
 def filter_john(output: str) -> str:
-    """Keep cracked hash lines and the summary."""
-    kept = []
-    for line in _lines(output):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith(("Using ", "Loaded ", "Press ", "Warning:")):
-            continue
-        if stripped.startswith(("Proceeding ", "Cost ", "Will run ", "Created directory:")):
-            continue
-        if "cracked" in stripped.lower() or "guesses" in stripped.lower():
-            kept.append(line)
-        elif ":" in stripped and not stripped.startswith("Note:"):
-            kept.append(line)
-        elif stripped.startswith("Session completed"):
-            kept.append(line)
-    return _join_kept(output, kept)
+    """Drop only characterized startup/progress chatter."""
+    noisy_prefixes = (
+        "Using default input encoding:",
+        "Press 'q' or Ctrl-C",
+        "Proceeding with ",
+        "Will run ",
+        "Created directory:",
+    )
+    return _filter_by_line(
+        output,
+        lambda line: bool(line.strip())
+        and (_diagnostic(line) or not line.strip().startswith(noisy_prefixes)),
+    )
 
 
 def filter_amass(output: str) -> str:
-    """Keep discovered domain/IP lines, drop status messages."""
+    """Drop informational progress while preserving discoveries and diagnostics."""
     def keep(line: str) -> bool:
         stripped = line.strip()
         if not stripped:
             return False
-        if stripped.startswith("[") or stripped.startswith("Querying"):
+        if _diagnostic(stripped):
+            return True
+        if stripped.startswith(("[INF]", "[DBG]", "Querying")):
             return False
-        if "OWASP" in stripped or "Copyright" in stripped:
+        if "OWASP Amass" in stripped or stripped.startswith("Copyright "):
             return False
-        if stripped.startswith("Discoveries are being"):
-            return False
-        return True
+        return not stripped.startswith("Discoveries are being")
 
     return _filter_by_line(output, keep)
 
 
 def filter_wafw00f(output: str) -> str:
-    """Remove WAFW00F art while keeping detection results."""
-    art_words = (
-        "W00f!", "Hack Not Found", "Not Allowed", "Forbidden",
-        "Bad Gateway", "Internal Error", "WAFW00F", "Web Application Firewall",
-    )
+    """Remove only WAFW00F art; HTTP status and detection evidence stay."""
+    banner_words = ("W00f!", "WAFW00F :", "The Web Application Firewall")
 
     def keep(line: str) -> bool:
         stripped = line.strip()
         if not stripped:
             return False
-        if any(word in stripped for word in art_words):
+        if any(word in stripped for word in banner_words):
             return False
-        if re.fullmatch(r"[\\/\-|_`'\".,()*=~\s]+", stripped):
-            return False
-        return True
+        return not bool(re.fullmatch(r"[\\/\-|_`'\".,()*=~\s]+", stripped))
 
     return _filter_by_line(output, keep)
 
 
 def filter_nikto(output: str) -> str:
-    """Drop separators/update noise while keeping Nikto target data and findings."""
+    """Drop separators/update timestamps while keeping target data and findings."""
     def keep(line: str) -> bool:
         stripped = line.strip()
         if not stripped:
             return False
+        if _diagnostic(stripped):
+            return True
         if re.fullmatch(r"-{20,}", stripped):
             return False
-        if "Failed to check for updates" in stripped:
-            return False
-        if stripped.startswith("+ Start Time:") or stripped.startswith("+ End Time:"):
-            return False
-        return True
+        return not stripped.startswith(("+ Start Time:", "+ End Time:"))
 
     return _filter_by_line(output, keep)
 
 
 def filter_wpscan(output: str) -> str:
-    """Remove WPScan update chatter while preserving scan results."""
-    skip_prefixes = (
-        "[i] Updating the Database",
-        "[i] Update completed",
-        "[i] No WPScan API Token",
+    """Remove update chatter while retaining capability/completeness warnings."""
+    skip_prefixes = ("[i] Updating the Database", "[i] Update completed")
+    return _filter_by_line(
+        output,
+        lambda line: bool(line.strip()) and not line.strip().startswith(skip_prefixes),
     )
-
-    def keep(line: str) -> bool:
-        stripped = line.strip()
-        return bool(stripped) and not stripped.startswith(skip_prefixes)
-
-    return _filter_by_line(output, keep)
 
 
 def filter_nuclei(output: str) -> str:
-    """Remove Nuclei banner/version chatter while preserving warnings/errors/results."""
+    """Remove artwork/version ads; keep counts, duration, warnings, and results."""
     banner_fragments = (
         "projectdiscovery.io",
         "____  __  _______",
@@ -145,9 +145,6 @@ def filter_nuclei(output: str) -> str:
         "Current nuclei version",
         "Current nuclei-templates version",
         "New templates added",
-        "Templates loaded for current scan",
-        "Targets loaded for current scan",
-        "Scan completed in",
         "Started metrics server",
     )
 
@@ -155,17 +152,17 @@ def filter_nuclei(output: str) -> str:
         stripped = line.strip()
         if not stripped:
             return False
+        if _diagnostic(stripped):
+            return True
         if any(fragment in stripped for fragment in banner_fragments):
             return False
-        if re.fullmatch(r"[_/\\() ,.-]+v?\d*(?:\.\d+)?", stripped):
-            return False
-        return True
+        return not bool(re.fullmatch(r"[_/\\() ,.-]+v?\d*(?:\.\d+)?", stripped))
 
     return _filter_by_line(output, keep)
 
 
 def filter_arjun(output: str) -> str:
-    """Remove Arjun banner and progress, keep discovered/no-parameter results."""
+    """Remove exact progress phrases; keep findings, no-result text, and errors."""
     progress = (
         "[*] Scanning ",
         "[*] Probing the target",
@@ -178,34 +175,34 @@ def filter_arjun(output: str) -> str:
         stripped = line.strip()
         if not stripped:
             return False
-        if "v2." in stripped and "/" in stripped:
-            return False
-        if re.fullmatch(r"[_/()|\\' ]+", stripped):
-            return False
+        if _diagnostic(stripped):
+            return True
         if stripped.startswith(progress):
             return False
-        return True
+        if re.fullmatch(r"/_\|\s+_\s+'\s+v\d+(?:\.\d+)+", stripped):
+            return False
+        return not bool(re.fullmatch(r"[_/()|\\' ]+", stripped))
 
     return _filter_by_line(output, keep)
 
 
 def filter_dalfox(output: str) -> str:
-    """Keep Dalfox PoCs/findings and concise no-finding status."""
+    """Remove only characterized progress meters; retain all semantic lines."""
     def keep(line: str) -> bool:
         stripped = line.strip()
         if not stripped:
             return False
-        if stripped.startswith(("[POC]", "[V]", "[R]", "[G]", "[INFO]", "[WARN]", "[ERROR]")):
+        if _diagnostic(stripped):
             return True
-        if any(token in stripped.lower() for token in ("xss", "poc", "vulnerab", "no ")):
-            return True
-        return not stripped.startswith(("[*]", "[I]", "[W]"))
+        if re.fullmatch(r"(?:\[[*I]\]\s*)?\d+%.*", stripped):
+            return False
+        return not stripped.startswith("Scanning [")
 
     return _filter_by_line(output, keep)
 
 
 def filter_commix(output: str) -> str:
-    """Strip Commix banner/legal blocks while keeping findings and command output."""
+    """Strip explicit banner/legal lines while keeping command output."""
     skip_phrases = (
         "Automated All-in-One OS Command Injection Exploitation Tool",
         "Legal disclaimer:",
@@ -220,78 +217,43 @@ def filter_commix(output: str) -> str:
         stripped = line.strip()
         if not stripped:
             return False
+        if _diagnostic(stripped):
+            return True
         if any(phrase in stripped for phrase in skip_phrases):
             return False
         if set(stripped) <= art_chars:
             return False
-        if re.search(r"\bv\d+\.\d+\b", stripped) and "___" in stripped:
-            return False
-        return True
+        return not (re.search(r"\bv\d+\.\d+\b", stripped) and "___" in stripped)
 
     return _filter_by_line(output, keep)
 
 
 def filter_sqlmap(output: str) -> str:
-    """Keep sqlmap findings, payloads, DB data, warnings, and final paths."""
-    keep_keywords = (
-        "parameter:",
-        "type:",
-        "title:",
-        "payload:",
-        "back-end dbms",
-        "web server operating system",
-        "web application technology",
-        "current database",
-        "available databases",
-        "database:",
-        "table:",
-        "columns for table",
-        "entries",
-        "dumped to csv file",
-        "fetched data logged",
-        "command standard output",
-        "os shell",
-        "is vulnerable",
-        "appears to be",
-        "identified the following injection",
-        "sqlmap resumed",
-    )
-    noisy_keywords = (
-        "testing connection",
-        "checking if the target",
-        "do you want to",
-        "using '/opt/workspace/sqlmap-results",
-        "testing url",
-        "heuristic",
-        "reflective value",
+    """Compact repetitive probe progress without allowlisting result formats."""
+    noisy_patterns = (
+        re.compile(r"(?i)\]\s+\[info\]\s+testing\s+'"),
+        re.compile(r"(?i)\]\s+\[info\]\s+testing connection\b"),
+        re.compile(r"(?i)\]\s+\[info\]\s+checking if the target\b"),
+        re.compile(r"(?i)\]\s+\[info\]\s+checking if .+ is dynamic\b"),
+        re.compile(r"(?i)\]\s+\[info\]\s+heuristic\b"),
+        re.compile(r"(?i)\]\s+\[info\]\s+testing url\b"),
     )
     kept: list[str] = []
-    post_context = 0
+    removed = 0
     for line in _lines(output):
-        stripped = line.strip()
-        lower = stripped.lower()
-        if not stripped:
+        if not line.strip():
             continue
-        if lower.startswith(("[warning]", "[error]", "[critical]")) or re.match(r"^\[\d\d:\d\d:\d\d\] \[(warning|error|critical)\]", lower):
-            kept.append(line)
+        if not _diagnostic(line) and any(pattern.search(line) for pattern in noisy_patterns):
+            removed += 1
             continue
-        if any(noise in lower for noise in noisy_keywords):
-            continue
-        if stripped.startswith(("+", "|")) or stripped.startswith("[*] "):
-            kept.append(line)
-            continue
-        if any(keyword in lower for keyword in keep_keywords):
-            kept.append(line)
-            post_context = 4 if "command standard output" in lower else 2
-            continue
-        if post_context > 0:
-            kept.append(line)
-            post_context -= 1
+        kept.append(line)
+    if removed:
+        kept.append(f"[Hercules compacted {removed} repetitive SQLMap probe lines]")
     return _join_kept(output, kept)
 
 
 def filter_whois(output: str) -> str:
-    """Remove registry terms-of-use boilerplate after preserving WHOIS fields."""
+    """Remove explicit terms-of-use prose without terminating field parsing."""
     boilerplate = (
         "For more information on Whois status codes",
         "Terms of Use:",
@@ -299,35 +261,46 @@ def filter_whois(output: str) -> str:
         "TERMS OF USE:",
         "The data in",
         "By submitting a query",
-        ">>> Last update of WHOIS database",
     )
-    kept = []
+    kept: list[str] = []
     for line in _lines(output):
         stripped = line.strip()
         if not stripped:
             continue
+        if stripped.startswith(">>> Last update of WHOIS database"):
+            kept.append(line)
+            continue
         if stripped.startswith(boilerplate):
-            if stripped.startswith(">>> Last update"):
-                kept.append(line)
-            break
+            continue
         kept.append(line)
     return _join_kept(output, kept)
 
 
 def apply_tool_filter(text: str, tool_name: str) -> FilteredOutput:
-    """Apply a registered high-noise filter and report whether it changed text."""
+    """Apply a registered high-noise filter and report exact transform stats."""
     filter_fn = TOOL_FILTERS.get(tool_name)
     if not filter_fn:
-        return FilteredOutput(text=text, changed=False)
+        return FilteredOutput(text=text, changed=False, semantic=False)
     filtered = filter_fn(text)
+    changed = filtered != text
+    original_lines = text.splitlines()
+    filtered_counts = Counter(filtered.splitlines())
+    removed: list[str] = []
+    for line in original_lines:
+        if filtered_counts[line]:
+            filtered_counts[line] -= 1
+        else:
+            removed.append(line)
     return FilteredOutput(
         text=filtered,
-        changed=filtered != text,
-        note=f"{tool_name} output compacted",
+        changed=changed,
+        note=f"{tool_name} output compacted" if changed else "",
+        removed_lines=len(removed),
+        removed_chars=sum(len(line) + 1 for line in removed),
     )
 
 
-TOOL_FILTERS: Dict[str, Callable[[str], str]] = {
+TOOL_FILTERS: dict[str, Callable[[str], str]] = {
     "arjun": filter_arjun,
     "bruteforce_hydra": filter_hydra,
     "commix": filter_commix,

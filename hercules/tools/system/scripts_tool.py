@@ -17,6 +17,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.scripts")
 
 
-def register_scripts_tools(mcp: "FastMCP") -> None:
+def register_scripts_tools(mcp: FastMCP) -> None:
     """No-op registrar kept for import compatibility."""
     logger.debug("workspace_scripts is deprecated and no longer registered.")

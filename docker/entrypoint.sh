@@ -3,37 +3,37 @@
 # Hercules Container Entrypoint
 #
 # Handles runtime setup that cannot be baked into the image:
-#   1. Extract wordlists from mounted volume (if present)
-#   2. Start PostgreSQL + msfrpcd (unless SKIP_METASPLOIT=true)
-#   3. Keep container alive
+#   1. Verify the host-prepared wordlist mounts
+#   2. Start and verify PostgreSQL + msfrpcd (unless skipped)
+#   3. Publish the readiness marker and keep the container alive
 # =============================================================================
 
 echo "[hercules] Container starting..."
 
-# ── 1. Prepare wordlists ────────────────────────────────────────────────────
-# Always decompress rockyou.txt if it's still gzipped (Kali ships it compressed)
-if [ -f /usr/share/wordlists/rockyou.txt.gz ] && [ ! -f /usr/share/wordlists/rockyou.txt ]; then
-    echo "[hercules] Decompressing rockyou.txt..."
-    gunzip -k /usr/share/wordlists/rockyou.txt.gz 2>/dev/null || true
+# ── 1. Verify prebuilt or host-prepared wordlists ───────────────────────────
+# Extraction happens once on the host. Only selected consumers require mounts.
+HERCULES_INSTALLED_CAPABILITIES="${HERCULES_INSTALLED_CAPABILITIES:-all}"
+has_capability() {
+    [ "$HERCULES_INSTALLED_CAPABILITIES" = "all" ] ||
+        case ",$HERCULES_INSTALLED_CAPABILITIES," in
+            *",$1,"*) return 0 ;;
+            *) return 1 ;;
+        esac
+}
+if (has_capability hydra || has_capability john) &&
+    [ ! -r /usr/share/wordlists/rockyou.txt ]; then
+    echo "[hercules] ERROR: selected cracking capabilities require rockyou.txt."
+    exit 1
 fi
-
-# Extract additional wordlists from host-mounted volume (if present)
-if [ -d /opt/wordlists_host ]; then
-    echo "[hercules] Extracting wordlists from host mount..."
-
-    if [ -f /opt/wordlists_host/SecLists.zip ] && [ ! -d /usr/share/wordlists/seclists ]; then
-        echo "[hercules] Extracting SecLists..."
-        unzip -q -o /opt/wordlists_host/SecLists.zip -d /usr/share/wordlists/ 2>/dev/null || true
-        mv /usr/share/wordlists/SecLists-master /usr/share/wordlists/seclists 2>/dev/null || true
-    fi
-
-    if [ -f /opt/wordlists_host/rockyou.txt.tar.gz ] && [ ! -f /usr/share/wordlists/rockyou.txt ]; then
-        echo "[hercules] Extracting rockyou.txt from host mount..."
-        tar -xzf /opt/wordlists_host/rockyou.txt.tar.gz -C /usr/share/wordlists/ 2>/dev/null || true
-    fi
+if has_capability fuzz && [ ! -d /usr/share/wordlists/seclists ]; then
+    echo "[hercules] ERROR: selected fuzz capability requires SecLists."
+    exit 1
 fi
-
-echo "[hercules] Wordlists ready at /usr/share/wordlists/"
+if has_capability hydra || has_capability john || has_capability fuzz; then
+    echo "[hercules] Required wordlists are ready."
+else
+    echo "[hercules] Wordlists are not required by this capability profile."
+fi
 
 # ── 2. Start Metasploit services (unless skipped) ───────────────────────────
 if [ "${SKIP_METASPLOIT}" != "true" ]; then
@@ -67,11 +67,29 @@ if [ "${SKIP_METASPLOIT}" != "true" ]; then
         echo "[hercules] WARNING: PostgreSQL could not be started. MSF will run without DB."
     fi
 
-    MSF_PASSWORD="${MSF_PASSWORD:-hercules}"
-    echo "[hercules] Starting msfrpcd (password=$MSF_PASSWORD)..."
-    msfrpcd -P "$MSF_PASSWORD" -S -a 0.0.0.0 &
+    if [ -z "${MSF_PASSWORD:-}" ]; then
+        echo "[hercules] ERROR: MSF_PASSWORD was not provided."
+        exit 1
+    fi
+    MSF_BIND_HOST="${MSF_BIND_HOST:-0.0.0.0}"
+    MSF_RPC_PORT="${MSF_RPC_PORT:-55553}"
+    echo "[hercules] Starting msfrpcd on ${MSF_BIND_HOST}:${MSF_RPC_PORT}..."
+    msfrpcd -P "$MSF_PASSWORD" -S -a "$MSF_BIND_HOST" -p "$MSF_RPC_PORT" &
 
-    sleep 3
+    MSFRPCD_READY=0
+    for _attempt in $(seq 1 60); do
+        # msfrpcd intentionally daemonizes, so its launcher PID exits after
+        # printing the background service PID. The listener is authoritative.
+        if nc -z 127.0.0.1 "$MSF_RPC_PORT" >/dev/null 2>&1; then
+            MSFRPCD_READY=1
+            break
+        fi
+        sleep 1
+    done
+    if [ "$MSFRPCD_READY" -ne 1 ]; then
+        echo "[hercules] ERROR: msfrpcd did not listen on port ${MSF_RPC_PORT} within 60 seconds."
+        exit 1
+    fi
     echo "[hercules] Metasploit services started."
 else
     echo "[hercules] Metasploit skipped (SKIP_METASPLOIT=true)."
@@ -80,9 +98,9 @@ fi
 # ── Stealth browser (cloakbrowser + agent-browser) ──────────────────────────
 # Intentionally NOT started here. The cloakserve stealth-Chromium backend is
 # launched lazily on the first browser_* MCP tool call (see
-# hercules/tools/browser/browser_tool.py::_ensure_cloakserve) so non-browser
-# sessions never pay the Chromium spin-up cost. Headed mode (BROWSER_HEADLESS=false)
-# runs cloakserve under `xvfb-run`; nothing extra is needed at entrypoint time.
+# hercules/tools/browser/browser_tool.py::_resolve_cloak) so non-browser
+# sessions never pay the Chromium spin-up cost. Browser sessions are always
+# headless; screenshots and the loopback stream relay remain available.
 
 touch /tmp/hercules-ready
 echo "[hercules] Container ready. Sleeping..."

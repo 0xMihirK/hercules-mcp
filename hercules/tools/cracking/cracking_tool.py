@@ -7,12 +7,14 @@ Includes hydra (online brute-force) and john the ripper (offline cracking).
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+import shlex
 import uuid
+from typing import TYPE_CHECKING
 
 from fastmcp import Context
 
 from hercules.core.guidance import TOOL_DESCRIPTIONS, target_error
+from hercules.core.security import safe_identifier, shell_quote, validate_target_async
 from hercules.output.filters import TOOL_FILTERS
 
 if TYPE_CHECKING:
@@ -23,7 +25,7 @@ logger = logging.getLogger("hercules.tools.cracking")
 _DEFAULT_WORDLIST = "/usr/share/wordlists/rockyou.txt"
 
 
-def register_cracking_tools(mcp: "FastMCP") -> None:
+def register_cracking_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["bruteforce_hydra"])
     async def bruteforce_hydra(
@@ -50,21 +52,38 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
         concurrency = ctx.lifespan_context["concurrency"]
 
         try:
-            config.validate_target(target)
+            await validate_target_async(config, target)
         except ValueError as exc:
             return target_error("bruteforce_hydra", target, exc, config)
+
+        try:
+            service = safe_identifier(service, label="service", maximum=32)
+        except ValueError as exc:
+            return {
+                "tool": "bruteforce_hydra",
+                "status": "invalid_parameter",
+                "parameter": "service",
+                "error": str(exc),
+            }
+        if not 0 <= int(port or 0) <= 65_535:
+            return {
+                "tool": "bruteforce_hydra",
+                "status": "invalid_parameter",
+                "parameter": "port",
+                "error": "port must be between 0 and 65535",
+            }
 
         parts = ["hydra"]
 
         if usernames.startswith("file:"):
-            parts.append(f"-L {usernames[5:]}")
+            parts.extend(["-L", shell_quote(usernames[5:], label="username file")])
         else:
-            parts.append(f"-l {usernames}")
+            parts.extend(["-l", shell_quote(usernames, label="username")])
 
         if passwords.startswith("file:"):
-            parts.append(f"-P {passwords[5:]}")
+            parts.extend(["-P", shell_quote(passwords[5:], label="password file")])
         else:
-            parts.append(f"-p {passwords}")
+            parts.extend(["-p", shell_quote(passwords, label="password")])
 
         if port > 0:
             parts.append(f"-s {port}")
@@ -72,12 +91,17 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
         if options:
             parts.append(options)
 
-        parts.append(f"{service}://{target}")
+        parts.append(shell_quote(f"{service}://{target}", label="service target"))
 
         cmd = " ".join(parts)
 
         async with concurrency.acquire_heavy("bruteforce_hydra"):
-            result = await docker.exec_command(cmd, timeout=600, tool_name="hydra")
+            result = await docker.exec_command(
+                cmd,
+                timeout=600,
+                tool_name="hydra",
+                sensitive_values=[usernames, passwords],
+            )
 
         # Apply per-tool filter: keep only credential lines
         hydra_filter = TOOL_FILTERS.get("bruteforce_hydra")
@@ -98,6 +122,17 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
 
+        if format:
+            try:
+                format = safe_identifier(format, label="hash format", maximum=64)
+            except ValueError as exc:
+                return {
+                    "tool": "crack_john",
+                    "status": "invalid_parameter",
+                    "parameter": "format",
+                    "error": str(exc),
+                }
+
         # Write the hashes to a temporary file in the workspace
         run_id = uuid.uuid4().hex[:8]
         hash_file = f"/opt/workspace/hashes_{run_id}.txt"
@@ -105,7 +140,7 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
 
         wl = wordlist or _DEFAULT_WORDLIST
 
-        parts = ["john", hash_file, f"--wordlist={wl}"]
+        parts = ["john", shlex.quote(hash_file), f"--wordlist={shell_quote(wl, label='wordlist')}"]
         if format:
             parts.append(f"--format={format}")
         if extra_args:
@@ -118,10 +153,14 @@ def register_cracking_tools(mcp: "FastMCP") -> None:
             result = await docker.exec_command(cmd, timeout=900, tool_name="john")
             
             # Extract cracked passwords
-            show_result = await docker.exec_command(f"john --show {hash_file}", timeout=30, clean_output=False)
+            show_result = await docker.exec_command(
+                f"john --show {shlex.quote(hash_file)}", timeout=30, clean_output=False
+            )
 
         # Cleanup
-        await docker.exec_command(f"rm -f {hash_file}", timeout=10, clean_output=False)
+        await docker.exec_command(
+            f"rm -f {shlex.quote(hash_file)}", timeout=10, clean_output=False
+        )
 
         # Apply per-tool filter to main output
         john_filter = TOOL_FILTERS.get("crack_john")

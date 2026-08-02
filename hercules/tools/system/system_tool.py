@@ -8,11 +8,17 @@ in their docstrings explaining WHEN and WHY to use them.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import platform
+import socket
+import subprocess
 from typing import TYPE_CHECKING
 
 from fastmcp import Context
+
 from hercules.core.guidance import TOOL_DESCRIPTIONS
+from hercules.core.runtime import services_from_context
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -20,7 +26,130 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.system")
 
 
-def register_system_tools(mcp: "FastMCP") -> None:
+def _is_vpn_ip(ip_value: str) -> bool:
+    parts = ip_value.split(".")
+    if len(parts) != 4 or ip_value == "127.0.0.1":
+        return False
+    return parts[0] == "10"
+
+
+def _is_useless_ip(ip_value: str) -> bool:
+    return (
+        not ip_value
+        or ip_value.startswith(("127.", "169.254.", "172.17.", "172.18."))
+    )
+
+
+def _host_network_snapshot() -> dict:
+    """Collect host network details without blocking the MCP event loop."""
+    host_os = platform.system()
+    host_interfaces: list[dict] = []
+    recommended_lhost = None
+    default_ip = None
+    vpn_keywords = (
+        "tun",
+        "tap",
+        "wg",
+        "wireguard",
+        "vpn",
+        "openvpn",
+        "nordlynx",
+        "zerotier",
+        "utun",
+        "ppp",
+    )
+
+    try:
+        # A UDP connect selects a route locally without sending application data.
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route_socket:
+            route_socket.settimeout(2)
+            route_socket.connect(("192.0.2.1", 9))
+            default_ip = route_socket.getsockname()[0]
+        host_interfaces.append({"name": "default_route", "ip": default_ip})
+    except OSError:
+        pass
+
+    try:
+        if host_os == "Windows":
+            raw = subprocess.check_output(
+                ["ipconfig"],
+                text=True,
+                timeout=5,
+            )
+            current_adapter = ""
+            for line in raw.splitlines():
+                if line and not line.startswith(" "):
+                    current_adapter = line.strip().rstrip(":")
+                elif "IPv4" in line and ":" in line:
+                    ip_value = line.split(":")[-1].strip()
+                    if _is_useless_ip(ip_value):
+                        continue
+                    is_vpn = (
+                        any(key in current_adapter.lower() for key in vpn_keywords)
+                        or _is_vpn_ip(ip_value)
+                    )
+                    host_interfaces.append(
+                        {"name": current_adapter, "ip": ip_value, "vpn": is_vpn}
+                    )
+                    if is_vpn and recommended_lhost is None:
+                        recommended_lhost = ip_value
+        elif host_os == "Darwin":
+            raw = subprocess.check_output(
+                ["ifconfig"],
+                text=True,
+                timeout=5,
+            )
+            current_adapter = ""
+            for line in raw.splitlines():
+                if line and not line.startswith(("\t", " ")):
+                    current_adapter = line.split(":", 1)[0]
+                elif "inet " in line:
+                    ip_value = line.split("inet ", 1)[1].split(" ", 1)[0]
+                    if _is_useless_ip(ip_value):
+                        continue
+                    is_vpn = (
+                        any(current_adapter.lower().startswith(key) for key in vpn_keywords)
+                        or _is_vpn_ip(ip_value)
+                    )
+                    host_interfaces.append(
+                        {"name": current_adapter, "ip": ip_value, "vpn": is_vpn}
+                    )
+                    if is_vpn and recommended_lhost is None:
+                        recommended_lhost = ip_value
+        else:
+            raw = subprocess.check_output(
+                ["ip", "-4", "-o", "addr", "show"],
+                text=True,
+                timeout=5,
+            )
+            for line in raw.splitlines():
+                parts = line.split()
+                if len(parts) < 4:
+                    continue
+                interface = parts[1]
+                ip_value = parts[3].split("/", 1)[0]
+                if _is_useless_ip(ip_value):
+                    continue
+                is_vpn = (
+                    any(interface.startswith(key) for key in vpn_keywords)
+                    or _is_vpn_ip(ip_value)
+                )
+                host_interfaces.append(
+                    {"name": interface, "ip": ip_value, "vpn": is_vpn}
+                )
+                if is_vpn and recommended_lhost is None:
+                    recommended_lhost = ip_value
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.debug("Failed to enumerate host interfaces: %s", exc)
+
+    return {
+        "host_os": host_os,
+        "host_interfaces": host_interfaces,
+        "recommended_lhost": recommended_lhost or default_ip,
+    }
+
+
+def register_system_tools(mcp: FastMCP) -> None:
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_new_session"])
     async def system_start_new_session(ctx: Context = None) -> dict:
@@ -45,13 +174,15 @@ def register_system_tools(mcp: "FastMCP") -> None:
 
         Returns the new session_id and workspace path.
         """
-        docker = ctx.lifespan_context["docker"]
+        context = ctx.lifespan_context
+        services = services_from_context(context)
+        docker = services.docker
 
         logger.info("Agent requested new session (current: %s)", docker.session_id)
 
         old_session = docker.session_id
         try:
-            new_session = await docker.new_session()
+            new_session = await services.start_new_session()
         except Exception as exc:
             logger.error("Failed to start new session: %s", exc)
             return {
@@ -59,25 +190,20 @@ def register_system_tools(mcp: "FastMCP") -> None:
                 "status": "error",
                 "error": str(exc),
                 "old_session_id": old_session,
-                "message": "Failed to start new session. The previous session may have been stopped.",
+                "active_session_id": docker.session_id,
+                "container_running": docker.container_running,
+                "message": (
+                    "Failed to start a new session. See active_session_id and "
+                    "container_running for the exact recovery state."
+                ),
             }
-
-        # Re-init MSF client if Metasploit is enabled
-        config = ctx.lifespan_context["config"]
-        msf_client = None
-        if not config.skip_metasploit:
-            try:
-                msf_client = await docker.wait_for_msfrpcd()
-            except TimeoutError:
-                logger.warning("msfrpcd did not become ready in new session.")
-        ctx.lifespan_context["msf_client"] = msf_client
 
         return {
             "tool": "system_start_new_session",
             "status": "success",
             "old_session_id": old_session,
             "new_session_id": new_session,
-            "workspace": f"/opt/workspace (host: workspace/{new_session}/)",
+            "workspace": f"/opt/workspace (host: {docker.workspace_path})",
             "message": f"New session '{new_session}' started. Previous session '{old_session}' data preserved on host.",
         }
 
@@ -94,7 +220,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
         Returns a list of sessions with: session_id, is_active, file_count, total_size_mb, path.
         """
         docker = ctx.lifespan_context["docker"]
-        sessions = docker.list_sessions()
+        sessions = await asyncio.to_thread(docker.list_sessions)
 
         return {
             "tool": "system_list_sessions",
@@ -106,7 +232,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_stop_container"])
     async def system_stop_container(ctx: Context = None) -> dict:
         """
-        DANGER: Permanently shuts down the Hercules environment. DESTRUCTIVE.
+        DANGER: Shuts down the Hercules environment for this server lifespan.
 
         WHEN TO USE:
         - ALL your work is completely finished and you have delivered results to the user.
@@ -121,7 +247,7 @@ def register_system_tools(mcp: "FastMCP") -> None:
         - Stops and REMOVES the Docker container (not just stop — full removal).
         - Kills all background jobs, Metasploit sessions, and listeners.
         - The workspace files on the host are preserved, but the container is gone.
-        - You will NOT be able to run any more tools after this.
+        - Other tools remain unavailable until system_start_new_session is called.
         """
         docker = ctx.lifespan_context["docker"]
 
@@ -129,15 +255,27 @@ def register_system_tools(mcp: "FastMCP") -> None:
 
         try:
             session_id = docker.session_id
-            await docker.stop_container()
+            services = services_from_context(ctx.lifespan_context)
+            await services.stop_for_operator()
             return {
                 "tool": "system_stop_container",
                 "status": "success",
                 "session_id": session_id,
-                "message": f"Session '{session_id}' container stopped and removed. Workspace files preserved on host.",
+                "message": (
+                    f"Session '{session_id}' container stopped and removed. Workspace files "
+                    "are preserved; call system_start_new_session to resume."
+                ),
             }
         except Exception as exc:
-            return {"tool": "system_stop_container", "status": "error", "error": str(exc)}
+            return {
+                "tool": "system_stop_container",
+                "status": "error",
+                "error": str(exc),
+                "container_running": docker.container_running,
+                "operator_stopped": bool(
+                    getattr(docker, "_operator_stopped", False)
+                ),
+            }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_network_info"])
     async def system_network_info(ctx: Context = None) -> dict:
@@ -157,19 +295,29 @@ def register_system_tools(mcp: "FastMCP") -> None:
           Use the host's VPN/tunnel IP as LHOST — the target sends the reverse shell to
           HOST_IP:PORT, Docker forwards it to the container where your listener runs.
         """
-        import platform as plat
-        import socket
-        import subprocess
-
         docker = ctx.lifespan_context["docker"]
-        host_os = plat.system()
-        is_host_network = (host_os == "Linux")
+        host = await asyncio.to_thread(_host_network_snapshot)
+        host_os = host["host_os"]
+        network_mode = getattr(
+            docker,
+            "network_mode",
+            "host" if host_os == "Linux" else "bridge",
+        )
+        is_host_network = network_mode == "host"
+        listener_description = ",".join(str(port) for port in docker.listener_ports)
 
         result = {
             "tool": "system_network_info",
             "host_os": host_os,
-            "network_mode": "host" if is_host_network else "bridge",
-            "forwarded_ports": "4444-4464" if not is_host_network else "all (host networking)",
+            "network_mode": network_mode,
+            "forwarded_ports": (
+                listener_description
+                if not is_host_network
+                else "all (host networking)"
+            ),
+            "metasploit_rpc_exposure": (
+                f"host loopback only (127.0.0.1:{docker.msf_rpc_port})"
+            ),
         }
 
         # --- Container interfaces ---
@@ -182,110 +330,20 @@ def register_system_tools(mcp: "FastMCP") -> None:
         except Exception:
             result["container_ips"] = []
 
-        # --- Host interfaces ---
-        host_interfaces = []
-        recommended_lhost = None
-
-        try:
-            # Get default route IP
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(2)
-            s.connect(("8.8.8.8", 80))
-            default_ip = s.getsockname()[0]
-            s.close()
-            host_interfaces.append({"name": "default_route", "ip": default_ip})
-        except Exception:
-            default_ip = None
-
-        # Helper to determine if an IP is likely a VPN IP based on subnet
-        def is_vpn_ip(ip_str: str) -> bool:
-            if not ip_str or ip_str == "127.0.0.1": return False
-            parts = ip_str.split('.')
-            if len(parts) != 4: return False
-            try:
-                # 10.x.x.x (Very common for VPNs like HTB, THM)
-                if parts[0] == '10': return True
-                # 172.16.x.x - 172.31.x.x
-                if parts[0] == '172' and 16 <= int(parts[1]) <= 31:
-                    # Docker uses 172.17+, so be careful, but VPNs sometimes use this too.
-                    pass
-                # 192.168.x.x is usually local LAN, but some VPNs use it.
-            except ValueError:
-                pass
-            return False
-
-        def is_useless_ip(ip_str: str) -> bool:
-            if not ip_str: return True
-            # Ignore loopback, APIPA, and common Docker bridge default subnets
-            return ip_str.startswith("127.") or ip_str.startswith("169.254.") or ip_str.startswith("172.17.") or ip_str.startswith("172.18.")
-
-        # Detect VPN/tunnel interfaces
-        vpn_keywords = ("tun", "tap", "wg", "wireguard", "vpn", "openvpn", "nordlynx", "zerotier", "utun", "ppp")
-        try:
-            if host_os == "Windows":
-                raw = subprocess.check_output("ipconfig", text=True, timeout=5)
-                lines = raw.splitlines()
-                current_adapter = ""
-                for line in lines:
-                    if line and not line.startswith(" "):
-                        current_adapter = line.strip().rstrip(":")
-                    elif "IPv4" in line and ":" in line:
-                        ip = line.split(":")[-1].strip()
-                        if is_useless_ip(ip): continue
-                        is_vpn = any(k in current_adapter.lower() for k in vpn_keywords) or is_vpn_ip(ip)
-                        entry = {"name": current_adapter, "ip": ip, "vpn": is_vpn}
-                        host_interfaces.append(entry)
-                        if is_vpn and recommended_lhost is None:
-                            recommended_lhost = ip
-            elif host_os == "Darwin": # Mac
-                raw = subprocess.check_output(["ifconfig"], text=True, timeout=5)
-                lines = raw.splitlines()
-                current_adapter = ""
-                for line in lines:
-                    if line and not line.startswith("\t") and not line.startswith(" "):
-                        current_adapter = line.split(":")[0]
-                    elif "inet " in line:
-                        ip = line.split("inet ")[1].split(" ")[0]
-                        if not is_useless_ip(ip):
-                            is_vpn = any(current_adapter.lower().startswith(k) for k in vpn_keywords) or is_vpn_ip(ip)
-                            entry = {"name": current_adapter, "ip": ip, "vpn": is_vpn}
-                            host_interfaces.append(entry)
-                            if is_vpn and recommended_lhost is None:
-                                recommended_lhost = ip
-            else: # Linux
-                raw = subprocess.check_output(["ip", "-4", "-o", "addr", "show"], text=True, timeout=5)
-                for line in raw.splitlines():
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        iface = parts[1]
-                        ip = parts[3].split("/")[0]
-                        if not is_useless_ip(ip):
-                            is_vpn = any(iface.startswith(k) for k in vpn_keywords) or is_vpn_ip(ip)
-                            entry = {"name": iface, "ip": ip, "vpn": is_vpn}
-                            host_interfaces.append(entry)
-                            if is_vpn and recommended_lhost is None:
-                                recommended_lhost = ip
-        except Exception as exc:
-            logger.debug("Failed to enumerate host interfaces: %s", exc)
-
-        result["host_interfaces"] = host_interfaces
+        result["host_interfaces"] = host["host_interfaces"]
 
         # --- Recommend LHOST ---
         if is_host_network:
             # On Linux host networking, prefer VPN interface, fallback to default
-            if recommended_lhost is None:
-                recommended_lhost = default_ip
-            result["recommended_lhost"] = recommended_lhost
+            result["recommended_lhost"] = host["recommended_lhost"]
             result["lhost_note"] = "Host networking — use this IP directly as LHOST."
         else:
             # On bridge networking, must use HOST's IP (target sends to host, Docker forwards)
-            if recommended_lhost is None:
-                recommended_lhost = default_ip
-            result["recommended_lhost"] = recommended_lhost
+            result["recommended_lhost"] = host["recommended_lhost"]
             result["lhost_note"] = (
                 "Bridge networking — use this HOST IP as LHOST. "
-                "Ports 4444-4464 are forwarded from host to container. "
-                "Set LPORT to a value in that range."
+                f"Configured ports ({listener_description}) are forwarded from "
+                "host to container. Set LPORT to one of those ports."
             )
 
         return result

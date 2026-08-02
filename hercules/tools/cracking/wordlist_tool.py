@@ -16,6 +16,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger("hercules.tools.wordlist")
 
 
-def register_wordlist_tools(mcp: "FastMCP") -> None:
+def register_wordlist_tools(mcp: FastMCP) -> None:
     """No-op registrar kept for import compatibility."""
     logger.debug("creds_wordlists_manage is deprecated and no longer registered.")
