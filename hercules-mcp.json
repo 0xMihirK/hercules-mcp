@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "hercules": {
-      "command": "hercules",
+      "command": "__HERCULES_ABSOLUTE_LAUNCHER__",
       "args": []
     }
   }

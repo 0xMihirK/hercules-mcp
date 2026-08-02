@@ -24,6 +24,8 @@ from hercules.core.build_info import (
     CLOAKBROWSER_VERSION,
     CLOAKBROWSER_WHEEL_SHA256,
     CLOAKBROWSER_WHEEL_URL,
+    default_image_platform,
+    normalize_image_platform,
 )
 
 logger = logging.getLogger("hercules.config")
@@ -187,6 +189,7 @@ class HerculesConfig:
     workspace_root: Path | None = None
     wordlist_root: Path | None = None
     build_ca_sha256: str = ""
+    image_platform: str = field(default_factory=default_image_platform)
     cloakbrowser_version: str = CLOAKBROWSER_VERSION
     cloakbrowser_wheel_url: str = CLOAKBROWSER_WHEEL_URL
     cloakbrowser_sha256: str = CLOAKBROWSER_WHEEL_SHA256
@@ -282,6 +285,9 @@ class HerculesConfig:
                 else None
             ),
             build_ca_sha256=os.getenv("HERCULES_BUILD_CA_SHA256", "").strip().lower(),
+            image_platform=normalize_image_platform(
+                os.getenv("HERCULES_IMAGE_PLATFORM")
+            ),
             cloakbrowser_version=os.getenv(
                 "HERCULES_CLOAKBROWSER_VERSION",
                 CLOAKBROWSER_VERSION,

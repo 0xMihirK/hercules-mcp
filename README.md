@@ -51,7 +51,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or upgrade Hercules MCP from https://github.com/0xMihirK/hercules-mcp using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md as guidance. Adapt the installation to my operating system, shell, available package manager, Docker environment, and current terminal-capable AI agent instead of assuming a particular platform. Before a first install, ask what I intend to use Hercules for and whether I want every capability or a smaller installation. If I choose a smaller installation, inspect Hercules’ capability catalog, use your judgment to recommend the minimum useful set, briefly explain important omissions, and get my confirmation before installing. Also ask whether configuration should be user-wide or project-local, and ask about a browser proxy only if browser capability is selected. Preserve my confirmed capability selection, `.env`, secrets, workspace evidence, downloaded assets, and client settings during upgrades unless I explicitly change them. Install the portable skill and an appropriate native adapter, register the secret-free Hercules STDIO MCP server, and run local non-destructive verification. Never print secrets, scan or navigate to an external target during setup, or silently perform privileged system changes; clearly tell me when a prerequisite or manual action is required.
+Install or upgrade Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following the ordered checkpoints in https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Adapt to my actual operating system, CPU architecture, shell, Docker context, trust policy, and active terminal-capable AI client; do not assume a package manager, init system, inherited PATH, or client schema. On a first install, ask what I intend to use Hercules for, recommend the smallest useful capability set, explain important omissions, confirm user-wide or project-local scope, and ask about a browser proxy only if browser capability is selected. Prepare a durable non-synced checkout and locked absolute launcher before reading Hercules' non-mutating setup facts, then build and validate the exact reported stable Kali image without silently dropping capabilities or blindly retrying deterministic failures. Preserve my confirmed choices, `.env`, secrets, workspace evidence, verified assets, and unrelated client settings. Configure only my active client, render its Hercules STDIO entry with the absolute launcher and no secrets, and install the independent portable skill only when that client supports Agent Skills. Complete local non-destructive MCP verification before reporting success. Never print secrets, contact an external target during setup, install a bare-PATH adapter, configure unrelated clients, or silently perform privileged system changes; clearly report any prerequisite, unsupported client, source defect, or manual action that requires me.
 ```
 
 The authoritative installation contract is [install.md](install.md). It defines
@@ -67,7 +67,8 @@ On a first install, the agent:
 - confirms user-wide or project-local scope;
 - asks about a browser proxy only when browser support is selected;
 - prepares a durable, non-synced checkout and locked Python tool environment;
-- builds and validates the selected Docker image before committing state;
+- resolves its absolute launcher and reads the matching setup facts;
+- builds and validates the selected stable-snapshot image before committing state;
 - installs the provider-neutral portable skill independently from an MCP-only
   native plugin adapter; and
 - registers one secret-free absolute STDIO launcher in the active client.
@@ -79,7 +80,8 @@ a mutating setup executable: the installing agent owns the transaction and uses
 Hercules' read-only setup facts to avoid guessing.
 
 Host prerequisites are Git, [`uv`](https://docs.astral.sh/uv/), and a working
-Docker Engine, Docker Desktop, or compatible Docker context. Missing privileged
+Docker Engine, Docker Desktop, or compatible Docker context with local STDIO
+MCP support in the active client. Missing privileged
 prerequisites require the operator's involvement; setup must not silently alter
 system packages, services, groups, or daemon configuration. Docker-specific
 agents can consult [Docker's complete LLM context](https://docs.docker.com/llms-full.txt).
@@ -226,7 +228,9 @@ CA bundle, or describe an exactly pinned replacement CloakBrowser wheel. Its
 JSON reports:
 
 - catalog, normalized selection, required binaries, wordlists, and MCP counts;
-- deterministic image tag, fingerprint, labels, and build inputs;
+- source revision, Python lock identity, and absolute-launcher requirements;
+- stable Kali base, APT suite, platform, image tag, labels, and build inputs;
+- capability-manifest checksum and runtime evidence paths;
 - CloakBrowser version, official artifact URL, SHA-256, and readiness checks;
 - optional certificate-only BuildKit secret metadata and fingerprint;
 - non-secret environment requirements and schema-4 state locations; and
@@ -236,7 +240,9 @@ The mode does not build, download, install, write, modify `PATH`, register a
 client, or update Docker. The active agent chooses suitable host-native actions
 from these facts and [install.md](install.md).
 
-An MCP entry needs only an absolute launcher and no secrets. Its exact JSON,
+Repository MCP files are templates and must be rendered before installation;
+their bare `hercules` command is never a finished registration. An effective
+MCP entry needs an absolute launcher and no secrets. Its exact JSON,
 JSONC, TOML, or CLI representation depends on the installed client:
 
 ```json
@@ -251,7 +257,8 @@ JSONC, TOML, or CLI representation depends on the installed client:
 ```
 
 The agent must preserve unrelated configuration and validate the client's
-effective entry. For OpenCode it also honors `OPENCODE_CONFIG` and XDG paths,
+effective entry, and it configures only the active client. For OpenCode it also
+honors `OPENCODE_CONFIG` and XDG paths,
 preserves JSONC comments, supports the installed client's direct or nested MCP
 layout, and places the independent skill at `.agents/skills/hercules-mcp`.
 
@@ -266,6 +273,7 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_WORKSPACE_ROOT` | Override the managed evidence root |
 | `HERCULES_WORDLIST_ROOT` | Reusable verified wordlist and extraction cache |
 | `HERCULES_BUILD_CA_SHA256` | Fingerprint of optional certificate-only build trust |
+| `HERCULES_IMAGE_PLATFORM` | Exact `linux/amd64` or `linux/arm64` runtime platform |
 | `HERCULES_CLOAKBROWSER_WHEEL_URL` | Exact PyPI artifact URL for a preserved browser pin |
 | `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports exposed by bridge networking |
 | `BROWSER_PROXY_URL` | Default browser proxy kept outside client configuration |
@@ -279,6 +287,8 @@ image capability manifest before deleting or rebuilding anything. It should
 distinguish missing Git, `uv`, or Docker; a stopped or incompatible daemon; TLS
 trust failure; image-label mismatch; missing backend or asset; CloakBrowser or
 managed-Chromium failure; MCP startup failure; and client-registration failure.
+An unchanged Docker layer failing again is a deterministic source defect, not a
+reason for another blind retry or for silently removing the selected capability.
 
 The pinned public CA bootstrap remains present before Kali's first HTTPS APT
 operation. In an authorized TLS-interception environment, the agent can pass a

@@ -9,8 +9,12 @@ import inspect
 import os
 import platform
 import re
+import shutil
 import ssl
 import stat
+import subprocess
+import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
@@ -21,13 +25,25 @@ from hercules.core.build_info import (
     CLOAKBROWSER_VERSION,
     CLOAKBROWSER_WHEEL_SHA256,
     CLOAKBROWSER_WHEEL_URL,
+    IMAGE_APT_SUITE_LABEL,
+    IMAGE_BASE_DIGEST_LABEL,
+    IMAGE_BASE_REPOSITORY_LABEL,
     IMAGE_BUILD_CA_LABEL,
     IMAGE_CAPABILITIES_LABEL,
+    IMAGE_CAPABILITY_MANIFEST_LABEL,
     IMAGE_CLOAKBROWSER_SHA256_LABEL,
     IMAGE_CLOAKBROWSER_VERSION_LABEL,
     IMAGE_FINGERPRINT_LABEL,
     IMAGE_INPUTS,
+    IMAGE_PLATFORM_LABEL,
+    KALI_APT_SUITE,
+    KALI_BASE_DIGEST,
+    KALI_BASE_REPOSITORY,
+    SUPPORTED_IMAGE_PLATFORMS,
+    capability_manifest_sha256,
+    default_image_platform,
     image_identity,
+    normalize_image_platform,
 )
 from hercules.core.config_io import SETUP_STATE_SCHEMA_VERSION, load_setup_state
 from hercules.core.tool_catalog import (
@@ -47,6 +63,7 @@ from hercules.core.wordlists import WORDLIST_FILES, WORDLIST_SOURCES
 
 MAX_BUILD_CA_BYTES = 1024 * 1024
 RESOURCE_COUNT = 7
+SETUP_INFORMATION_SCHEMA_VERSION = 2
 _CERTIFICATE_BLOCK = re.compile(
     rb"-----BEGIN CERTIFICATE-----\s+.+?\s+-----END CERTIFICATE-----",
     re.DOTALL,
@@ -307,12 +324,136 @@ def _environment_true(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"true", "1", "yes"}
 
 
+def _run_read_only(arguments: list[str], *, cwd: Path | None = None) -> str:
+    """Run one bounded discovery command and return stdout, or an empty string."""
+    try:
+        completed = subprocess.run(
+            arguments,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return completed.stdout.strip() if completed.returncode == 0 else ""
+
+
+def _source_facts(root: Path) -> dict[str, Any]:
+    git = shutil.which("git")
+    revision = _run_read_only([git, "rev-parse", "HEAD"], cwd=root) if git else ""
+    status = (
+        _run_read_only(
+            [git, "status", "--porcelain", "--untracked-files=normal"],
+            cwd=root,
+        )
+        if git
+        else ""
+    )
+    return {
+        "checkout": str(root),
+        "revision": revision,
+        "revision_recording_required": True,
+        "clean": bool(revision) and not status,
+        "release_policy": "latest stable release; otherwise exact default-branch commit",
+        "update_policy": "fast-forward only; refuse modified or diverged checkouts",
+    }
+
+
+def _python_environment_facts(root: Path) -> dict[str, Any]:
+    pyproject = root / "pyproject.toml"
+    requires_python = ">=3.11"
+    if pyproject.is_file():
+        try:
+            payload = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+            requires_python = str(
+                payload.get("project", {}).get("requires-python", requires_python)
+            )
+        except (OSError, tomllib.TOMLDecodeError):
+            pass
+    lockfile = root / "uv.lock"
+    lock_sha256 = (
+        hashlib.sha256(lockfile.read_bytes()).hexdigest()
+        if lockfile.is_file()
+        else ""
+    )
+    uv = shutil.which("uv")
+    uv_bin = _run_read_only([uv, "tool", "dir", "--bin"]) if uv else ""
+    launcher_name = "hercules.exe" if os.name == "nt" else "hercules"
+    launcher = str(Path(uv_bin) / launcher_name) if uv_bin else ""
+    return {
+        "requires_python": requires_python,
+        "recommended_python": "3.12",
+        "lockfile": "uv.lock",
+        "lockfile_sha256": lock_sha256,
+        "durable_editable_source_required": True,
+        "uv_available": bool(uv),
+        "uv_tool_bin": uv_bin,
+        "absolute_launcher_candidate": launcher,
+        "launcher_exists": bool(launcher and Path(launcher).is_file()),
+        "path_inheritance_required": False,
+        "running_python": sys.version.split()[0],
+    }
+
+
+def _failure_diagnostics() -> list[dict[str, Any]]:
+    return [
+        {
+            "code": "prerequisite_missing",
+            "retryable": False,
+            "resolution": "obtain operator-approved Git, uv, or Docker support",
+        },
+        {
+            "code": "docker_daemon_unavailable",
+            "retryable": True,
+            "resolution": "repair or select the intended Docker context, then recheck",
+        },
+        {
+            "code": "docker_platform_emulation_unavailable",
+            "retryable": False,
+            "resolution": (
+                "use a native supported platform or an operator-approved Docker "
+                "context with binfmt/QEMU emulation"
+            ),
+        },
+        {
+            "code": "docker_tls_trust_failed",
+            "retryable": False,
+            "resolution": "supply approved certificate-only trust through the BuildKit secret",
+        },
+        {
+            "code": "docker_source_defect",
+            "retryable": False,
+            "resolution": "do not retry unchanged inputs; report the failing build layer",
+        },
+        {
+            "code": "capability_manifest_mismatch",
+            "retryable": False,
+            "resolution": "rebuild the confirmed profile without silently removing capabilities",
+        },
+        {
+            "code": "mcp_registration_failed",
+            "retryable": False,
+            "resolution": "restore the prior Hercules entry and validate the active client only",
+        },
+        {
+            "code": "client_unsupported",
+            "retryable": False,
+            "resolution": "require a terminal-capable client with local STDIO MCP support",
+        },
+    ]
+
+
 def setup_information(
     project_root: Path,
     *,
     capabilities: str | None = None,
     build_ca_bundle: Path | None = None,
     state_path: Path | None = None,
+    target_platform: str | None = None,
     cloakbrowser_version: str | None = None,
     cloakbrowser_wheel_url: str | None = None,
     cloakbrowser_sha256: str | None = None,
@@ -334,6 +475,16 @@ def setup_information(
             requested = ",".join(saved)
     selected = parse_capabilities(requested, legacy_all=True)
     formatted = format_capabilities(selected)
+    selected_platform = normalize_image_platform(
+        _resolved_text(
+            target_platform,
+            "HERCULES_IMAGE_PLATFORM",
+            state,
+            state_errors,
+            "image_platform",
+            default_image_platform(),
+        )
+    )
 
     ca_sha256 = os.getenv("HERCULES_BUILD_CA_SHA256", "").strip().lower()
     if not ca_sha256:
@@ -375,6 +526,7 @@ def setup_information(
         root,
         selected,
         build_ca_sha256=ca_sha256,
+        target_platform=selected_platform,
         cloakbrowser_version=cloak_version,
         cloakbrowser_sha256=cloak_sha,
     )
@@ -396,19 +548,23 @@ def setup_information(
         for logical in wordlists
     }
     browser_selected = "browser" in selected
+    manifest_sha256 = capability_manifest_sha256(selected)
     surface = capture_surface()
     skill_validation = validate_skill_routing(root, surface)
     environment_values = {
         "HERCULES_INSTALLED_CAPABILITIES": formatted,
         "SKIP_METASPLOIT": "true" if skip_metasploit else "false",
         "HERCULES_BUILD_CA_SHA256": ca_sha256,
+        "HERCULES_IMAGE_PLATFORM": selected_platform,
         "HERCULES_CLOAKBROWSER_VERSION": cloak_version,
         "HERCULES_CLOAKBROWSER_WHEEL_URL": cloak_url,
         "HERCULES_CLOAKBROWSER_SHA256": cloak_sha,
     }
     return {
-        "schema_version": 1,
+        "schema_version": SETUP_INFORMATION_SCHEMA_VERSION,
         "read_only": True,
+        "source": _source_facts(root),
+        "python_environment": _python_environment_facts(root),
         "capability_catalog": catalog_payload(),
         "selection": {
             "capabilities": formatted.split(","),
@@ -429,11 +585,23 @@ def setup_information(
         "image": {
             "tag": image,
             "fingerprint": fingerprint,
+            "context": str(root),
+            "dockerfile": str(root / "Dockerfile"),
+            "target_platform": selected_platform,
+            "supported_platforms": list(SUPPORTED_IMAGE_PLATFORMS),
+            "base": {
+                "repository": KALI_BASE_REPOSITORY,
+                "digest": KALI_BASE_DIGEST,
+                "apt_suite": KALI_APT_SUITE,
+                "update_policy": "pinned stable snapshot; no rolling channel",
+            },
             "build_inputs": list(IMAGE_INPUTS),
             "build_arguments": {
                 "HERCULES_CAPABILITIES": formatted,
                 "HERCULES_BUILD_FINGERPRINT": fingerprint,
                 "HERCULES_BUILD_CA_SHA256": ca_sha256,
+                "HERCULES_TARGET_PLATFORM": selected_platform,
+                "HERCULES_CAPABILITY_MANIFEST_SHA256": manifest_sha256,
                 "CLOAKBROWSER_PY_VERSION": cloak_version,
                 "CLOAKBROWSER_WHEEL_URL": cloak_url,
                 "CLOAKBROWSER_WHEEL_SHA256": cloak_sha,
@@ -442,6 +610,11 @@ def setup_information(
                 IMAGE_FINGERPRINT_LABEL: fingerprint,
                 IMAGE_CAPABILITIES_LABEL: formatted,
                 IMAGE_BUILD_CA_LABEL: ca_sha256,
+                IMAGE_BASE_REPOSITORY_LABEL: KALI_BASE_REPOSITORY,
+                IMAGE_BASE_DIGEST_LABEL: KALI_BASE_DIGEST,
+                IMAGE_APT_SUITE_LABEL: KALI_APT_SUITE,
+                IMAGE_PLATFORM_LABEL: selected_platform,
+                IMAGE_CAPABILITY_MANIFEST_LABEL: manifest_sha256,
                 IMAGE_CLOAKBROWSER_VERSION_LABEL: cloak_version,
                 IMAGE_CLOAKBROWSER_SHA256_LABEL: cloak_sha,
             },
@@ -452,6 +625,11 @@ def setup_information(
                 "secret_supplied": ca_secret_supplied,
                 "buildkit_secret_id": "hercules_build_ca" if ca_configured else "",
                 "maximum_bytes": MAX_BUILD_CA_BYTES,
+            },
+            "capability_manifest": {
+                "path": "/opt/hercules-capability-manifest.spec",
+                "sha256": manifest_sha256,
+                "runtime_evidence": "/opt/hercules-capabilities.txt",
             },
         },
         "cloakbrowser": {
@@ -480,6 +658,20 @@ def setup_information(
             "operator_paths": ["HERCULES_WORKSPACE_ROOT", "HERCULES_WORDLIST_ROOT"],
             "secret_values_not_returned": ["MSF_PASSWORD", "BROWSER_PROXY_URL"],
         },
+        "client_registration": {
+            "transport": "stdio",
+            "active_client_only": True,
+            "absolute_launcher_required": True,
+            "checkout_relative_cwd_allowed": False,
+            "secrets_allowed": False,
+            "native_interface_preferred": True,
+            "atomic_configuration_required": True,
+            "portable_skill_independent": True,
+            "agent_skills_optional": True,
+            "unsupported_without_stdio": True,
+            "templates_require_rendering": True,
+        },
+        "diagnostics": _failure_diagnostics(),
         "state": {
             "schema_version": SETUP_STATE_SCHEMA_VERSION,
             "locations": setup_state_locations(project_dir),
@@ -500,6 +692,10 @@ def setup_information(
                         "installed_capabilities",
                         "image",
                         "image_fingerprint",
+                        "image_platform",
+                        "base_image",
+                        "base_digest",
+                        "apt_suite",
                         "expected_tool_count",
                         "workspace_root",
                         "wordlist_root",
@@ -534,6 +730,7 @@ def setup_information_from_argv(project_root: Path, argv: list[str]) -> dict[str
     parser.add_argument("--capabilities")
     parser.add_argument("--build-ca-bundle", type=Path)
     parser.add_argument("--state", type=Path)
+    parser.add_argument("--target-platform")
     parser.add_argument("--cloakbrowser-version")
     parser.add_argument("--cloakbrowser-wheel-url")
     parser.add_argument("--cloakbrowser-sha256")
@@ -543,6 +740,7 @@ def setup_information_from_argv(project_root: Path, argv: list[str]) -> dict[str
         capabilities=arguments.capabilities,
         build_ca_bundle=arguments.build_ca_bundle,
         state_path=arguments.state,
+        target_platform=arguments.target_platform,
         cloakbrowser_version=arguments.cloakbrowser_version,
         cloakbrowser_wheel_url=arguments.cloakbrowser_wheel_url,
         cloakbrowser_sha256=arguments.cloakbrowser_sha256,

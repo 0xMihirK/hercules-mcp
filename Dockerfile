@@ -7,7 +7,7 @@
 # refreshes this file; certificate verification is never disabled.
 FROM curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6 AS trust-bootstrap
 
-FROM kalilinux/kali-rolling@sha256:dea2bdf0e8c0ca1deb51b7a6253f481acae3ca9c2f1e2371077e6af55e5b2721
+FROM kalilinux/kali-last-release@sha256:01a402ec78a2b3bd86394f34f8c3d6adefe3c593ae259ac0779c4d1f971c8ff5
 
 # curlimages ships a newer pinned Mozilla bundle at /cacert.pem than its Alpine
 # compatibility path; curl itself verifies with this bundle.
@@ -17,14 +17,20 @@ LABEL maintainer="Hercules MCP Server"
 LABEL description="Selective tooling image for the Hercules offensive security MCP server"
 ENV DEBIAN_FRONTEND=noninteractive
 
-ARG HERCULES_CAPABILITIES=all
+ARG HERCULES_CAPABILITIES=shell,session,workspace,dns,whois,amass,nmap,curl,ncat,hping3,whatweb,fuzz,webvuln,nuclei,sqlmap,searchsploit,metasploit,hydra,john,binwalk,steghide,browser
 ARG HERCULES_BUILD_FINGERPRINT=unknown
 ARG HERCULES_BUILD_CA_SHA256=
+ARG HERCULES_CAPABILITY_MANIFEST_SHA256=b6b85ee48c40298e79e2d42568a34d28cdbec6392df7be10cd16f2e5daaddbfb
+ARG TARGETPLATFORM
+ARG HERCULES_TARGET_PLATFORM=${TARGETPLATFORM}
 
 # Core is mandatory. Optional apt packages are added only for selected bundles.
 RUN --mount=type=secret,id=hercules_build_ca \
     set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
+    case "$HERCULES_TARGET_PLATFORM" in linux/amd64|linux/arm64) ;; *) echo "unsupported Hercules image platform: $HERCULES_TARGET_PLATFORM" >&2; exit 1 ;; esac; \
+    test -z "$TARGETPLATFORM" || test "$TARGETPLATFORM" = "$HERCULES_TARGET_PLATFORM"; \
+    case "$(dpkg --print-architecture)" in amd64) test "$HERCULES_TARGET_PLATFORM" = linux/amd64 ;; arm64) test "$HERCULES_TARGET_PLATFORM" = linux/arm64 ;; *) exit 1 ;; esac; \
     ca_bundle=/run/secrets/hercules_build_ca; \
     if [ -n "$HERCULES_BUILD_CA_SHA256" ]; then test -f "$ca_bundle"; fi; \
     if [ -f "$ca_bundle" ]; then \
@@ -38,11 +44,13 @@ RUN --mount=type=secret,id=hercules_build_ca \
         printf '%s  %s\n' "$HERCULES_BUILD_CA_SHA256" "$normalized_ca" | sha256sum -c -; \
         cat "$normalized_ca" >> /etc/ssl/certs/ca-certificates.crt; rm -f "$normalized_ca"; \
     fi; \
-    if [ -f /etc/apt/sources.list ]; then sed -i -E 's|https?://(http\.)?kali[^ /]*/kali|https://kali.download/kali|g' /etc/apt/sources.list; fi; \
-    if [ -f /etc/apt/sources.list.d/kali.sources ]; then sed -i -E 's|https?://(http\.)?kali[^ /]*/kali/?|https://kali.download/kali/|g' /etc/apt/sources.list.d/kali.sources; fi; \
+    rm -f /etc/apt/sources.list; mkdir -p /etc/apt/sources.list.d; \
+    printf '%s\n' 'Types: deb' 'URIs: https://kali.download/kali/' 'Suites: kali-last-snapshot' 'Components: main contrib non-free non-free-firmware' 'Signed-By: /usr/share/keyrings/kali-archive-keyring.gpg' > /etc/apt/sources.list.d/kali.sources; \
+    grep -qx 'Suites: kali-last-snapshot' /etc/apt/sources.list.d/kali.sources; \
+    ! grep -RqsE 'Suites:[[:space:]]+kali-rolling|[[:space:]]kali-rolling[[:space:]]' /etc/apt/sources.list.d; \
     printf '%s\n' 'Acquire::https::CaInfo "/etc/ssl/certs/ca-certificates.crt";' > /etc/apt/apt.conf.d/79-hercules-ca; \
     printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "60";' 'Acquire::https::Timeout "60";' > /etc/apt/apt.conf.d/80-hercules-retries; \
-    packages="python3 python3-pip ca-certificates curl wget git unzip jq iproute2 net-tools procps"; \
+    packages="python3 python3-pip ca-certificates curl unzip jq iproute2 net-tools procps"; \
     has_cap dns && packages="$packages dnsutils" || true; \
     has_cap whois && packages="$packages whois" || true; \
     has_cap nmap && packages="$packages nmap" || true; \
@@ -115,12 +123,25 @@ RUN set -eux; \
       wheel="/tmp/cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; test "$(basename "$CLOAKBROWSER_WHEEL_URL")" = "cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; curl -fL --retry 4 "$CLOAKBROWSER_WHEEL_URL" -o "$wheel"; printf '%s  %s\n' "$CLOAKBROWSER_WHEEL_SHA256" "$wheel" | sha256sum -c -; pip3 install --no-cache-dir "$wheel" --break-system-packages; rm -f "$wheel"; python3 -m cloakbrowser install; \
     fi
 
-# Remove download-only build helpers. Keep curl only when its structured
-# capability was selected; generic core shell utilities remain in the image.
+# Remove a download helper only when APT proves that doing so cannot remove any
+# other package. Runtime dependencies such as git (required by commix and
+# Metasploit) are left under APT's dependency ownership. Never autoremove after
+# installing the selected capability packages.
 RUN set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
-    purge="wget git unzip"; has_cap curl || purge="$purge curl"; \
-    apt-get purge -y -qq $purge; apt-get autoremove -y -qq; rm -rf /var/lib/apt/lists/*
+    cleanup_manifest=/opt/hercules-build-helpers.txt; : > "$cleanup_manifest"; \
+    safe_purge() { \
+      helper="$1"; \
+      if ! dpkg-query -W -f='${db:Status-Status}' "$helper" 2>/dev/null | grep -qx installed; then printf '%s=not-installed\n' "$helper" >> "$cleanup_manifest"; return; fi; \
+      simulation="$(apt-get -s purge "$helper")"; \
+      removals="$(printf '%s\n' "$simulation" | awk '$1 == "Remv" || $1 == "Purg" {print $2}')"; \
+      unexpected="$(printf '%s\n' "$removals" | sed '/^$/d' | grep -vxF "$helper" || true)"; \
+      if printf '%s\n' "$removals" | grep -qxF "$helper" && [ -z "$unexpected" ]; then apt-get purge -y -qq "$helper"; printf '%s=removed\n' "$helper" >> "$cleanup_manifest"; \
+      else printf '%s=retained-required-by-installed-packages\n' "$helper" >> "$cleanup_manifest"; fi; \
+    }; \
+    safe_purge unzip; \
+    has_cap curl || safe_purge curl; \
+    apt-get clean; rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,logs,browser} /usr/share/nmap/scripts/custom /usr/share/wordlists
 
@@ -131,8 +152,14 @@ RUN set -eux; \
     has_cap dns && required="$required dig dnsx" || true; has_cap whois && required="$required whois" || true; has_cap amass && required="$required amass" || true; \
     has_cap nmap && required="$required nmap" || true; has_cap curl && required="$required curl" || true; has_cap ncat && required="$required ncat" || true; has_cap hping3 && required="$required hping3" || true; \
     has_cap whatweb && required="$required httpx whatweb wafw00f nikto wpscan arjun" || true; has_cap fuzz && required="$required ffuf gobuster" || true; has_cap webvuln && required="$required dalfox commix" || true; has_cap nuclei && required="$required nuclei" || true; has_cap sqlmap && required="$required sqlmap" || true; \
-    has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; has_cap browser && required="$required agent-browser ncat" || true; \
-    printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > /opt/hercules-capabilities.txt; for tool in $required; do path="$(command -v "$tool")"; printf '%s=%s\n' "$tool" "$path" >> /opt/hercules-capabilities.txt; done; \
+    has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; \
+    if has_cap browser; then required="$required agent-browser"; has_cap ncat || required="$required ncat"; fi; \
+    test -n "$HERCULES_CAPABILITY_MANIFEST_SHA256"; \
+    spec=/opt/hercules-capability-manifest.spec; printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > "$spec"; for tool in $required; do printf 'binary=%s\n' "$tool" >> "$spec"; done; \
+    printf '%s  %s\n' "$HERCULES_CAPABILITY_MANIFEST_SHA256" "$spec" | sha256sum -c -; \
+    printf 'capabilities=%s\nplatform=%s\napt_suite=kali-last-snapshot\nmanifest_sha256=%s\n' "$HERCULES_CAPABILITIES" "$HERCULES_TARGET_PLATFORM" "$HERCULES_CAPABILITY_MANIFEST_SHA256" > /opt/hercules-capabilities.txt; \
+    cat /opt/hercules-build-helpers.txt >> /opt/hercules-capabilities.txt; \
+    for tool in $required; do path="$(command -v "$tool")"; printf '%s=%s\n' "$tool" "$path" >> /opt/hercules-capabilities.txt; done; \
     if has_cap browser; then \
       python3 -c "import importlib.metadata as m; assert m.version('cloakbrowser') == '$CLOAKBROWSER_PY_VERSION'"; \
       cloak_info="$(python3 -m cloakbrowser info 2>/dev/null)"; printf '%s\n' "$cloak_info" | grep -qi 'Installed: *True'; \
@@ -148,4 +175,9 @@ LABEL hercules.capabilities="${HERCULES_CAPABILITIES}"
 LABEL hercules.build_ca_sha256="${HERCULES_BUILD_CA_SHA256}"
 LABEL hercules.cloakbrowser.version="${CLOAKBROWSER_PY_VERSION}"
 LABEL hercules.cloakbrowser.sha256="${CLOAKBROWSER_WHEEL_SHA256}"
+LABEL hercules.base.repository="kalilinux/kali-last-release"
+LABEL hercules.base.digest="sha256:01a402ec78a2b3bd86394f34f8c3d6adefe3c593ae259ac0779c4d1f971c8ff5"
+LABEL hercules.apt.suite="kali-last-snapshot"
+LABEL hercules.platform="${HERCULES_TARGET_PLATFORM}"
+LABEL hercules.capability_manifest_sha256="${HERCULES_CAPABILITY_MANIFEST_SHA256}"
 ENTRYPOINT ["/entrypoint.sh"]

@@ -31,11 +31,20 @@ from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 
 import docker
 from hercules.core.build_info import (
+    IMAGE_APT_SUITE_LABEL,
+    IMAGE_BASE_DIGEST_LABEL,
+    IMAGE_BASE_REPOSITORY_LABEL,
     IMAGE_BUILD_CA_LABEL,
     IMAGE_CAPABILITIES_LABEL,
+    IMAGE_CAPABILITY_MANIFEST_LABEL,
     IMAGE_CLOAKBROWSER_SHA256_LABEL,
     IMAGE_CLOAKBROWSER_VERSION_LABEL,
     IMAGE_FINGERPRINT_LABEL,
+    IMAGE_PLATFORM_LABEL,
+    KALI_APT_SUITE,
+    KALI_BASE_DIGEST,
+    KALI_BASE_REPOSITORY,
+    capability_manifest_sha256,
     image_build_fingerprint,
     image_identity,
 )
@@ -337,6 +346,7 @@ class DockerManager:
             config.project_root,
             installed,
             build_ca_sha256=config.build_ca_sha256,
+            target_platform=config.image_platform,
             cloakbrowser_version=config.cloakbrowser_version,
             cloakbrowser_sha256=config.cloakbrowser_sha256,
         )
@@ -2949,15 +2959,22 @@ class DockerManager:
                 self._config.project_root,
                 capabilities,
                 build_ca_sha256=self._config.build_ca_sha256,
+                target_platform=self._config.image_platform,
                 cloakbrowser_version=self._config.cloakbrowser_version,
                 cloakbrowser_sha256=self._config.cloakbrowser_sha256,
             )
             expected_capabilities = format_capabilities(capabilities)
+            expected_manifest = capability_manifest_sha256(capabilities)
             if (
                 labels.get(IMAGE_FINGERPRINT_LABEL) != expected_fingerprint
                 or labels.get(IMAGE_CAPABILITIES_LABEL) != expected_capabilities
                 or labels.get(IMAGE_BUILD_CA_LABEL, "")
                 != self._config.build_ca_sha256
+                or labels.get(IMAGE_BASE_REPOSITORY_LABEL) != KALI_BASE_REPOSITORY
+                or labels.get(IMAGE_BASE_DIGEST_LABEL) != KALI_BASE_DIGEST
+                or labels.get(IMAGE_APT_SUITE_LABEL) != KALI_APT_SUITE
+                or labels.get(IMAGE_PLATFORM_LABEL) != self._config.image_platform
+                or labels.get(IMAGE_CAPABILITY_MANIFEST_LABEL) != expected_manifest
                 or (
                     "browser" in capabilities
                     and (
@@ -2994,6 +3011,19 @@ class DockerManager:
             "test -x /entrypoint.sh",
             "! head -n 1 /entrypoint.sh | od -An -tx1 | grep -qi '0d'",
             "test -s /opt/hercules-capabilities.txt",
+            "test -s /opt/hercules-capability-manifest.spec",
+            (
+                f"printf '%s  %s\\n' '{capability_manifest_sha256(capabilities)}' "
+                "'/opt/hercules-capability-manifest.spec' | sha256sum -c -"
+            ),
+            (
+                "grep -qx 'apt_suite=" + KALI_APT_SUITE
+                + "' /opt/hercules-capabilities.txt"
+            ),
+            (
+                "grep -qx 'platform=" + self._config.image_platform
+                + "' /opt/hercules-capabilities.txt"
+            ),
         ]
         checks.extend(
             f"command -v {shlex.quote(binary)} >/dev/null"
