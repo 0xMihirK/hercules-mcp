@@ -5,7 +5,7 @@ categories.
 
 Single source of truth shared by:
 
-  * ``hercules-install catalog`` and the selective image builder;
+  * Hercules' read-only setup-information surface and selective image metadata;
   * the server ([hercules/main.py]) — to decide which tools to register, honoring
     the operator's selection while NEVER skipping the *core* tools the agent
     depends on. ``shell_exec`` remains the raw-command escape hatch, but it
@@ -20,7 +20,7 @@ saving). New managed images contain only confirmed capability bundles.
 Independently hidden tools remain installed but are omitted from registration.
 
 This module is deliberately dependency-free (only the standard library) so it is
-cheap and safe to import from both the server and the host-side installer.
+cheap and safe to import from both the server and read-only setup introspection.
 The flattened tool list is asserted to match the live registered surface by the
 local-only acceptance suite so drift cannot silently desync token estimates.
 """
@@ -45,7 +45,7 @@ class Capability:
 
 @dataclass(frozen=True)
 class ToolCategory:
-    """A user-facing group of capabilities shown by the installer catalog."""
+    """A user-facing group of capabilities shown in setup information."""
 
     key: str
     title: str
@@ -73,7 +73,7 @@ class CapabilityInstall:
 
 
 # Dotted ``module:function`` paths for every tool registrar, in the same order
-# main.py registers them. Used by installer validation to capture the live tool
+# main.py registers them. Used by setup validation to capture the live tool
 # surface (name + description + signature) on a throwaway MCP object.
 TOOL_REGISTRARS: tuple[ToolRegistrar, ...] = (
     ToolRegistrar("hercules.tools.network.nmap_tool:register_nmap_tools"),
@@ -97,7 +97,7 @@ TOOL_REGISTRARS: tuple[ToolRegistrar, ...] = (
     ToolRegistrar("hercules.tools.browser.browser_tool:register_browser_tools"),
 )
 
-# Backward-compatible flattened view used by installer validation.
+# Backward-compatible flattened view used by setup validation.
 REGISTRARS: tuple[str, ...] = tuple(item.path for item in TOOL_REGISTRARS)
 
 

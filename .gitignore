@@ -19,6 +19,7 @@ venv/
 resources_cache/
 workspace/
 .hercules.lock
+.hercules/
 AGENTS.md
 CLAUDE.md
 tests/

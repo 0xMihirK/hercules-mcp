@@ -2,7 +2,7 @@
 Docker container lifecycle manager for Hercules.
 
 Manages the creation, command execution, file I/O, and teardown of the
-Hercules Kali container. Uses an installer-built, capability-specific Docker
+Hercules Kali container. Uses an agent-prepared, capability-specific Docker
 image for instant startup. Missing images are diagnosed without mutating setup.
 
 All blocking Docker SDK calls are wrapped with asyncio.to_thread() to
@@ -31,7 +31,10 @@ from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 
 import docker
 from hercules.core.build_info import (
+    IMAGE_BUILD_CA_LABEL,
     IMAGE_CAPABILITIES_LABEL,
+    IMAGE_CLOAKBROWSER_SHA256_LABEL,
+    IMAGE_CLOAKBROWSER_VERSION_LABEL,
     IMAGE_FINGERPRINT_LABEL,
     image_build_fingerprint,
     image_identity,
@@ -42,8 +45,8 @@ from hercules.core.tool_catalog import (
     format_capabilities,
     required_backends,
 )
+from hercules.core.wordlists import provision_wordlists
 from hercules.core.workspace import WorkspaceManager, utc_now
-from hercules.installer_support.runtime import provision_wordlists
 from hercules.output.banners import strip_known_banners
 from hercules.output.filters import apply_tool_filter
 from hercules.output.sanitizer import escape_display_controls, sanitize
@@ -330,7 +333,13 @@ class DockerManager:
     def __init__(self, config: HerculesConfig) -> None:
         self._config = config
         installed = config.installed_capabilities or ALL_CAPABILITIES
-        self.IMAGE, _fingerprint = image_identity(config.project_root, installed)
+        self.IMAGE, _fingerprint = image_identity(
+            config.project_root,
+            installed,
+            build_ca_sha256=config.build_ca_sha256,
+            cloakbrowser_version=config.cloakbrowser_version,
+            cloakbrowser_sha256=config.cloakbrowser_sha256,
+        )
         self._client: docker.DockerClient | None = None
         self._container: Container | None = None
         self._workspace = WorkspaceManager(
@@ -541,13 +550,13 @@ class DockerManager:
 
     async def start_container(self) -> None:
         """Full startup: verify setup → create container → wait for ready."""
-        # Step 1: Verify setup is complete (Docker + image + wordlists)
+        # Step 1: Verify Docker and the selected immutable image.
         await self._verify_setup()
 
-        # Step 2: Ensure wordlists are present (non-blocking, warn only)
+        # Step 2: Prepare only required checksum-validated assets.
         extracted_wordlists = await self._ensure_wordlists()
 
-        # Step 4: Prepare host directories (session-isolated workspace)
+        # Step 3: Prepare host directories (session-isolated workspace)
         workspace_path = self._workspace.session_path(self._session_id)
         if await asyncio.to_thread(
             self._workspace.read_manifest,
@@ -558,7 +567,9 @@ class DockerManager:
                 "valid Hercules ownership manifest."
             )
 
-        wordlists_path = self._config.project_root / "wordlists"
+        wordlists_path = (
+            self._config.wordlist_root or self._config.project_root / "wordlists"
+        )
         wordlists_path.mkdir(parents=True, exist_ok=True)
 
         self._cleanup_empty_workspaces()
@@ -580,7 +591,7 @@ class DockerManager:
         # Cleanup orphaned containers without touching live sessions.
         await self._cleanup_orphaned_containers()
 
-        # Step 5: Build container creation kwargs
+        # Step 4: Build container creation kwargs
         env_vars = {
             "MSF_PASSWORD": self._config.msf_password,
             "MSF_RPC_PORT": str(self.msf_rpc_port),
@@ -2888,7 +2899,7 @@ class DockerManager:
 
     async def _verify_setup(self) -> None:
         """
-        Verify that hercules-install provisioned the selected runtime:
+        Verify that the agent prepared the selected runtime described by install.md:
           1. Docker is installed and daemon is running.
           2. The pre-built hercules-kali image exists.
 
@@ -2905,14 +2916,10 @@ class DockerManager:
             if os_name == "Windows":
                 docker_hint = "Install Docker Desktop: https://docs.docker.com/desktop/install/windows-install/"
             else:
-                from hercules.installer_support.platform import (
-                    detect_platform,
-                    prerequisite_guidance,
-                )
-
-                docker_hint = prerequisite_guidance(
-                    detect_platform(),
-                    "docker",
+                docker_hint = (
+                    "Consult the host's supported Docker installation guidance and "
+                    "https://docs.docker.com/llms-full.txt. Hercules does not make "
+                    "privileged host changes."
                 )
 
             error_msg = (
@@ -2922,8 +2929,7 @@ class DockerManager:
                 "  The Docker daemon is not running or Docker is not installed.\n\n"
                 f"  Platform: {os_name}\n"
                 f"  Fix: {docker_hint}\n\n"
-                "  After installing Docker, run:\n"
-                "    hercules-install install --rebuild\n\n"
+                "  After Docker is working, complete the outcomes in install.md.\n\n"
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
@@ -2942,11 +2948,25 @@ class DockerManager:
             expected_fingerprint = image_build_fingerprint(
                 self._config.project_root,
                 capabilities,
+                build_ca_sha256=self._config.build_ca_sha256,
+                cloakbrowser_version=self._config.cloakbrowser_version,
+                cloakbrowser_sha256=self._config.cloakbrowser_sha256,
             )
             expected_capabilities = format_capabilities(capabilities)
             if (
                 labels.get(IMAGE_FINGERPRINT_LABEL) != expected_fingerprint
                 or labels.get(IMAGE_CAPABILITIES_LABEL) != expected_capabilities
+                or labels.get(IMAGE_BUILD_CA_LABEL, "")
+                != self._config.build_ca_sha256
+                or (
+                    "browser" in capabilities
+                    and (
+                        labels.get(IMAGE_CLOAKBROWSER_VERSION_LABEL)
+                        != self._config.cloakbrowser_version
+                        or labels.get(IMAGE_CLOAKBROWSER_SHA256_LABEL)
+                        != self._config.cloakbrowser_sha256
+                    )
+                )
             ):
                 raise ImageNotFound(
                     "the local Hercules image was built from different runtime inputs"
@@ -2959,8 +2979,9 @@ class DockerManager:
                 "  HERCULES ERROR: Setup not complete.\n"
                 + "=" * 60 + "\n\n"
                 f"  The '{self.IMAGE}' Docker image is missing or stale.\n"
-                "  Build the confirmed capability profile first:\n\n"
-                "    hercules-install install --rebuild\n\n"
+                "  Build the confirmed capability profile described by install.md.\n"
+                "  Hercules can expose the required non-secret build metadata through\n"
+                "  its read-only setup-information mode.\n\n"
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
@@ -2981,7 +3002,24 @@ class DockerManager:
         if "browser" in capabilities:
             checks.extend((
                 "python3 -c 'import cloakbrowser'",
+                (
+                    "python3 -c \"import importlib.metadata as m; "
+                    f"assert m.version('cloakbrowser') == "
+                    f"'{self._config.cloakbrowser_version}'\""
+                ),
                 "python3 -m cloakbrowser info 2>/dev/null | grep -qi 'Installed: *True'",
+                (
+                    "cloak_binary=$(python3 -m cloakbrowser info 2>/dev/null | "
+                    "sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1); "
+                    "test -n \"$cloak_binary\" && test -x \"$cloak_binary\""
+                ),
+                (
+                    "cloak_binary=$(python3 -m cloakbrowser info 2>/dev/null | "
+                    "sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1); "
+                    "AGENT_BROWSER_EXECUTABLE_PATH=\"$cloak_binary\" "
+                    "agent-browser --help >/dev/null"
+                ),
+                "command -v agent-browser >/dev/null",
             ))
         check_cmd = " && ".join(checks)
         try:
@@ -2998,8 +3036,8 @@ class DockerManager:
                 "  HERCULES ERROR: Docker image is stale or incomplete.\n"
                 + "=" * 60 + "\n\n"
                 f"  The '{self.IMAGE}' image exists but failed runtime checks.\n"
-                "  Rebuild it from the current Dockerfile:\n\n"
-                "    hercules-install install --rebuild\n\n"
+                "  Rebuild it from the current Dockerfile using the declarative\n"
+                "  metadata exposed by Hercules and the outcomes in install.md.\n\n"
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
@@ -3009,7 +3047,7 @@ class DockerManager:
         """Prepare only wordlists required by the installed capability profile."""
         result = await asyncio.to_thread(
             provision_wordlists,
-            self._config.project_root,
+            self._config.wordlist_root or self._config.project_root / "wordlists",
             self._config.installed_capabilities or ALL_CAPABILITIES,
             dry_run=False,
         )

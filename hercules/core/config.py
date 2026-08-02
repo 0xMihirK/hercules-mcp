@@ -20,6 +20,12 @@ from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
 
+from hercules.core.build_info import (
+    CLOAKBROWSER_VERSION,
+    CLOAKBROWSER_WHEEL_SHA256,
+    CLOAKBROWSER_WHEEL_URL,
+)
+
 logger = logging.getLogger("hercules.config")
 _legacy_headed_warning_emitted = False
 # Reverse listeners are the one deliberately public service surface. RPC and
@@ -111,7 +117,7 @@ def _parse_int(value: str, default: int, *, minimum: int = 0, maximum: int | Non
 
 
 def _default_msf_password() -> str:
-    """Create an ephemeral secret when the installer has not persisted one yet."""
+    """Create an ephemeral secret when an agent has not persisted one yet."""
     return secrets.token_urlsafe(32)
 
 
@@ -179,6 +185,11 @@ class HerculesConfig:
     # Paths
     project_root: Path = field(default_factory=lambda: _PROJECT_ROOT)
     workspace_root: Path | None = None
+    wordlist_root: Path | None = None
+    build_ca_sha256: str = ""
+    cloakbrowser_version: str = CLOAKBROWSER_VERSION
+    cloakbrowser_wheel_url: str = CLOAKBROWSER_WHEEL_URL
+    cloakbrowser_sha256: str = CLOAKBROWSER_WHEEL_SHA256
 
     # Workspace retention. Zero disables each limit; automatic pruning is off
     # unless explicitly enabled.
@@ -237,7 +248,7 @@ class HerculesConfig:
         if legacy_install_mode:
             logger.warning(
                 "TOOL_INSTALL_MODE is deprecated and has no build effect; "
-                "use hercules-install capability selection instead."
+                "use HERCULES_INSTALLED_CAPABILITIES instead."
             )
         return cls(
             msf_password=msf_password,
@@ -265,6 +276,24 @@ class HerculesConfig:
             disabled_tools=disabled_tools,
             operator_disabled_tools=operator_disabled_tools,
             installed_capabilities=(installed_capabilities or ALL_CAPABILITIES),
+            wordlist_root=(
+                Path(os.environ["HERCULES_WORDLIST_ROOT"]).expanduser().resolve()
+                if os.getenv("HERCULES_WORDLIST_ROOT", "").strip()
+                else None
+            ),
+            build_ca_sha256=os.getenv("HERCULES_BUILD_CA_SHA256", "").strip().lower(),
+            cloakbrowser_version=os.getenv(
+                "HERCULES_CLOAKBROWSER_VERSION",
+                CLOAKBROWSER_VERSION,
+            ).strip(),
+            cloakbrowser_wheel_url=os.getenv(
+                "HERCULES_CLOAKBROWSER_WHEEL_URL",
+                CLOAKBROWSER_WHEEL_URL,
+            ).strip(),
+            cloakbrowser_sha256=os.getenv(
+                "HERCULES_CLOAKBROWSER_SHA256",
+                CLOAKBROWSER_WHEEL_SHA256,
+            ).strip().lower(),
             container_cpu_limit=_parse_float(os.getenv("CONTAINER_CPU_LIMIT", "0")),
             container_mem_limit=os.getenv("CONTAINER_MEM_LIMIT", "0"),
             default_timeout=_parse_int(

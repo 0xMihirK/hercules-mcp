@@ -8,12 +8,16 @@ import os
 import shutil
 import stat
 import tarfile
+import urllib.request
 import uuid
 import zipfile
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from hercules.core.tool_catalog import normalize_capabilities, required_wordlists
 
 # SecLists does not publish a release archive checksum. Hercules pins the exact
 # audited commit archive and its locally verified digest.
@@ -35,6 +39,11 @@ WORDLIST_SOURCES: dict[str, dict[str, str]] = {
     },
 }
 
+WORDLIST_FILES = {
+    "seclists": "SecLists.zip",
+    "rockyou": "rockyou.txt.tar.gz",
+}
+
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -54,6 +63,36 @@ def validate_wordlist_archive(filename: str, path: Path) -> bool:
     if filename.endswith(".tar.gz") and not tarfile.is_tarfile(path):
         return False
     return sha256_file(path) == source["sha256"]
+
+
+def _download_wordlist(wordlists_dir: Path, filename: str) -> None:
+    source = WORDLIST_SOURCES[filename]
+    parsed = urlsplit(source["url"])
+    if parsed.scheme != "https" or parsed.hostname not in {
+        "codeload.github.com",
+        "raw.githubusercontent.com",
+    }:
+        raise ValueError("wordlist source is not an approved pinned HTTPS URL")
+    destination = wordlists_dir / filename
+    if destination.resolve().parent != wordlists_dir.resolve():
+        raise ValueError("wordlist destination escapes its managed directory")
+    temporary = destination.with_name(f".{filename}.{uuid.uuid4().hex}.download")
+    try:
+        request = urllib.request.Request(
+            source["url"],
+            headers={"User-Agent": "hercules-mcp/1"},
+        )
+        with (
+            urllib.request.urlopen(request, timeout=180) as response,  # nosec B310
+            temporary.open("xb") as output,
+        ):
+            while chunk := response.read(1024 * 1024):
+                output.write(chunk)
+        if not validate_wordlist_archive(filename, temporary):
+            raise ValueError(f"{filename} failed pinned checksum/format validation")
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _within(root: Path, candidate: Path) -> bool:
@@ -369,3 +408,48 @@ def ensure_extracted_wordlists(wordlists_dir: Path) -> dict[str, Path]:
                     temp_target.unlink()
 
         return prepared
+
+
+def provision_wordlists(
+    wordlists_dir: Path,
+    capabilities: Iterable[str],
+    *,
+    dry_run: bool = False,
+) -> dict[str, object]:
+    """Provision only the checksum-pinned assets required by a capability set."""
+    selected = normalize_capabilities(capabilities)
+    required = required_wordlists(selected)
+    if not required:
+        return {
+            "required": [],
+            "ready": True,
+            "status": "not_required",
+            "paths": {},
+        }
+    root = Path(wordlists_dir).expanduser().resolve()
+    if dry_run:
+        return {
+            "required": list(required),
+            "ready": True,
+            "status": "dry_run",
+            "paths": {},
+        }
+    root.mkdir(parents=True, exist_ok=True)
+    for logical_name in required:
+        filename = WORDLIST_FILES[logical_name]
+        destination = root / filename
+        if not validate_wordlist_archive(filename, destination):
+            destination.unlink(missing_ok=True)
+            _download_wordlist(root, filename)
+    prepared = ensure_extracted_wordlists(root)
+    missing = sorted(set(required) - set(prepared))
+    if missing:
+        raise RuntimeError(
+            "required wordlist caches are incomplete: " + ", ".join(missing)
+        )
+    return {
+        "required": list(required),
+        "ready": True,
+        "status": "ready",
+        "paths": {key: str(prepared[key]) for key in required},
+    }

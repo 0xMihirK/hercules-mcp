@@ -591,7 +591,7 @@ def register_web_scanner_tools(mcp: FastMCP) -> None:
                 ],
                 next_steps=[
                     "Choose an existing wordlist path inside the container.",
-                    "Run hercules-install install to provision the wordlist required by the selected capability.",
+                    "Complete the wordlist outcome in install.md for this capability, then retry.",
                 ],
                 target=target_url,
             )

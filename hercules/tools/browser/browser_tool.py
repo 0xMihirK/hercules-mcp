@@ -5,8 +5,8 @@ Combines two tools so the agent can drive a fingerprint-reduced Chromium:
 
   * cloakbrowser  — a fingerprint-patched stealth Chromium (compile-time C++
     patches: navigator.webdriver=false, canvas/WebGL/audio/font spoofing, ...).
-    The pip package bakes the patched Chromium binary; its path is reported by
-    `python3 -m cloakbrowser info`.
+    The verified package manages a patched Chromium build; its installed path
+    is reported by `python3 -m cloakbrowser info`.
   * agent-browser — a Rust CLI/daemon that launches and drives a browser,
     exposing an agent-friendly accessibility `snapshot` (@e refs) plus the full
     interaction/inspection command surface.
@@ -104,8 +104,8 @@ async def _resolve_cloak(docker) -> str:
     """
     Resolve and cache the path to the cloak stealth-Chromium binary (via
     `python3 -m cloakbrowser info`) and ensure the workspace dirs exist.
-    Returns the path, or "" if the stealth binary is unavailable (agent-browser
-    would then fall back to its own browser, if installed).
+    Returns the verified executable path, or "" if the stealth binary is
+    unavailable. Hercules does not silently use agent-browser's fallback.
     """
     if _cloak_cache["resolved"]:
         return _cloak_cache["path"]
@@ -118,12 +118,20 @@ async def _resolve_cloak(docker) -> str:
         res = await docker.exec_command(
             "python3 -m cloakbrowser info", timeout=40, clean_output=False,
         )
+        if res.exit_code != 0:
+            raise BrowserBackendError("cloakbrowser readiness information failed")
         path = ""
         for line in (res.stdout or "").splitlines():
             stripped = line.strip()
             if stripped.lower().startswith("binary:"):
                 path = stripped.split(":", 1)[1].strip()
                 break
+        if path:
+            executable = await docker.exec_command(
+                f"test -x {shlex.quote(path)}", timeout=15, clean_output=False,
+            )
+            if executable.exit_code != 0:
+                path = ""
         _cloak_cache["path"] = path
         _cloak_cache["resolved"] = True
         if path:
@@ -153,7 +161,7 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
         return backend_unavailable(
             tool, f"Failed to resolve the stealth browser binary: {exc}",
             next_steps=[
-                "Rebuild the browser capability with hercules-install install --rebuild.",
+                "Rebuild the browser capability using the outcomes in install.md.",
                 "Check workspace/logs via workspace_read_file.",
             ],
         )
@@ -163,7 +171,7 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
             "The cloakbrowser Chromium binary is unavailable; Hercules will not "
             "silently fall back while reporting a stealth browser.",
             next_steps=[
-                "Run hercules-install doctor --json.",
+                "Inspect the local browser readiness outcomes described in install.md.",
                 "Rebuild the image if cloakbrowser is missing.",
             ],
         )

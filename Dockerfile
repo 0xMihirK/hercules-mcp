@@ -1,17 +1,46 @@
+# syntax=docker/dockerfile:1.7
 # Capability-specific Kali runtime for Hercules MCP.
+#
+# The pinned Kali layer does not currently contain a CA bundle. Bootstrap the
+# public trust store from a second pinned, multi-architecture image before the
+# first HTTPS APT request. Kali's ca-certificates package subsequently owns and
+# refreshes this file; certificate verification is never disabled.
+FROM curlimages/curl:8.16.0@sha256:463eaf6072688fe96ac64fa623fe73e1dbe25d8ad6c34404a669ad3ce1f104b6 AS trust-bootstrap
+
 FROM kalilinux/kali-rolling@sha256:dea2bdf0e8c0ca1deb51b7a6253f481acae3ca9c2f1e2371077e6af55e5b2721
+
+# curlimages ships a newer pinned Mozilla bundle at /cacert.pem than its Alpine
+# compatibility path; curl itself verifies with this bundle.
+COPY --from=trust-bootstrap /cacert.pem /etc/ssl/certs/ca-certificates.crt
 
 LABEL maintainer="Hercules MCP Server"
 LABEL description="Selective tooling image for the Hercules offensive security MCP server"
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG HERCULES_CAPABILITIES=all
+ARG HERCULES_BUILD_FINGERPRINT=unknown
+ARG HERCULES_BUILD_CA_SHA256=
 
 # Core is mandatory. Optional apt packages are added only for selected bundles.
-RUN set -eux; \
+RUN --mount=type=secret,id=hercules_build_ca \
+    set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
+    ca_bundle=/run/secrets/hercules_build_ca; \
+    if [ -n "$HERCULES_BUILD_CA_SHA256" ]; then test -f "$ca_bundle"; fi; \
+    if [ -f "$ca_bundle" ]; then \
+        test -n "$HERCULES_BUILD_CA_SHA256"; \
+        test "$(wc -c < "$ca_bundle")" -le 1048576; \
+        ! grep -Eq -- '-----BEGIN ([^-]*PRIVATE KEY|OPENSSH PRIVATE KEY)-----' "$ca_bundle"; \
+        mkdir -p /usr/local/share/ca-certificates/hercules; \
+        awk 'BEGIN { inside=0; count=0; invalid=0 } /-----BEGIN CERTIFICATE-----/ { if (inside) invalid=1; inside=1; count++; file=sprintf("/usr/local/share/ca-certificates/hercules/build-ca-%03d.crt", count) } inside && $0 !~ /-----BEGIN CERTIFICATE-----/ && $0 !~ /-----END CERTIFICATE-----/ && $0 !~ /^[A-Za-z0-9+\/=[:space:]]+$/ { invalid=1 } inside { print > file } /-----END CERTIFICATE-----/ { if (!inside) invalid=1; close(file); file=""; inside=0; next } !inside && $0 !~ /^[[:space:]]*$/ && $0 !~ /^[[:space:]]*#/ { invalid=1 } END { if (inside || count == 0 || invalid) exit 1 }' "$ca_bundle"; \
+        normalized_ca=/tmp/hercules-build-ca.pem; : > "$normalized_ca"; \
+        for certificate in /usr/local/share/ca-certificates/hercules/build-ca-*.crt; do cat "$certificate" >> "$normalized_ca"; done; \
+        printf '%s  %s\n' "$HERCULES_BUILD_CA_SHA256" "$normalized_ca" | sha256sum -c -; \
+        cat "$normalized_ca" >> /etc/ssl/certs/ca-certificates.crt; rm -f "$normalized_ca"; \
+    fi; \
     if [ -f /etc/apt/sources.list ]; then sed -i -E 's|https?://(http\.)?kali[^ /]*/kali|https://kali.download/kali|g' /etc/apt/sources.list; fi; \
     if [ -f /etc/apt/sources.list.d/kali.sources ]; then sed -i -E 's|https?://(http\.)?kali[^ /]*/kali/?|https://kali.download/kali/|g' /etc/apt/sources.list.d/kali.sources; fi; \
+    printf '%s\n' 'Acquire::https::CaInfo "/etc/ssl/certs/ca-certificates.crt";' > /etc/apt/apt.conf.d/79-hercules-ca; \
     printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "60";' 'Acquire::https::Timeout "60";' > /etc/apt/apt.conf.d/80-hercules-retries; \
     packages="python3 python3-pip ca-certificates curl wget git unzip jq iproute2 net-tools procps"; \
     has_cap dns && packages="$packages dnsutils" || true; \
@@ -75,14 +104,15 @@ RUN set -eux; \
 # closure required by the pinned cloakbrowser binary; no X server is installed.
 ARG AGENT_BROWSER_VERSION=0.33.1
 ARG AGENT_BROWSER_SHA512=952d0a6d4f507640f42369febb3ae635728d1918ec77a19c07b6d1e969b57b22dc6b14c249fdb3bb16d6cdfefa7c70ab0c0e18a18dd38a4a0e31203ca80fb014
-ARG CLOAKBROWSER_PY_VERSION=0.5.2
-ARG CLOAKBROWSER_WHEEL_SHA256=7e9088fa38e56d4f31c630e42c47204619d39974518bb44f9dfce8401e7b50cb
+ARG CLOAKBROWSER_PY_VERSION=0.5.3
+ARG CLOAKBROWSER_WHEEL_URL=https://files.pythonhosted.org/packages/93/e8/f0d86ca18b3a1e132ffd965268f621897f60c47ea8c61b1ee9a786fffb36/cloakbrowser-0.5.3-py3-none-any.whl
+ARG CLOAKBROWSER_WHEEL_SHA256=9082cfd2f104342fd718d9882984da7674ef6616308dd7932bff4b8bd5cf3cfe
 ENV CLOAKBROWSER_AUTO_UPDATE=false
 RUN set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
     if has_cap browser; then \
       archive="/tmp/agent-browser-${AGENT_BROWSER_VERSION}.tgz"; curl -fL --retry 4 "https://registry.npmjs.org/agent-browser/-/agent-browser-${AGENT_BROWSER_VERSION}.tgz" -o "$archive"; printf '%s  %s\n' "$AGENT_BROWSER_SHA512" "$archive" | sha512sum -c -; npm install -g "$archive"; rm -f "$archive"; \
-      wheel="/tmp/cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; curl -fL --retry 4 "https://files.pythonhosted.org/packages/3d/c0/a7d81fd6a49d1470f919f35726ddd11c1ad7efa683cf444f75ab2e8fd75d/cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl" -o "$wheel"; printf '%s  %s\n' "$CLOAKBROWSER_WHEEL_SHA256" "$wheel" | sha256sum -c -; pip3 install --no-cache-dir "$wheel" --break-system-packages; rm -f "$wheel"; python3 -m cloakbrowser install; \
+      wheel="/tmp/cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; test "$(basename "$CLOAKBROWSER_WHEEL_URL")" = "cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; curl -fL --retry 4 "$CLOAKBROWSER_WHEEL_URL" -o "$wheel"; printf '%s  %s\n' "$CLOAKBROWSER_WHEEL_SHA256" "$wheel" | sha256sum -c -; pip3 install --no-cache-dir "$wheel" --break-system-packages; rm -f "$wheel"; python3 -m cloakbrowser install; \
     fi
 
 # Remove download-only build helpers. Keep curl only when its structured
@@ -102,12 +132,20 @@ RUN set -eux; \
     has_cap nmap && required="$required nmap" || true; has_cap curl && required="$required curl" || true; has_cap ncat && required="$required ncat" || true; has_cap hping3 && required="$required hping3" || true; \
     has_cap whatweb && required="$required httpx whatweb wafw00f nikto wpscan arjun" || true; has_cap fuzz && required="$required ffuf gobuster" || true; has_cap webvuln && required="$required dalfox commix" || true; has_cap nuclei && required="$required nuclei" || true; has_cap sqlmap && required="$required sqlmap" || true; \
     has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; has_cap browser && required="$required agent-browser ncat" || true; \
-    printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > /opt/hercules-capabilities.txt; for tool in $required; do path="$(command -v "$tool")"; printf '%s=%s\n' "$tool" "$path" >> /opt/hercules-capabilities.txt; done
+    printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > /opt/hercules-capabilities.txt; for tool in $required; do path="$(command -v "$tool")"; printf '%s=%s\n' "$tool" "$path" >> /opt/hercules-capabilities.txt; done; \
+    if has_cap browser; then \
+      python3 -c "import importlib.metadata as m; assert m.version('cloakbrowser') == '$CLOAKBROWSER_PY_VERSION'"; \
+      cloak_info="$(python3 -m cloakbrowser info 2>/dev/null)"; printf '%s\n' "$cloak_info" | grep -qi 'Installed: *True'; \
+      cloak_binary="$(printf '%s\n' "$cloak_info" | sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1)"; test -n "$cloak_binary"; test -x "$cloak_binary"; \
+      AGENT_BROWSER_EXECUTABLE_PATH="$cloak_binary" agent-browser --help >/dev/null; \
+    fi
 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 
-ARG HERCULES_BUILD_FINGERPRINT=unknown
 LABEL hercules.build_fingerprint="${HERCULES_BUILD_FINGERPRINT}"
 LABEL hercules.capabilities="${HERCULES_CAPABILITIES}"
+LABEL hercules.build_ca_sha256="${HERCULES_BUILD_CA_SHA256}"
+LABEL hercules.cloakbrowser.version="${CLOAKBROWSER_PY_VERSION}"
+LABEL hercules.cloakbrowser.sha256="${CLOAKBROWSER_WHEEL_SHA256}"
 ENTRYPOINT ["/entrypoint.sh"]

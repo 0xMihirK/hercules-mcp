@@ -363,7 +363,7 @@ logger.info("Hercules MCP server configured with the selected tools and resource
 # Entry point
 # ---------------------------------------------------------------------------
 
-async def _installation_probe() -> dict[str, object]:
+async def _mcp_surface_probe() -> dict[str, object]:
     """Inspect the installed FastMCP surface without entering its Docker lifespan."""
     tools = await mcp.list_tools(run_middleware=False)
     resources = await mcp.list_resources(run_middleware=False)
@@ -379,8 +379,41 @@ async def _installation_probe() -> dict[str, object]:
 
 def main():
     """Run the Hercules MCP server."""
-    if "--validate-install-json" in sys.argv[1:]:
-        print(json.dumps(asyncio.run(_installation_probe()), sort_keys=True))
+    arguments = sys.argv[1:]
+    if "--setup-info-json" in arguments:
+        from hercules.core.setup_info import setup_information_from_argv
+
+        remaining = [value for value in arguments if value != "--setup-info-json"]
+        try:
+            payload = setup_information_from_argv(config.project_root, remaining)
+        except OSError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "code": "setup_input_unavailable",
+                        "error": f"A requested local setup input could not be read safely ({exc.__class__.__name__}).",
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise SystemExit(2) from exc
+        except ValueError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "code": "setup_input_invalid",
+                        "error": str(exc),
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise SystemExit(2) from exc
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return
+    if "--validate-mcp-json" in arguments:
+        print(json.dumps(asyncio.run(_mcp_surface_probe()), sort_keys=True))
         return
     mcp.run()
 

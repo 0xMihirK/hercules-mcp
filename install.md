@@ -1,151 +1,231 @@
 ---
-name: hercules-install
-description: Adaptively install or upgrade Hercules MCP, a selected Kali capability image, the portable skill, and an STDIO client adapter.
+name: hercules-setup-contract
+description: Outcome and safety contract for an AI agent installing or upgrading Hercules MCP
 ---
 
-# Hercules MCP installation
+# Install or upgrade Hercules MCP
 
-Use this document as an outcome contract, not as a platform-specific command
-script. Inspect the real host and adapt native commands to its operating system,
-shell, CPU architecture, package manager, Docker context, and current
-terminal-capable AI agent. Never assume apt, systemd, or a POSIX shell on
-Windows.
+This document is a contract for a capable terminal agent, not a shell recipe.
+Inspect the actual host, repository metadata, client documentation, and native
+help before acting. Choose commands and recovery steps that fit the operating
+system, CPU architecture, shell, Docker context, security policy, and AI client
+in front of you. Do not assume a package manager, init system, filesystem
+layout, or client configuration shape.
 
-## Required outcomes
+Authoritative context:
 
-- Git, `uv`, Python 3.12 through `uv`, and a working Docker-compatible CLI and
-  daemon are available.
-- Hercules lives in its durable platform data directory and is installed as an
-  editable `uv tool` from the managed checkout with the frozen requirements
-  export.
-- The confirmed capability profile is built and validated before `.env`,
-  installer state, skills, or client registration are committed.
-- The provider-neutral `hercules-mcp` skill is installed independently from the
-  appropriate MCP-only client adapter. Native plugins do not declare skills,
-  and the `hercules` STDIO server is registered without secrets or a
-  checkout-relative working directory.
-- Verification is local and non-destructive. Installation never scans,
-  navigates to, exploits, or checks public egress against an external target.
+- [Docker's complete LLM context](https://docs.docker.com/llms-full.txt)
+- [CloakBrowser's official repository](https://github.com/CloakHQ/cloakbrowser)
+- [CloakBrowser on PyPI](https://pypi.org/project/cloakbrowser/)
 
-Do not silently install privileged packages, start or alter system services,
-change group membership, or weaken Docker security. If the host needs one of
-those actions, explain the smallest exact user/admin step and pause.
+## Completion checkpoint
 
-## First installation
+Installation is complete only when all of these outcomes are true:
 
-Before running the install, ask what the user intends to use Hercules for and
-whether they want every capability or a smaller installation. Inspect the live
-catalog rather than relying on a copied list:
+- The user confirmed the intended security work, installation scope, and the
+  smallest useful Hercules capability set.
+- A durable, non-synced checkout is at a known revision and a locked Python
+  environment exposes an absolute `hercules` launcher.
+- A capability-specific Docker image was built from the repository inputs and
+  its labels, binaries, assets, and readiness manifest match the selected
+  profile.
+- The existing `.env`, secrets, non-secret setup state, workspace evidence,
+  verified assets, and unrelated client settings were preserved.
+- The independent portable `hercules-mcp` skill was installed, and the active
+  client's Hercules STDIO entry points at the absolute launcher without any
+  secret or checkout-relative working directory.
+- Local, non-destructive MCP checks report the expected tool surface and all
+  seven resources. No external target, public IP service, exploit, payload, or
+  credential service was touched during setup.
 
-```text
-uvx --python 3.12 --from git+https://github.com/0xMihirK/hercules-mcp.git hercules-install catalog --json
-```
+If any checkpoint fails, do not represent the installation as successful.
+Restore the last known-good client configuration and setup state, retain
+checksum-valid caches, and give the user the smallest actionable prerequisite
+or recovery step.
 
-Use judgment to recommend the smallest useful bundle set. Mention important
-omissions briefly—for example, browser workflows require `browser`, NSE work is
-included with `nmap`, and Metasploit tools require `metasploit`. Core shell,
-workspace, and lifecycle capabilities are mandatory. Obtain confirmation.
+## First-install decisions
 
-Also ask whether configuration is user-wide or project-local (default:
-user-wide). Ask about a browser proxy only when `browser` is selected. Read proxy
-credentials through hidden input and keep them only in the protected `.env`.
+First understand what the user intends to do. Explain the important omissions
+of a smaller profile, recommend the minimum useful capability bundles, and get
+confirmation before building. Core shell, workspace, and lifecycle support is
+always present. Optional bundles determine both which binaries enter the image
+and which MCP tools are registered; consolidated families such as browser,
+Nmap/NSE, and Nuclei should remain intact.
 
-Then run one adapted equivalent of:
+Also confirm whether installation is user-wide or project-local. User-wide is
+normally the least surprising default. Ask about an authenticated browser proxy
+only if browser capability is selected. Never put proxy credentials in setup
+state, image arguments, logs, command display, or MCP client configuration.
 
-```text
-uvx --python 3.12 --from git+https://github.com/0xMihirK/hercules-mcp.git hercules-install install --client auto --scope user --capabilities nmap,nuclei,browser
-```
+An unattended first installation needs an explicit capability and scope
+decision supplied by the user or calling environment. Do not silently infer
+"everything". During an upgrade, preserve the recorded choices unless the user
+explicitly asks to change them.
 
-Use `--capabilities all` for a full installation or `core` for only mandatory
-services. `--exclude-capabilities key,key` may refine an explicit/all base.
-Fresh unattended installs intentionally fail unless a capability selection is
-explicit. Interactive `hercules-install install` can instead ask all/custom.
+## Inspect Hercules' read-only setup facts
 
-The compatibility `--metasploit enabled|disabled` switch is accepted for one
-release and is translated into the capability selection.
+The existing `hercules` executable provides a read-only setup-information mode
+through `--setup-info-json`. Consult it whenever capability, image, dependency,
+state-location, or acceptance facts are needed. It normalizes a requested
+profile and reports the exact catalog, build inputs, deterministic image
+identity, labels, required binaries and wordlists, expected MCP counts,
+CloakBrowser artifact, optional CA-secret metadata, non-secret environment
+values, schema-4 state locations, and local acceptance assertions.
 
-## Success checkpoint
+This interface is deliberately non-mutating. It does not build or update an
+image, download assets, write configuration, modify `PATH`, register clients,
+or choose preferences. Treat repository metadata and this declarative output as
+more authoritative than remembered commands or historical documentation.
 
-Run:
+## Prepare the host and checkout
 
-```text
-hercules-install check --json
-hercules-install check --runtime-only --json
-```
+Confirm that the host can supply Git, `uv`, and a working Docker-compatible CLI
+and daemon. Hercules requires the Docker runtime contract; do not claim
+Podman-only compatibility without a separately validated Docker API layer. Use
+the host's native mechanism and official vendor guidance to resolve missing
+prerequisites. Never silently perform privileged package installation, daemon
+changes, group membership changes, or service operations.
 
-Success reports the installed and omitted capabilities, immutable image tag and
-fingerprint, required wordlists (or `not_required`), actual and expected MCP
-tool counts, and seven resources. Full profiles remain 45 tools with Metasploit
-or 40 without it; custom profiles correctly expose fewer. Restart the AI agent
-after client registration so it reloads the MCP server and skill.
+Place a fresh managed checkout in a durable user-data location that is not a
+cloud-synced project folder. Use a locked editable Python tool environment so
+the installed command can still reach the Dockerfile, skill, wordlists, and
+runtime configuration. Resolve the absolute launcher location rather than
+depending on the client's `PATH`.
 
-## Upgrades and reconfiguration
+For an existing successful installation, update only a clean managed checkout
+using a non-rewriting Git operation. Preserve local data and stop if tracked or
+nonignored untracked modifications would be overwritten. A checkout without a
+committed schema-4 setup state is an incomplete first installation, not proof
+that an upgrade succeeded.
 
-Use:
+## Build the selected runtime image
 
-```text
-hercules-install upgrade --client auto
-```
+Use the normalized setup facts to build the exact capability profile. The image
+identity covers the selected capabilities, repository build inputs, optional
+custom-CA fingerprint, and the pinned CloakBrowser version and artifact hash.
+Validate the resulting ownership and identity labels before making it active.
+Do not delete older images automatically.
 
-Upgrades preserve the confirmed capabilities, `.env`, generated RPC secret,
-proxy preference, independently disabled tools, workspace evidence, downloaded
-assets, unknown non-secret installer state, and client settings. They do not
-repeat first-run questions. Supply `--capabilities ...` only when the user
-explicitly wants to reconfigure; add `--rebuild` to force a clean image build.
+The Dockerfile bootstraps a public CA bundle from a separately pinned image
+before Kali's first HTTPS APT request. Repository signature, certificate, and
+hostname verification must remain enabled. If the environment performs TLS
+interception, accept only a bounded PEM bundle containing certificates and no
+private keys. Supply it to BuildKit as the `hercules_build_ca` secret, record
+only its normalized SHA-256 in non-secret state and image identity, and never
+copy the certificate into the checkout or persist its content.
 
-The managed checkout updates only by a clean fast-forward. If nonignored tracked
-or untracked changes or divergent history exist, do not overwrite them: report
-the checkout and let the user preserve, commit, move, or intentionally ignore
-the changes. Ignored `.env`, wordlists, and workspaces do not make it dirty.
-Older capability images are retained and are never deleted automatically.
+Use [Docker's complete LLM context](https://docs.docker.com/llms-full.txt) and
+the locally installed Docker help to adapt the build to the current Docker
+version, context, platform, proxy, and trust policy.
 
-## Adaptive prerequisite handling
+## Resolve and validate CloakBrowser
 
-Prefer the host's native, supported installation path and official prerequisite
-documentation:
+CloakBrowser source is not bundled in Hercules and should not be installed on
+the host merely for Hercules runtime use. When browser capability is selected,
+install it inside the Docker image and require all browser readiness checks to
+pass.
 
-- `uv`: <https://docs.astral.sh/uv/getting-started/installation/>
-- Git: <https://git-scm.com/downloads>
-- Docker: <https://docs.docker.com/get-started/get-docker/>
+The repository-supported default is the official PyPI wheel for exact version
+`0.5.3`, SHA-256
+`9082cfd2f104342fd718d9882984da7674ef6616308dd7932bff4b8bd5cf3cfe`.
+The Dockerfile installs that verified artifact and then installs
+CloakBrowser's managed Chromium. Validate the installed Python distribution
+version, the managed Chromium readiness result, and agent-browser integration.
+Hercules must fail browser capability validation if any of these are missing or
+incompatible; it must never fall back to a different browser while claiming
+CloakBrowser behavior.
 
-On Windows use native PowerShell and support paths with spaces and Docker
-Desktop/compatible contexts. On macOS account for Intel or Apple Silicon. On
-Linux inspect `/etc/os-release`, architecture, WSL, package-manager availability,
-PID 1/init system, Docker context, and rootless mode; do not infer systemd merely
-because `systemctl` is installed. Unknown distributions receive official/manual
-guidance rather than guessed commands. Podman-only support is not claimed unless
-its Docker API/CLI compatibility has been separately validated.
+If the supported artifact is unavailable or incompatible with the selected
+platform, inspect both [the official repository](https://github.com/CloakHQ/cloakbrowser)
+and [PyPI](https://pypi.org/project/cloakbrowser/). Prefer the official PyPI
+distribution, choose the latest stable compatible release, and avoid a
+prerelease unless the user explicitly accepts it. Do not install an unpinned
+Git default branch. Resolve the exact version, official artifact URL, and
+SHA-256 before building, then include the version and digest in the image
+fingerprint, labels, environment facts, and schema-4 state. A fallback is not
+complete until the same local readiness checks pass.
 
-## Diagnostics
+Browser operation remains headless-only. Screenshots, native MCP image content,
+loopback streaming, and proxy support do not require a headed desktop. Docker
+does not provide residential egress, and CloakBrowser cannot guarantee CAPTCHA
+or bot-detection avoidance.
 
-Run `hercules-install doctor --json`. Use its sanitized platform and component
-codes directly:
+## Assets, environment, and state
 
-- missing Git, uv, or Docker: provide the official host-appropriate prerequisite;
-- unreachable Docker daemon: identify the current context/rootless/init setup
-  and request the necessary user action;
-- missing/stale image: rerun `hercules-install install --rebuild` with the saved
-  capability selection;
-- missing required wordlists: rerun `hercules-install install`;
-- MCP count/startup, skill, manifest, or adapter failure: repair only the
-  reported component, then repeat both checks.
+Keep reusable checksum-validated wordlists in the configured
+`HERCULES_WORDLIST_ROOT`, preferably outside the checkout. Provision only the
+assets required by the confirmed capability profile, reuse valid caches, and
+identify an omitted wordlist as not required rather than failed. Existing
+installations may retain their legacy wordlist location.
 
-Never print configuration snapshots, proxy URLs, passwords, tokens, or cookies.
-The Metasploit secret is generated and preserved inside `.env`; it does not
-belong in installer state or MCP client configuration.
+Treat `.env` as the runtime authority and preserve every unknown value during
+upgrades. Generate a strong URL-safe Metasploit RPC secret when needed, store it
+only in the protected `.env`, and never print it. Browser proxy URLs and
+credentials are likewise secrets. Apply a secure private file mode where the
+platform supports it.
 
-## State locations
+Maintain schema-4 non-secret setup state in the platform configuration location
+for user scope or the ignored `.hercules/install.json` for project scope.
+Preserve unknown non-secret fields. State may record the checkout, revision,
+scope, clients, absolute launcher, capabilities, image identity, expected tool
+count, workspace and asset roots, CA fingerprint, CloakBrowser version/artifact
+URL/digest,
+skill paths, and client configuration paths. It must never contain passwords,
+tokens, proxy URLs, cookies, certificate contents, or other credentials.
 
-The installer discovers native paths and reports them in `doctor --json`:
+## Skill and MCP client registration
 
-- Windows: `%LOCALAPPDATA%\hercules-mcp` data and `%APPDATA%\hercules-mcp`
-  configuration;
-- macOS: `~/Library/Application Support/hercules-mcp` data and
-  `~/Library/Preferences/hercules-mcp` configuration;
-- Linux: `${XDG_DATA_HOME:-~/.local/share}/hercules-mcp` data and
-  `${XDG_CONFIG_HOME:-~/.config}/hercules-mcp` configuration.
+Install the canonical portable skill from `skills/hercules-mcp` independently
+of native MCP-only plugin adapters. Do not copy or generate agent-specific skill
+content. Use the current client's supported user or project skill location and
+configuration model.
 
-New managed workspaces live under the platform data root. Existing checkout
-workspaces are not moved automatically. Use `hercules-workspace list --json`,
-dry-run pruning, and explicit migration when the operator chooses to manage old
-evidence.
+Change only the Hercules entry in the client's MCP configuration. Preserve
+comments, formatting, unrelated servers, and unknown settings when the format
+supports them. The STDIO command must be the absolute `hercules` launcher and
+must not contain passwords, tokens, proxy credentials, certificate data, or a
+checkout-relative working directory. Snapshot the affected configuration,
+update it atomically where possible, validate the effective registration, and
+restore the snapshot if validation fails.
+
+For OpenCode, keep the independent skill at
+`.agents/skills/hercules-mcp`, honor `OPENCODE_CONFIG` and XDG locations, and
+preserve JSON/JSONC comments. Inspect the installed OpenCode version and support
+its effective direct `mcp.hercules` or nested `mcp.servers.hercules` layout
+rather than assuming one. Apply the same evidence-based approach to Codex,
+Claude Code, Cursor, or another STDIO MCP and Agent Skills client.
+
+## Transaction and recovery boundary
+
+Treat installation as a transaction even though the active agent chooses the
+host-native mechanics. Resolve preferences and prerequisites first; prepare a
+staged checkout; build and validate the selected image before downloading large
+optional assets; verify assets; then promote the checkout and locked launcher.
+Commit `.env`, skill placement, client registration, and non-secret state only
+after their dependent checks pass.
+
+Before changing an existing installation, snapshot non-secret state and only
+the relevant Hercules client entry. Never include secrets in a transaction log.
+On failure or interruption, restore the last committed configuration and remove
+only agent-created pending files. Keep checksum-valid downloads and immutable
+Docker build cache for reuse. Never remove an existing workspace, evidence,
+secret, successful image, or unrelated client configuration as cleanup.
+
+## Local acceptance
+
+Validate through the real STDIO transport and lifespan without external
+security activity. Confirm Docker availability, image identity and capability
+manifest, protected runtime configuration, portable skill presence, effective
+client registration, clean startup/shutdown, and read access to all seven MCP
+resources. A full profile exposes 45 tools with Metasploit or 40 without it;
+custom profiles expose fewer according to the declarative setup facts and may
+hide additional installed tools through `HERCULES_DISABLED_TOOLS`.
+
+Exercise browser readiness only against a local page or fixture. Do not scan,
+navigate to, exploit, authenticate to, or verify public egress against an
+external target during installation. Clearly distinguish a missing prerequisite
+from an unsupported platform, a Docker trust failure, a capability mismatch,
+an MCP startup failure, and a client-registration failure.
+
+Testing and setup must not stage or distribute `tests/`, local evidence,
+workspaces, `.env`, downloaded assets, transaction remnants, or secrets.

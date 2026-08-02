@@ -29,7 +29,6 @@ dev = [
 
 [project.scripts]
 hercules = "hercules.main:main"
-hercules-install = "hercules.installer:main"
 hercules-workspace = "hercules.workspace_cli:main"
 
 [tool.hatch.build]
@@ -65,7 +64,7 @@ packages = ["hercules"]
 "hercules-mcp.json" = "hercules-mcp.json"
 
 [tool.ruff.lint]
-# MCP, Docker, RPC, and installer entrypoints deliberately normalize heterogeneous
+# MCP, Docker, RPC, and setup-information entrypoints normalize heterogeneous
 # third-party failures, while cleanup paths are best-effort. Those boundaries
 # must catch Exception without swallowing BaseException; all other Ruff rules
 # remain enabled.

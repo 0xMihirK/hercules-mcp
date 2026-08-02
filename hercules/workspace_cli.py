@@ -149,9 +149,9 @@ def run(args: argparse.Namespace) -> dict[str, Any] | list[dict[str, Any]]:
             delete_source=bool(args.delete_source),
         )
         if result.get("migrated"):
-            from hercules.installer import upsert_env
+            from hercules.core.config_io import upsert_dotenv
 
-            upsert_env(
+            upsert_dotenv(
                 config.project_root / ".env",
                 {"HERCULES_WORKSPACE_ROOT": os.fspath(destination)},
             )
