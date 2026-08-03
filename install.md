@@ -190,15 +190,23 @@ Hercules entry, validate the effective replacement, and restore it on failure.
 
 Hercules completes MCP initialization and exposes schemas before its Docker
 runtime is ready. Validate the active client's cold-start timeout against its
-current schema. OpenCode's local entry must use its current `type: "local"`
-shape, an absolute command array, and `timeout: 120000` milliseconds. Preserve
-unrelated JSON/JSONC content and confirm the effective setting rather than only
-the source file that was edited.
+current schema. Use a 120000 millisecond startup timeout through the client's
+native local-STDIO setting when it supports one. OpenCode's local entry must use
+its current `type: "local"` shape, an absolute command array, and
+`timeout: 120000` milliseconds. Preserve unrelated JSON/JSONC content and
+confirm the effective setting rather than only the source file that was edited.
 
 Apply the same contract to Codex, Claude Code, Cursor, OpenCode, or another
 STDIO MCP harness. For an unknown compatible client, provide its native generic
 STDIO entry and exact optional skill destination. For a client without local
 STDIO support, stop as unsupported rather than leaving partial configuration.
+
+Do not assume the active client is the only Hercules user. A healthy MCP server
+from another coding agent or IDE owns its own container and must remain running.
+Keep automatic runtime-port allocation enabled unless the user explicitly needs
+fixed ports. After startup, obtain the effective RPC, reverse-listener, and
+browser-stream ports from that session's `system_network_info` result instead of
+hard-coding defaults in client configuration or acceptance checks.
 
 ## 9. Run local acceptance and commit success
 
@@ -211,6 +219,19 @@ core readiness, require a local Docker-backed tool call to succeed, and treat a
 structured tool error as a failed check. A full profile exposes 45 tools with
 Metasploit or 40 when Metasploit registration is disabled; custom profiles
 expose fewer.
+
+When another Hercules client is already live, repeat the cold check without
+stopping it. The new client must connect immediately, preserve the existing
+container, select different effective ports, complete one local Docker-backed
+call, and remove only its own container on shutdown.
+
+Also exercise the active harness's actual disconnect behavior with a disposable
+verification session. Some IDEs force-terminate local MCP subprocesses instead
+of waiting for lifespan cleanup. Hercules' detached guardian must then validate
+the exact container ID, project/workspace labels, owner PID, and process creation
+time before removing that session's container. Treat a surviving owned
+container or port binding as an installation failure; never compensate with a
+broad Docker prune.
 
 Exercise browser readiness only against an isolated local HTTP page. Confirm a
 successful navigation result, native screenshots, and loopback-only streaming

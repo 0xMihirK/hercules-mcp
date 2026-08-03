@@ -262,7 +262,7 @@ TOOL_DESCRIPTIONS = {
     "system_network_info": _desc(
         "Inspect host/container networking and recommend an LHOST for callbacks.",
         "Exploit and listener setup before Metasploit or ncat reverse shell workflows.",
-        "On Windows/macOS bridge networking, use the host VPN/tunnel IP and forwarded ports 4444-4464. On Linux host networking, use the host/VPN interface directly.",
+        "Call this in the current MCP session before choosing callback ports. It returns effective RPC, listener, and browser-stream ports; concurrent IDE clients may receive a collision-free range instead of the configured defaults.",
         "system_network_info()",
     ),
     "ctf_binwalk": _desc(

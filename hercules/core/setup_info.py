@@ -43,6 +43,7 @@ from hercules.core.build_info import (
     capability_manifest_sha256,
     default_image_platform,
     image_identity,
+    legacy_raw_image_identity,
     normalize_image_platform,
 )
 from hercules.core.config_io import SETUP_STATE_SCHEMA_VERSION, load_setup_state
@@ -491,6 +492,22 @@ def _failure_diagnostics() -> list[dict[str, Any]]:
             "retryable": True,
             "resolution": "retry after Hercules confirms every owned port was released",
         },
+        {
+            "code": "runtime_ports_reallocated",
+            "retryable": True,
+            "resolution": (
+                "read system_network_info and use the effective listener ports "
+                "selected for this IDE instance"
+            ),
+        },
+        {
+            "code": "orphan_guardian_unavailable",
+            "retryable": True,
+            "resolution": (
+                "repair local process spawning or Docker access; do not leave "
+                "a force-terminated client container holding ports"
+            ),
+        },
     ]
 
 
@@ -578,6 +595,14 @@ def setup_information(
         cloakbrowser_version=cloak_version,
         cloakbrowser_sha256=cloak_sha,
     )
+    legacy_image, legacy_fingerprint = legacy_raw_image_identity(
+        root,
+        selected,
+        build_ca_sha256=ca_sha256,
+        target_platform=selected_platform,
+        cloakbrowser_version=cloak_version,
+        cloakbrowser_sha256=cloak_sha,
+    )
     tool_names = set(tools_for_capabilities(selected))
     skip_metasploit = "metasploit" not in selected or _environment_true(
         "SKIP_METASPLOIT"
@@ -607,6 +632,7 @@ def setup_information(
         "HERCULES_CLOAKBROWSER_VERSION": cloak_version,
         "HERCULES_CLOAKBROWSER_WHEEL_URL": cloak_url,
         "HERCULES_CLOAKBROWSER_SHA256": cloak_sha,
+        "HERCULES_AUTO_ALLOCATE_PORTS": "true",
     }
     return {
         "schema_version": SETUP_INFORMATION_SCHEMA_VERSION,
@@ -633,6 +659,14 @@ def setup_information(
         "image": {
             "tag": image,
             "fingerprint": fingerprint,
+            "legacy_checkout_compatibility": {
+                "enabled_for_one_release": legacy_image != image,
+                "tag": legacy_image if legacy_image != image else "",
+                "fingerprint": (
+                    legacy_fingerprint if legacy_image != image else ""
+                ),
+                "requires_full_label_and_runtime_validation": True,
+            },
             "context": str(root),
             "dockerfile": str(root / "Dockerfile"),
             "target_platform": selected_platform,
@@ -719,6 +753,10 @@ def setup_information(
             "unsupported_without_stdio": True,
             "templates_require_rendering": True,
             "cold_connection_required": True,
+            "recommended_startup_timeout_milliseconds": 120_000,
+            "startup_timeout_scope": (
+                "use the active client's native local-STDIO timeout setting when supported"
+            ),
             "opencode": {
                 "type": "local",
                 "command_shape": "absolute command array",
@@ -728,6 +766,8 @@ def setup_information(
         "runtime": {
             "immediate_mcp_handshake": True,
             "background_bootstrap": True,
+            "concurrent_stdio_clients": True,
+            "checkout_singleton_required": False,
             "tool_wait_seconds": 120,
             "states": [
                 "starting",
@@ -736,11 +776,29 @@ def setup_information(
                 "cancelled",
             ],
             "metasploit_initializes_after_core": True,
+            "port_allocation": {
+                "automatic_default": True,
+                "selection_slots": 128,
+                "serialized_across_checkouts": True,
+                "exact_process_start_identity": True,
+                "effective_ports_reported_by": "system_network_info",
+                "disable_with": "HERCULES_AUTO_ALLOCATE_PORTS=false",
+            },
+            "abrupt_exit_guardian": {
+                "enabled_by_default": True,
+                "exact_container_id": True,
+                "exact_owner_pid_and_start_time": True,
+                "full_label_revalidation": True,
+                "preserves_other_projects_and_workspaces": True,
+                "disabled_when_preserve_container_is_true": True,
+            },
             "cold_start_assertions": [
                 "STDIO initialization and tool/resource listing complete before Docker readiness",
                 "Docker-backed calls share one shielded bootstrap task",
                 "a local tool call succeeds after core readiness",
                 "graceful shutdown removes the owned container and releases its ports",
+                "a second local STDIO client selects non-conflicting ports while the first remains live",
+                "force-terminating a disposable client removes only its owned container",
             ],
         },
         "transaction_cleanup": {

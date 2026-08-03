@@ -288,12 +288,13 @@ def register_system_tools(mcp: FastMCP) -> None:
         - The host OS networking mode (host vs bridge)
         - Host VPN/tunnel interfaces (tun0, tap0, wg0)
         - Container interfaces
-        - Which ports are forwarded for reverse shell callbacks (4444-4464)
+        - Which effective ports are forwarded for reverse shell callbacks
 
         On Linux (host networking): container shares host network, use tun/VPN IP directly.
-        On Windows/Mac (bridge networking): ports 4444-4464 are forwarded from host to container.
+        On Windows/Mac (bridge networking): the effective listener range is forwarded.
           Use the host's VPN/tunnel IP as LHOST — the target sends the reverse shell to
           HOST_IP:PORT, Docker forwards it to the container where your listener runs.
+        Concurrent MCP clients may receive different collision-free effective ports.
         """
         docker = ctx.lifespan_context["docker"]
         host = await asyncio.to_thread(_host_network_snapshot)
@@ -318,6 +319,7 @@ def register_system_tools(mcp: FastMCP) -> None:
             "metasploit_rpc_exposure": (
                 f"host loopback only (127.0.0.1:{docker.msf_rpc_port})"
             ),
+            "port_allocation": docker.port_allocation,
         }
 
         # --- Container interfaces ---

@@ -84,7 +84,18 @@ def capability_manifest_sha256(capabilities: Iterable[str]) -> str:
     return hashlib.sha256(capability_manifest_payload(capabilities)).hexdigest()
 
 
-def image_build_fingerprint(
+def _canonical_build_input(path: Path) -> bytes:
+    """Return platform-independent bytes for repository text build inputs.
+
+    Git may materialize these files with CRLF on Windows even though Docker
+    executes them as Linux text. The Dockerfile already strips a trailing CR
+    from the copied entrypoint; fingerprinting the semantic LF representation
+    keeps one verified image usable from equivalent Windows and POSIX checkouts.
+    """
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
+def _image_build_fingerprint(
     project_root: Path,
     capabilities: Iterable[str] = ALL_CAPABILITIES,
     *,
@@ -92,6 +103,7 @@ def image_build_fingerprint(
     target_platform: str | None = None,
     cloakbrowser_version: str = CLOAKBROWSER_VERSION,
     cloakbrowser_sha256: str = CLOAKBROWSER_WHEEL_SHA256,
+    canonical_build_inputs: bool,
 ) -> str:
     """Hash the build inputs whose changes require a new runtime image."""
     root = Path(project_root).resolve()
@@ -135,9 +147,56 @@ def image_build_fingerprint(
         path = root / relative
         digest.update(relative.encode())
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(
+            _canonical_build_input(path)
+            if canonical_build_inputs
+            else path.read_bytes()
+        )
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def image_build_fingerprint(
+    project_root: Path,
+    capabilities: Iterable[str] = ALL_CAPABILITIES,
+    *,
+    build_ca_sha256: str = "",
+    target_platform: str | None = None,
+    cloakbrowser_version: str = CLOAKBROWSER_VERSION,
+    cloakbrowser_sha256: str = CLOAKBROWSER_WHEEL_SHA256,
+) -> str:
+    """Hash semantic build inputs independently of checkout line endings."""
+    return _image_build_fingerprint(
+        project_root,
+        capabilities,
+        build_ca_sha256=build_ca_sha256,
+        target_platform=target_platform,
+        cloakbrowser_version=cloakbrowser_version,
+        cloakbrowser_sha256=cloakbrowser_sha256,
+        canonical_build_inputs=True,
+    )
+
+
+def legacy_raw_image_identity(
+    project_root: Path,
+    capabilities: Iterable[str] = ALL_CAPABILITIES,
+    *,
+    build_ca_sha256: str = "",
+    target_platform: str | None = None,
+    cloakbrowser_version: str = CLOAKBROWSER_VERSION,
+    cloakbrowser_sha256: str = CLOAKBROWSER_WHEEL_SHA256,
+) -> tuple[str, str]:
+    """Return the pre-canonicalization identity for one-release reuse."""
+    fingerprint = _image_build_fingerprint(
+        project_root,
+        capabilities,
+        build_ca_sha256=build_ca_sha256,
+        target_platform=target_platform,
+        cloakbrowser_version=cloakbrowser_version,
+        cloakbrowser_sha256=cloakbrowser_sha256,
+        canonical_build_inputs=False,
+    )
+    return f"hercules-kali:{fingerprint[:16]}", fingerprint
 
 
 def image_identity(

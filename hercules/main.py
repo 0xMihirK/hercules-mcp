@@ -8,13 +8,14 @@ modules and post-exploitation resources.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import importlib
-import argparse
 import json
 import logging
 import logging.handlers
 import sys
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -26,7 +27,6 @@ from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager
 from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirewall
 from hercules.core.guidance import SERVER_INSTRUCTIONS
-from hercules.core.instance_lock import HerculesInstanceLock, InstanceLockError
 from hercules.core.runtime import RuntimeServices
 from hercules.core.security import redact_secrets
 from hercules.core.tool_catalog import CORE_TOOLS, TOOL_REGISTRARS
@@ -255,6 +255,7 @@ async def _bootstrap_runtime(context: dict, services: RuntimeServices) -> None:
             "reclaimed_containers": list(
                 getattr(docker_mgr, "_reclaimed_containers", [])
             ),
+            "port_allocation": docker_mgr.port_allocation,
         }
     )
     services.publish_runtime_state()
@@ -284,17 +285,10 @@ async def _bootstrap_runtime(context: dict, services: RuntimeServices) -> None:
 async def docker_lifespan(server):
     """Manage the Kali Docker container lifecycle."""
     config = HerculesConfig.from_env()
-    instance_lock = HerculesInstanceLock(config.project_root)
-    try:
-        instance_lock.acquire()
-    except InstanceLockError as exc:
-        logger.critical("%s", exc)
-        raise SystemExit(str(exc)) from exc
-
     docker_mgr = DockerManager(
         config,
-        instance_id=instance_lock.instance_id,
-        owns_instance_lock=True,
+        instance_id=uuid.uuid4().hex,
+        owns_instance_lock=False,
     )
 
     # Durable, host-side, session-tagged log for post-mortem of mid-session crashes.
@@ -357,36 +351,33 @@ async def docker_lifespan(server):
     try:
         yield lifespan_context
     finally:
-        try:
-            # Signal teardown so the watchdog/recovery never resurrect a
-            # container we are deliberately removing. Settle bootstrap first
-            # so it cannot publish new watchdog/RPC tasks after we inspect them.
-            docker_mgr.begin_shutdown()
-            startup_task = lifespan_context.get("runtime_startup_task")
-            if startup_task is not None and not startup_task.done():
-                startup_task.cancel()
-                try:
-                    await startup_task
-                except asyncio.CancelledError:
-                    pass
-            wtask = lifespan_context.get("watchdog_task")
-            if wtask is not None and not wtask.done():
-                wtask.cancel()
-                try:
-                    await wtask
-                except asyncio.CancelledError:
-                    pass
-            task = lifespan_context.get("msf_connect_task")
-            if task is not None and not task.done():
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-            logger.info("=== Hercules shutting down ===")
-            await docker_mgr.stop_container()
-        finally:
-            instance_lock.release()
+        # Signal teardown so the watchdog/recovery never resurrect a
+        # container we are deliberately removing. Settle bootstrap first
+        # so it cannot publish new watchdog/RPC tasks after we inspect them.
+        docker_mgr.begin_shutdown()
+        startup_task = lifespan_context.get("runtime_startup_task")
+        if startup_task is not None and not startup_task.done():
+            startup_task.cancel()
+            try:
+                await startup_task
+            except asyncio.CancelledError:
+                pass
+        wtask = lifespan_context.get("watchdog_task")
+        if wtask is not None and not wtask.done():
+            wtask.cancel()
+            try:
+                await wtask
+            except asyncio.CancelledError:
+                pass
+        task = lifespan_context.get("msf_connect_task")
+        if task is not None and not task.done():
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        logger.info("=== Hercules shutting down ===")
+        await docker_mgr.stop_container()
 
 
 @lifespan

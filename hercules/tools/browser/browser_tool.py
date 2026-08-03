@@ -826,8 +826,14 @@ def register_browser_tools(mcp: FastMCP) -> None:
         elif action_value == "close_all":
             argv, sess, json_out = ["close", "--all"], "", True
         else:  # stream
+            docker = ctx.lifespan_context["docker"]
             configured_port = int(
-                getattr(ctx.lifespan_context["config"], "browser_stream_port", 0) or 0
+                getattr(
+                    docker,
+                    "browser_stream_port",
+                    getattr(ctx.lifespan_context.get("config"), "browser_stream_port", 0),
+                )
+                or 0
             )
             requested_port = int(stream_port or configured_port)
             if configured_port <= 0:
@@ -843,7 +849,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
                     "parameter": "stream_port",
                     "error": (
                         f"stream_port must match the loopback-mapped "
-                        f"BROWSER_STREAM_PORT ({configured_port})"
+                        f"effective browser stream port ({configured_port})"
                     ),
                 }
             sess = session or "default"

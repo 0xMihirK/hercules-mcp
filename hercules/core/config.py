@@ -136,6 +136,7 @@ class HerculesConfig:
     preserve_container: bool = False
     use_privileged: bool = False
     docker_network: str = ""
+    auto_allocate_ports: bool = True
     # Deprecated compatibility field. Selective images use
     # HERCULES_INSTALLED_CAPABILITIES; this legacy value has no build effect.
     tool_install_mode: str = ""
@@ -266,6 +267,9 @@ class HerculesConfig:
             use_privileged=_parse_bool(os.getenv("USE_PRIVILEGED", "false")),
             docker_network=_parse_docker_network(
                 os.getenv("HERCULES_DOCKER_NETWORK", "")
+            ),
+            auto_allocate_ports=_parse_bool(
+                os.getenv("HERCULES_AUTO_ALLOCATE_PORTS", "true")
             ),
             tool_install_mode=legacy_install_mode,
             max_concurrent_heavy=_parse_int(

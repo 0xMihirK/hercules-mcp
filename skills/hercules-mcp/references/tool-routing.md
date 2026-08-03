@@ -41,7 +41,7 @@ middleware may drop unknown fields.
 | Replace the container generation | `system_start_new_session` | Workspace persists; container-local state does not. |
 | See Hercules sessions | `system_list_sessions` | Distinct from browser and Metasploit sessions. |
 | Deliberately stop the container | `system_stop_container` | Terminal until a new system session is started. |
-| Choose listener/reachable addresses | `system_network_info` | Use before payload/listener configuration. |
+| Choose listener/reachable addresses | `system_network_info` | Use in the current MCP session before payload/listener configuration. Concurrent IDE clients can have different effective ports. |
 | Read text or binary evidence | `workspace_read_file` | Choose `text` or `base64` encoding; page large files with `offset` and `max_bytes`. |
 | Write text or binary input | `workspace_write_file` | Use exactly one of text `content` or binary-safe `content_base64`. |
 

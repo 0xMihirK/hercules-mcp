@@ -19,6 +19,8 @@ import os
 import platform
 import shlex
 import socket
+import subprocess
+import sys
 import time
 import uuid
 from collections.abc import Callable
@@ -47,7 +49,9 @@ from hercules.core.build_info import (
     capability_manifest_sha256,
     image_build_fingerprint,
     image_identity,
+    legacy_raw_image_identity,
 )
+from hercules.core.instance_lock import HerculesPortAllocationLock
 from hercules.core.security import redact_secrets, reject_control_chars, safe_filename
 from hercules.core.tool_catalog import (
     ALL_CAPABILITIES,
@@ -106,8 +110,16 @@ def _is_process_running(pid: str | int | None) -> bool:
                 PROCESS_QUERY_LIMITED_INFORMATION, False, pid_int
             )
             if handle:
-                ctypes.windll.kernel32.CloseHandle(handle)
-                return True
+                exit_code = ctypes.c_ulong()
+                try:
+                    if not ctypes.windll.kernel32.GetExitCodeProcess(
+                        handle,
+                        ctypes.byref(exit_code),
+                    ):
+                        return False
+                    return exit_code.value == 259  # STILL_ACTIVE
+                finally:
+                    ctypes.windll.kernel32.CloseHandle(handle)
             return False
         except Exception:
             return False
@@ -117,6 +129,92 @@ def _is_process_running(pid: str | int | None) -> bool:
         return True
     except OSError:
         return False
+
+
+def _process_start_token(pid: str | int | None) -> str:
+    """Return a stable process-creation token so PID reuse is never trusted."""
+    try:
+        pid_int = int(pid)
+    except (TypeError, ValueError):
+        return ""
+    if pid_int <= 0:
+        return ""
+
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+
+            class _FileTime(ctypes.Structure):
+                _fields_ = [
+                    ("low", ctypes.c_uint32),
+                    ("high", ctypes.c_uint32),
+                ]
+
+            query_limited_information = 0x1000
+            handle = ctypes.windll.kernel32.OpenProcess(
+                query_limited_information,
+                False,
+                pid_int,
+            )
+            if not handle:
+                return ""
+            creation = _FileTime()
+            exit_time = _FileTime()
+            kernel = _FileTime()
+            user = _FileTime()
+            try:
+                ok = ctypes.windll.kernel32.GetProcessTimes(
+                    handle,
+                    ctypes.byref(creation),
+                    ctypes.byref(exit_time),
+                    ctypes.byref(kernel),
+                    ctypes.byref(user),
+                )
+                if not ok:
+                    return ""
+                value = (int(creation.high) << 32) | int(creation.low)
+                return f"win-{value:x}"
+            finally:
+                ctypes.windll.kernel32.CloseHandle(handle)
+        except Exception:
+            return ""
+
+    if platform.system() == "Linux":
+        try:
+            stat_text = Path(f"/proc/{pid_int}/stat").read_text(encoding="ascii")
+            fields = stat_text.rsplit(")", 1)[1].strip().split()
+            # Fields after the command start at process-stat field 3. Linux's
+            # process start time is field 22, hence zero-based index 19 here.
+            return f"linux-{fields[19]}"
+        except (OSError, IndexError):
+            return ""
+
+    try:
+        started = subprocess.check_output(
+            ["ps", "-o", "lstart=", "-p", str(pid_int)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).strip()
+    except Exception:
+        return ""
+    if not started:
+        return ""
+    digest = hashlib.sha256(started.encode("utf-8")).hexdigest()[:16]
+    return f"posix-{digest}"
+
+
+def _owner_process_is_live(labels: dict[str, str]) -> bool:
+    """Validate the exact labeled owner process, failing closed for legacy labels."""
+    owner_pid = labels.get("hercules.owner_pid")
+    if not _is_process_running(owner_pid):
+        return False
+    expected = labels.get("hercules.owner_start_token", "")
+    if not expected:
+        # Legacy containers lack a creation token. Preserve them while their
+        # PID exists rather than risking deletion after an ambiguous lookup.
+        return True
+    return _process_start_token(owner_pid) == expected
 
 
 def _recoverable_docker_error(exc: Exception) -> bool:
@@ -364,6 +462,14 @@ class DockerManager:
             cloakbrowser_version=config.cloakbrowser_version,
             cloakbrowser_sha256=config.cloakbrowser_sha256,
         )
+        self._legacy_image, self._legacy_image_fingerprint = legacy_raw_image_identity(
+            config.project_root,
+            installed,
+            build_ca_sha256=config.build_ca_sha256,
+            target_platform=config.image_platform,
+            cloakbrowser_version=config.cloakbrowser_version,
+            cloakbrowser_sha256=config.cloakbrowser_sha256,
+        )
         self._client: docker.DockerClient | None = None
         self._container: Container | None = None
         self._workspace = WorkspaceManager(
@@ -374,7 +480,16 @@ class DockerManager:
         self._container_name: str = f"hercules-{self._session_id}"
         self._generation: int = 0
         self._operator_stopped: bool = False
-        self._listener_ports: tuple[int, ...] = tuple(config.listener_ports)
+        self._configured_listener_ports: tuple[int, ...] = tuple(
+            config.listener_ports
+        )
+        self._listener_ports: tuple[int, ...] = self._configured_listener_ports
+        self._configured_msf_rpc_port = int(config.msf_rpc_port)
+        self._msf_rpc_port = self._configured_msf_rpc_port
+        self._configured_browser_stream_port = int(config.browser_stream_port or 0)
+        self._browser_stream_host_port = self._configured_browser_stream_port
+        self._port_allocation_slot = 0
+        self._ports_reallocated = False
         if (
             not config.skip_metasploit
             and config.msf_rpc_port in self._listener_ports
@@ -422,6 +537,7 @@ class DockerManager:
         self._job_lock: asyncio.Lock | None = None
         self._browser_stream_lock: asyncio.Lock | None = None
         self._browser_stream_relay_state: dict[str, object] = {}
+        self._orphan_guardian: subprocess.Popen | None = None
         configured_stream_port = int(
             getattr(config, "browser_stream_port", 0) or 0
         )
@@ -455,7 +571,43 @@ class DockerManager:
 
     @property
     def msf_rpc_port(self) -> int:
-        return int(getattr(self._config, "msf_rpc_port", 55_553))
+        return int(getattr(self, "_msf_rpc_port", 55_553))
+
+    @property
+    def browser_stream_port(self) -> int:
+        """Effective host loopback port for the optional browser stream."""
+        return int(getattr(self, "_browser_stream_host_port", 0) or 0)
+
+    @property
+    def port_allocation(self) -> dict[str, object]:
+        """Return configured and effective non-secret port-selection facts."""
+        return {
+            "automatic": bool(
+                getattr(self._config, "auto_allocate_ports", True)
+            ),
+            "slot": int(getattr(self, "_port_allocation_slot", 0)),
+            "reallocated": bool(getattr(self, "_ports_reallocated", False)),
+            "configured": {
+                "metasploit_rpc": int(
+                    getattr(self, "_configured_msf_rpc_port", self.msf_rpc_port)
+                ),
+                "listeners": list(
+                    getattr(self, "_configured_listener_ports", self.listener_ports)
+                ),
+                "browser_stream": int(
+                    getattr(
+                        self,
+                        "_configured_browser_stream_port",
+                        self.browser_stream_port,
+                    )
+                ),
+            },
+            "effective": {
+                "metasploit_rpc": self.msf_rpc_port,
+                "listeners": list(self.listener_ports),
+                "browser_stream": self.browser_stream_port,
+            },
+        }
 
     @property
     def workspace_manager(self) -> WorkspaceManager:
@@ -653,6 +805,107 @@ class DockerManager:
                             f"{probe_host}:{port} is unavailable."
                         ) from exc
 
+    def _candidate_runtime_ports(
+        self,
+        slot: int,
+    ) -> tuple[int, tuple[int, ...], int] | None:
+        """Translate configured ports into one deterministic allocation slot."""
+        configured_listeners = getattr(self, "_configured_listener_ports", ())
+        if configured_listeners:
+            stride = max(configured_listeners) - min(configured_listeners) + 1
+        else:
+            stride = 1
+        listeners = tuple(
+            int(port) + (int(slot) * stride) for port in configured_listeners
+        )
+        rpc_port = int(getattr(self, "_configured_msf_rpc_port", 55_553)) + int(
+            slot
+        )
+        configured_stream = int(
+            getattr(self, "_configured_browser_stream_port", 0) or 0
+        )
+        stream_port = configured_stream + int(slot) if configured_stream else 0
+        selected = [*listeners]
+        if not self._config.skip_metasploit:
+            selected.append(rpc_port)
+        if stream_port:
+            selected.append(stream_port)
+        if any(port < 1 or port > 65_535 for port in selected):
+            return None
+        if len(selected) != len(set(selected)):
+            return None
+        return rpc_port, listeners, stream_port
+
+    def _candidate_host_bindings(
+        self,
+        rpc_port: int,
+        listeners: tuple[int, ...],
+        stream_port: int,
+    ) -> dict[str, object]:
+        """Build a preflight-only map for every host-facing selected port."""
+        bindings: dict[str, object] = {}
+        if not self._config.skip_metasploit:
+            bindings["metasploit-rpc"] = ("127.0.0.1", rpc_port)
+        for index, port in enumerate(listeners):
+            bindings[f"listener-{index}"] = (
+                self._config.listener_bind_host,
+                port,
+            )
+        if stream_port:
+            bindings["browser-stream"] = ("127.0.0.1", stream_port)
+        return bindings
+
+    async def _allocate_runtime_ports(self) -> None:
+        """Select the first collision-free port slot for this IDE instance."""
+        automatic = bool(getattr(self._config, "auto_allocate_ports", True))
+        slots = range(128) if automatic else range(1)
+        last_error: RuntimeError | None = None
+        for slot in slots:
+            candidate = self._candidate_runtime_ports(slot)
+            if candidate is None:
+                continue
+            rpc_port, listeners, stream_port = candidate
+            bindings = self._candidate_host_bindings(
+                rpc_port,
+                listeners,
+                stream_port,
+            )
+            try:
+                await asyncio.to_thread(self._preflight_host_ports, bindings)
+            except RuntimeError as exc:
+                last_error = exc
+                continue
+
+            self._msf_rpc_port = rpc_port
+            self._listener_ports = listeners
+            self._listener_port_range = (
+                (min(listeners), max(listeners)) if listeners else (0, 0)
+            )
+            self._browser_stream_host_port = stream_port
+            if platform.system() == "Linux":
+                self._browser_stream_relay_port = stream_port
+            self._port_allocation_slot = slot
+            self._ports_reallocated = slot != 0
+            if slot:
+                logger.warning(
+                    "Configured Hercules ports are busy; IDE instance %s is using "
+                    "allocation slot %d (RPC %d, listeners %s, stream %d).",
+                    self._instance_id,
+                    slot,
+                    rpc_port,
+                    listeners,
+                    stream_port,
+                )
+            return
+
+        if last_error is not None and not automatic:
+            raise last_error
+        raise RuntimeError(
+            "Hercules could not find a collision-free runtime port allocation. "
+            "Close unused Hercules clients, expand the configured port range, or "
+            "set explicit non-conflicting ports."
+        ) from last_error
+
     @staticmethod
     def _container_host_bindings(container: Container) -> dict[str, object]:
         """Return concrete host TCP bindings from inspected Docker metadata."""
@@ -715,6 +968,94 @@ class DockerManager:
     # ------------------------------------------------------------------
 
     async def start_container(self) -> None:
+        """Serialize cross-client port selection through Docker publication."""
+        allocation_lock = HerculesPortAllocationLock()
+        acquire_task = asyncio.create_task(asyncio.to_thread(allocation_lock.acquire))
+        try:
+            await asyncio.shield(acquire_task)
+        except asyncio.CancelledError:
+            # A blocked native file-lock acquisition cannot be interrupted.
+            # Settle it and release if it completes after caller cancellation.
+            await acquire_task
+            await asyncio.to_thread(allocation_lock.release)
+            raise
+        try:
+            await self._start_container_locked()
+        finally:
+            await asyncio.to_thread(allocation_lock.release)
+
+    def _start_orphan_guardian(self) -> None:
+        """Launch independent exact-owner cleanup for abrupt client exits."""
+        if self._config.preserve_container or self._container is None:
+            return
+        owner_token = _process_start_token(os.getpid())
+        if not owner_token:
+            logger.warning(
+                "Could not establish exact process identity; orphan guardian disabled."
+            )
+            return
+        argv = [
+            sys.executable,
+            "-m",
+            "hercules.core.orphan_guardian",
+            "--container-id",
+            str(self._container.id),
+            "--owner-pid",
+            str(os.getpid()),
+            "--owner-start-token",
+            owner_token,
+            "--project-hash",
+            self._project_root_hash,
+            "--workspace-hash",
+            self._workspace_root_hash,
+            "--instance-id",
+            self._instance_id,
+        ]
+        kwargs: dict[str, object] = {
+            "stdin": subprocess.DEVNULL,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "close_fds": True,
+        }
+        if os.name == "nt":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NEW_PROCESS_GROUP
+                | subprocess.DETACHED_PROCESS
+                | subprocess.CREATE_NO_WINDOW
+                | subprocess.CREATE_BREAKAWAY_FROM_JOB
+            )
+        else:
+            kwargs["start_new_session"] = True
+        try:
+            self._orphan_guardian = subprocess.Popen(argv, **kwargs)
+            logger.info(
+                "Started exact-owner orphan guardian (pid=%s).",
+                self._orphan_guardian.pid,
+            )
+        except OSError as exc:
+            logger.warning("Could not start the Hercules orphan guardian: %s", exc)
+
+    async def _settle_orphan_guardian(self) -> None:
+        """Confirm the guardian exits after ordinary container cleanup."""
+        process = getattr(self, "_orphan_guardian", None)
+        self._orphan_guardian = None
+        if process is None:
+            return
+        if process.poll() is None:
+            process.terminate()
+        try:
+            await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=3)
+        except TimeoutError:
+            process.kill()
+            try:
+                await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=3)
+            except TimeoutError:
+                logger.warning(
+                    "Orphan guardian PID %s did not terminate promptly.",
+                    process.pid,
+                )
+
+    async def _start_container_locked(self) -> None:
         """Full startup: verify setup → create container → wait for ready."""
         # Step 1: Verify Docker and the selected immutable image.
         await self._verify_setup()
@@ -756,6 +1097,7 @@ class DockerManager:
 
         # Cleanup orphaned containers without touching live sessions.
         await self._cleanup_orphaned_containers()
+        await self._allocate_runtime_ports()
 
         # Step 4: Build container creation kwargs
         env_vars = {
@@ -791,18 +1133,24 @@ class DockerManager:
                 "hercules.workspace_root_hash": self._workspace_root_hash,
                 "hercules.session_id": self._session_id,
                 "hercules.owner_pid": str(os.getpid()),
+                "hercules.owner_start_token": _process_start_token(os.getpid()),
                 "hercules.instance_id": self._instance_id,
+                "hercules.port_allocation_slot": str(self._port_allocation_slot),
+                "hercules.msf_rpc_port": str(self.msf_rpc_port),
+                "hercules.listener_ports": ",".join(
+                    str(port) for port in self._listener_ports
+                ),
+                "hercules.browser_stream_port": str(self.browser_stream_port),
             },
             "volumes": {
                 str(workspace_path): {"bind": "/opt/workspace", "mode": "rw"},
                 str(wordlists_path): {"bind": "/opt/wordlists_host", "mode": "ro"},
             },
             "shm_size": "256m",
-            # Let the Docker daemon auto-restart this container after a daemon
-            # restart / host resume so it comes back with the SAME workspace
-            # mount. A deliberate `docker stop`/`rm` (graceful teardown) overrides
-            # this, so clean shutdown still works.
-            "restart_policy": {"Name": "unless-stopped"},
+            # The MCP process owns this container's lifetime. A Docker restart
+            # must not resurrect it after an IDE force-terminates the owner;
+            # the live-process watchdog recreates/restarts it when appropriate.
+            "restart_policy": {"Name": "no"},
         }
         if "seclists" in extracted_wordlists:
             kwargs["volumes"][str(extracted_wordlists["seclists"])] = {
@@ -838,7 +1186,7 @@ class DockerManager:
             # Optional headless browser live-view stream port (0 = disabled). The
             # cloakserve CDP port (9222) is deliberately NEVER mapped — it stays
             # loopback-only inside the container.
-            stream_port = getattr(self._config, "browser_stream_port", 0)
+            stream_port = self.browser_stream_port
             if stream_port:
                 ports[f"{self.browser_stream_relay_port}/tcp"] = (
                     "127.0.0.1",
@@ -863,7 +1211,8 @@ class DockerManager:
         logger.info("Creating container '%s'...", self._container_name)
 
         # Defensive: remove any pre-existing container holding our exact name
-        # (e.g. a stale one the daemon auto-restarted) to avoid a 409 name clash.
+        # (for example, a legacy image with an old restart policy) to avoid a
+        # 409 name clash.
         # We only reach here when we intend to OWN this name; the reattach path
         # adopts a still-running same-named container before calling us.
         try:
@@ -884,17 +1233,18 @@ class DockerManager:
                 and instance_id
                 and instance_id != self._instance_id
             )
+            owner_live = _owner_process_is_live(labels)
             legacy_live_owner = bool(
                 not workspace_hash
                 and instance_id != getattr(self, "_instance_id", "")
-                and _is_process_running(labels.get("hercules.owner_pid"))
+                and owner_live
             )
             if (
                 labels.get("hercules.managed") != "true"
                 or labels.get("hercules.project_root_hash") != self._project_root_hash
                 or labels.get("hercules.session_id") != self._session_id
                 or (workspace_hash and workspace_hash != self._workspace_root_hash)
-                or (other_instance and not self._owns_instance_lock)
+                or (other_instance and owner_live)
                 or legacy_live_owner
             ):
                 raise RuntimeError(
@@ -934,7 +1284,7 @@ class DockerManager:
                     for port in self._listener_ports
                 },
             }
-            stream_port = getattr(self._config, "browser_stream_port", 0)
+            stream_port = self.browser_stream_port
             if stream_port:
                 host_ports[f"{int(stream_port)}/tcp"] = (
                     "127.0.0.1",
@@ -997,6 +1347,7 @@ class DockerManager:
                 ) from exc
             raise
 
+        self._start_orphan_guardian()
         logger.info(
             "Container '%s' started (id=%s).",
             self._container_name,
@@ -1044,6 +1395,7 @@ class DockerManager:
                     )
                 except ValueError:
                     pass
+            await self._settle_orphan_guardian()
             return
 
         task = getattr(self, "_ready_task", None)
@@ -1088,6 +1440,7 @@ class DockerManager:
         self._ready = False
         self._ready_task = None
         self._host_port_bindings = {}
+        await self._settle_orphan_guardian()
         workspace = getattr(self, "_workspace", None)
         if workspace is not None:
             try:
@@ -1270,7 +1623,7 @@ class DockerManager:
                 elif state != "running":
                     # exited / created → start the SAME container (preserves FS).
                     await asyncio.to_thread(existing.start)
-                # state == "running" → daemon already auto-restarted it; adopt.
+                # A running legacy/current container can be adopted directly.
                 self._container = existing
                 self._generation = getattr(self, "_generation", 0) + 1
                 self._notify_generation_changed()
@@ -1403,15 +1756,16 @@ class DockerManager:
                 and instance_id
                 and instance_id != self._instance_id
             )
-            if other_instance and not getattr(self, "_owns_instance_lock", False):
+            owner_pid = labels.get("hercules.owner_pid")
+            owner_live = _owner_process_is_live(labels)
+            if other_instance and owner_live:
                 logger.warning(
-                    "Preserving container from another Hercules instance: %s",
+                    "Preserving container from live Hercules instance %s: %s",
+                    instance_id or "legacy",
                     name,
                 )
                 continue
 
-            owner_pid = labels.get("hercules.owner_pid")
-            owner_live = _is_process_running(owner_pid)
             if (
                 not workspace_hash
                 and instance_id != getattr(self, "_instance_id", "")
@@ -2300,7 +2654,7 @@ class DockerManager:
         backend_port: int,
     ) -> dict[str, object]:
         """Expose one agent-browser loopback stream through a generation-bound relay."""
-        host_port = int(getattr(self._config, "browser_stream_port", 0) or 0)
+        host_port = self.browser_stream_port
         backend_port = int(backend_port)
         relay_port = self.browser_stream_relay_port
         if not 1 <= host_port <= 65_535 or not 1 <= relay_port <= 65_535:
@@ -3200,15 +3554,10 @@ class DockerManager:
             logger.critical(error_msg)
             raise SystemExit(error_msg) from exc
 
-        # Check image exists
+        # Check the canonical image first. For one compatibility release, an
+        # otherwise identical pre-canonicalization image may be reused from the
+        # same checkout after every security/capability label is revalidated.
         try:
-            image = await asyncio.to_thread(self._client.images.get, self.IMAGE)
-            labels = (
-                getattr(image, "attrs", {})
-                .get("Config", {})
-                .get("Labels", {})
-                or {}
-            )
             capabilities = self._config.installed_capabilities or ALL_CAPABILITIES
             expected_fingerprint = image_build_fingerprint(
                 self._config.project_root,
@@ -3220,28 +3569,62 @@ class DockerManager:
             )
             expected_capabilities = format_capabilities(capabilities)
             expected_manifest = capability_manifest_sha256(capabilities)
-            if (
-                labels.get(IMAGE_FINGERPRINT_LABEL) != expected_fingerprint
-                or labels.get(IMAGE_CAPABILITIES_LABEL) != expected_capabilities
-                or labels.get(IMAGE_BUILD_CA_LABEL, "")
-                != self._config.build_ca_sha256
-                or labels.get(IMAGE_BASE_REPOSITORY_LABEL) != KALI_BASE_REPOSITORY
-                or labels.get(IMAGE_BASE_DIGEST_LABEL) != KALI_BASE_DIGEST
-                or labels.get(IMAGE_APT_SUITE_LABEL) != KALI_APT_SUITE
-                or labels.get(IMAGE_PLATFORM_LABEL) != self._config.image_platform
-                or labels.get(IMAGE_CAPABILITY_MANIFEST_LABEL) != expected_manifest
-                or (
-                    "browser" in capabilities
-                    and (
-                        labels.get(IMAGE_CLOAKBROWSER_VERSION_LABEL)
-                        != self._config.cloakbrowser_version
-                        or labels.get(IMAGE_CLOAKBROWSER_SHA256_LABEL)
-                        != self._config.cloakbrowser_sha256
+            candidates = [(self.IMAGE, expected_fingerprint, False)]
+            legacy_image = str(getattr(self, "_legacy_image", "") or "")
+            legacy_fingerprint = str(
+                getattr(self, "_legacy_image_fingerprint", "") or ""
+            )
+            if legacy_image and legacy_image != self.IMAGE:
+                candidates.append((legacy_image, legacy_fingerprint, True))
+
+            selected = False
+            for candidate_tag, candidate_fingerprint, is_legacy in candidates:
+                try:
+                    image = await asyncio.to_thread(
+                        self._client.images.get,
+                        candidate_tag,
                     )
+                except ImageNotFound:
+                    continue
+                labels = (
+                    getattr(image, "attrs", {})
+                    .get("Config", {})
+                    .get("Labels", {})
+                    or {}
                 )
-            ):
+                if (
+                    labels.get(IMAGE_FINGERPRINT_LABEL) != candidate_fingerprint
+                    or labels.get(IMAGE_CAPABILITIES_LABEL) != expected_capabilities
+                    or labels.get(IMAGE_BUILD_CA_LABEL, "")
+                    != self._config.build_ca_sha256
+                    or labels.get(IMAGE_BASE_REPOSITORY_LABEL) != KALI_BASE_REPOSITORY
+                    or labels.get(IMAGE_BASE_DIGEST_LABEL) != KALI_BASE_DIGEST
+                    or labels.get(IMAGE_APT_SUITE_LABEL) != KALI_APT_SUITE
+                    or labels.get(IMAGE_PLATFORM_LABEL) != self._config.image_platform
+                    or labels.get(IMAGE_CAPABILITY_MANIFEST_LABEL) != expected_manifest
+                    or (
+                        "browser" in capabilities
+                        and (
+                            labels.get(IMAGE_CLOAKBROWSER_VERSION_LABEL)
+                            != self._config.cloakbrowser_version
+                            or labels.get(IMAGE_CLOAKBROWSER_SHA256_LABEL)
+                            != self._config.cloakbrowser_sha256
+                        )
+                    )
+                ):
+                    continue
+                self.IMAGE = candidate_tag
+                selected = True
+                if is_legacy:
+                    logger.warning(
+                        "Reusing verified legacy image '%s'; rebuild the canonical "
+                        "line-ending-independent image during the next planned upgrade.",
+                        candidate_tag,
+                    )
+                break
+            if not selected:
                 raise ImageNotFound(
-                    "the local Hercules image was built from different runtime inputs"
+                    "no local Hercules image matches the selected runtime inputs"
                 )
             logger.info("Image '%s' found locally. Ready for instant startup.", self.IMAGE)
             await self._verify_image_runtime_ready()

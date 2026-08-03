@@ -133,8 +133,8 @@ If core initialization is still running after a bounded tool wait, Hercules
 returns `runtime_initializing` without closing MCP. A deterministic startup
 failure returns `runtime_unavailable` while host-side schemas and resources
 remain accessible. On restart, Hercules reclaims only containers proven stale
-by its checkout-lock token, project identity, and workspace identity; unrelated
-or live instances are preserved.
+by their exact owner PID and creation time, project identity, and workspace
+identity; unrelated or live instances are preserved.
 
 Each session has an eight-character hexadecimal ID and an owned manifest.
 Container replacement resets browser daemons, Metasploit clients, channels,
@@ -251,7 +251,8 @@ from these facts and [install.md](install.md).
 
 Repository MCP files are templates and must be rendered before installation;
 their bare `hercules` command is never a finished registration. An effective
-MCP entry needs an absolute launcher and no secrets. Its exact JSON,
+MCP entry needs an absolute launcher, no secrets, and the client's native
+120000 millisecond local-STDIO startup timeout when supported. Its exact JSON,
 JSONC, TOML, or CLI representation depends on the installed client:
 
 ```json
@@ -273,6 +274,17 @@ layout, uses its current local-command form with an absolute command array and
 `timeout: 120000`, and places the independent skill at
 `.agents/skills/hercules-mcp`.
 
+Multiple coding agents and IDEs may connect at the same time. Hercules assigns
+each live STDIO server a separate workspace session and, when defaults are busy,
+a collision-free runtime port set. Agents must call `system_network_info` in
+their own MCP session before choosing callback or listener ports; ports copied
+from another client may belong to a different container.
+
+If an IDE force-terminates its STDIO child, a detached guardian verifies the
+exact owner process identity and full Hercules labels before removing only that
+client's container. Normal shutdown still performs synchronous cleanup; no
+broad Docker pruning is used.
+
 Runtime values remain in the protected `.env`. See
 [the complete template](.env.example). The most operational settings are:
 
@@ -287,6 +299,7 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_IMAGE_PLATFORM` | Exact `linux/amd64` or `linux/arm64` runtime platform |
 | `HERCULES_CLOAKBROWSER_WHEEL_URL` | Exact PyPI artifact URL for a preserved browser pin |
 | `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports exposed by bridge networking |
+| `HERCULES_AUTO_ALLOCATE_PORTS` | Select a collision-free runtime port set for concurrent clients (default `true`) |
 | `BROWSER_PROXY_URL` | Default browser proxy kept outside client configuration |
 | `BROWSER_STREAM_PORT` | Optional loopback-only browser stream port |
 | `SKIP_METASPLOIT` | Omit the five Metasploit tools from an installed full profile |
