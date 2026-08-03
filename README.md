@@ -51,7 +51,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or upgrade Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following the ordered checkpoints in https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Adapt to my actual operating system, CPU architecture, shell, Docker context, trust policy, and active terminal-capable AI client; do not assume a package manager, init system, inherited PATH, or client schema. On a first install, ask what I intend to use Hercules for, recommend the smallest useful capability set, explain important omissions, confirm user-wide or project-local scope, and ask about a browser proxy only if browser capability is selected. Prepare a durable non-synced checkout and locked absolute launcher before reading Hercules' non-mutating setup facts, then build and validate the exact reported stable Kali image without silently dropping capabilities or blindly retrying deterministic failures. Preserve my confirmed choices, `.env`, secrets, workspace evidence, verified assets, and unrelated client settings. Configure only my active client, render its Hercules STDIO entry with the absolute launcher and no secrets, and install the independent portable skill only when that client supports Agent Skills. Complete local non-destructive MCP verification before reporting success. Never print secrets, contact an external target during setup, install a bare-PATH adapter, configure unrelated clients, or silently perform privileged system changes; clearly report any prerequisite, unsupported client, source defect, or manual action that requires me.
+Install or upgrade Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following all ordered checkpoints in https://github.com/0xMihirK/hercules-mcp/blob/main/install.md, including its mandatory final cleanup. Adapt to my actual operating system, CPU architecture, shell, Docker context, trust policy, and active terminal-capable AI client; do not assume a package manager, init system, inherited PATH, or client schema. On a first install, ask what I intend to use Hercules for, recommend the smallest useful capability set, explain important omissions, confirm user-wide or project-local scope, and ask about a browser proxy only if browser capability is selected. Prepare a durable non-synced checkout and locked editable absolute launcher before reading Hercules' non-mutating setup facts; capture that JSON as UTF-8 stdout separately from stderr, then build and validate the exact reported stable Kali image without silently dropping capabilities or blindly retrying deterministic failures. Preserve my confirmed choices, `.env`, secrets, workspace evidence, verified assets, and unrelated client settings. Configure only my active client, validate its effective schema, render its Hercules STDIO entry with the absolute launcher and no secrets, and install the independent portable skill only when that client supports Agent Skills; for OpenCode use its current local-command shape and a 120000 millisecond MCP timeout. Prove a cold MCP connection, tool/resource listing, successful local Docker-backed call, local-only browser check when selected, and clean shutdown instead of accepting process exit or structured tool errors as success. In a success-or-failure cleanup path, remove only transaction-owned temporary files, processes, verification containers, released port bindings, staging data, and obsolete client backups, while preserving committed state, evidence, valid caches, and unrelated configuration. Never print secrets, contact an external target during setup, install a bare-PATH adapter, configure unrelated clients, broadly prune Docker or temporary storage, or silently perform privileged system changes; clearly report any prerequisite, unsupported client, source defect, cleanup failure, or manual action that requires me, and never report success before cleanup passes.
 ```
 
 The authoritative installation contract is [install.md](install.md). It defines
@@ -120,12 +120,21 @@ cannot add a binary omitted from the image.
 ## How Hercules works
 
 1. The MCP client starts the absolute `hercules` STDIO launcher.
-2. Hercules loads the protected `.env`, capability selection, target policy,
-   and active managed workspace.
-3. A typed MCP call is validated and routed to a generation-bound service.
-4. The command runs inside the owned, capability-specific Kali container.
-5. Results are parsed and bounded while complete evidence is retained in the
+2. Hercules exposes tool and resource schemas immediately while one shared,
+   shielded Docker bootstrap task continues in the background.
+3. Docker-backed calls wait for core readiness; Metasploit can continue
+   initializing independently after ordinary tools become usable.
+4. A typed MCP call is validated and routed to a generation-bound service.
+5. The command runs inside the owned, capability-specific Kali container.
+6. Results are parsed and bounded while complete evidence is retained in the
    workspace when necessary.
+
+If core initialization is still running after a bounded tool wait, Hercules
+returns `runtime_initializing` without closing MCP. A deterministic startup
+failure returns `runtime_unavailable` while host-side schemas and resources
+remain accessible. On restart, Hercules reclaims only containers proven stale
+by its checkout-lock token, project identity, and workspace identity; unrelated
+or live instances are preserved.
 
 Each session has an eight-character hexadecimal ID and an owned manifest.
 Container replacement resets browser daemons, Metasploit clients, channels,
@@ -260,7 +269,9 @@ The agent must preserve unrelated configuration and validate the client's
 effective entry, and it configures only the active client. For OpenCode it also
 honors `OPENCODE_CONFIG` and XDG paths,
 preserves JSONC comments, supports the installed client's direct or nested MCP
-layout, and places the independent skill at `.agents/skills/hercules-mcp`.
+layout, uses its current local-command form with an absolute command array and
+`timeout: 120000`, and places the independent skill at
+`.agents/skills/hercules-mcp`.
 
 Runtime values remain in the protected `.env`. See
 [the complete template](.env.example). The most operational settings are:

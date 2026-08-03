@@ -25,7 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO
+from typing import TYPE_CHECKING, BinaryIO, cast
 
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 
@@ -74,6 +74,14 @@ _CONTAINER_ALL_INTERFACES = "0.0.0.0"  # nosec B104
 
 class ContainerUnavailable(RuntimeError):
     """Raised when Docker reports the active container is gone or stopped."""
+
+
+class RuntimeInitializing(RuntimeError):
+    """Raised when a tool reaches its bounded wait while bootstrap continues."""
+
+
+class RuntimeUnavailable(RuntimeError):
+    """Raised when background runtime bootstrap failed deterministically."""
 
 
 def _project_hash(project_root) -> str:
@@ -339,7 +347,13 @@ class DockerManager:
 
     IMAGE = "hercules-kali"
 
-    def __init__(self, config: HerculesConfig) -> None:
+    def __init__(
+        self,
+        config: HerculesConfig,
+        *,
+        instance_id: str | None = None,
+        owns_instance_lock: bool = False,
+    ) -> None:
         self._config = config
         installed = config.installed_capabilities or ALL_CAPABILITIES
         self.IMAGE, _fingerprint = image_identity(
@@ -386,10 +400,19 @@ class DockerManager:
             else (0, 0)
         )
         self._project_root_hash: str = _project_hash(config.project_root)
-        self._instance_id: str = uuid.uuid4().hex
+        self._workspace_root_hash: str = _project_hash(
+            config.resolved_workspace_root
+        )
+        self._instance_id: str = instance_id or uuid.uuid4().hex
+        self._owns_instance_lock: bool = bool(owns_instance_lock)
         self._bootstrapped: bool = False
         self._ready: bool = False
         self._ready_task: asyncio.Task | None = None
+        self._startup_task: asyncio.Task | None = None
+        self._startup_error: str = ""
+        self._startup_wait_seconds: float = 120.0
+        self._reclaimed_containers: list[str] = []
+        self._host_port_bindings: dict[str, object] = {}
         # Serializes container recovery so concurrent tool calls can't spawn
         # duplicate containers (thundering herd). Created lazily because some
         # tests construct DockerManager via __new__ and skip __init__.
@@ -517,9 +540,75 @@ class DockerManager:
         """Disable watchdog/recovery while an intentional teardown is in progress."""
         self._shutting_down = True
 
+    def attach_startup_task(self, task: asyncio.Task) -> None:
+        """Attach the single lifespan-owned background bootstrap task."""
+        current = getattr(self, "_startup_task", None)
+        if current is not None and not current.done() and current is not task:
+            raise RuntimeError("a Hercules runtime bootstrap task is already active")
+        self._startup_task = task
+        self._startup_error = ""
+
+    def mark_startup_unavailable(self, message: str) -> None:
+        """Record a sanitized deterministic bootstrap failure for later calls."""
+        self._startup_error = str(message).strip()[:2000]
+
+    def clear_startup_state(self) -> None:
+        """Allow an explicit session start after a failed initial bootstrap."""
+        task = getattr(self, "_startup_task", None)
+        if task is not None and not task.done():
+            raise RuntimeError("runtime bootstrap is still active")
+        self._startup_task = None
+        self._startup_error = ""
+
+    async def cancel_startup(self) -> None:
+        """Cancel and settle bootstrap before intentional container teardown."""
+        task = getattr(self, "_startup_task", None)
+        if task is None or task.done() or task is asyncio.current_task():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    async def _wait_for_startup(self) -> None:
+        """Wait once for lifespan bootstrap without letting callers cancel it."""
+        task = getattr(self, "_startup_task", None)
+        if task is not None and task is not asyncio.current_task():
+            if not task.done():
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(task),
+                        timeout=float(
+                            getattr(self, "_startup_wait_seconds", 120.0)
+                        ),
+                    )
+                except TimeoutError as exc:
+                    raise RuntimeInitializing(
+                        "The Kali runtime is still initializing after 120 seconds."
+                    ) from exc
+            # Consume a task exception defensively if a compatibility caller
+            # supplied its own bootstrap task instead of the lifespan wrapper.
+            if task.done() and not task.cancelled():
+                error = task.exception()
+                if error is not None:
+                    raise RuntimeUnavailable(str(error)) from error
+        startup_error = str(getattr(self, "_startup_error", "") or "")
+        if startup_error:
+            raise RuntimeUnavailable(
+                f"The Hercules runtime is unavailable: {startup_error}"
+            )
+
     def register_generation_callback(self, callback) -> None:
         """Register a process-local cache reset callback."""
         self._generation_callbacks.append(callback)
+
+    def _record_reclaimed_container(self, name: str) -> None:
+        reclaimed = getattr(self, "_reclaimed_containers", None)
+        if reclaimed is None:
+            reclaimed = []
+            self._reclaimed_containers = reclaimed
+        reclaimed.append(name)
 
     def _notify_generation_changed(self) -> None:
         self._browser_stream_relay_state = {}
@@ -541,18 +630,85 @@ class DockerManager:
                 # Configured reverse-listener ports intentionally accept callbacks.
                 host = _CONTAINER_ALL_INTERFACES
                 port = int(binding)
-            key = (host, port)
-            if key in checked:
+            probe_hosts = [host]
+            # This compares a configured value; it does not open a listener.
+            if host == _CONTAINER_ALL_INTERFACES:
+                # Docker Desktop may keep a separate loopback forwarding proxy
+                # alive briefly after its wildcard publication disappears.
+                probe_hosts.append("127.0.0.1")
+            elif host == "::":
+                probe_hosts.append("::1")
+            for probe_host in probe_hosts:
+                key = (probe_host, port)
+                if key in checked:
+                    continue
+                checked.add(key)
+                family = socket.AF_INET6 if ":" in probe_host else socket.AF_INET
+                with socket.socket(family, socket.SOCK_STREAM) as probe:
+                    try:
+                        probe.bind((probe_host, port))
+                    except OSError as exc:
+                        raise RuntimeError(
+                            "Required Hercules host TCP port "
+                            f"{probe_host}:{port} is unavailable."
+                        ) from exc
+
+    @staticmethod
+    def _container_host_bindings(container: Container) -> dict[str, object]:
+        """Return concrete host TCP bindings from inspected Docker metadata."""
+        published = (
+            getattr(container, "attrs", {})
+            .get("NetworkSettings", {})
+            .get("Ports", {})
+            or {}
+        )
+        bindings: dict[str, object] = {}
+        for container_port, entries in published.items():
+            if not str(container_port).endswith("/tcp") or not entries:
                 continue
-            checked.add(key)
-            family = socket.AF_INET6 if ":" in host else socket.AF_INET
-            with socket.socket(family, socket.SOCK_STREAM) as probe:
+            for index, entry in enumerate(entries):
+                if not isinstance(entry, dict):
+                    continue
+                # An omitted HostIp means wildcard in Docker inspection metadata.
+                host = str(entry.get("HostIp") or _CONTAINER_ALL_INTERFACES)
+                raw_port = entry.get("HostPort")
+                if not isinstance(raw_port, (str, int)):
+                    continue
                 try:
-                    probe.bind((host, port))
-                except OSError as exc:
+                    port = int(raw_port)
+                except (TypeError, ValueError):
+                    continue
+                bindings[f"{container_port}:{index}"] = (host, port)
+        return bindings
+
+    async def _wait_for_host_ports_available(
+        self,
+        bindings: dict[str, object],
+        *,
+        timeout: float = 15.0,
+    ) -> None:
+        """Wait for prior owners or Docker forwarding proxies to release ports."""
+        if not bindings:
+            return
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                await asyncio.to_thread(self._preflight_host_ports, bindings)
+                return
+            except RuntimeError as exc:
+                if time.monotonic() >= deadline:
+                    ports = sorted(
+                        {
+                            int(value[1])
+                            for value in bindings.values()
+                            if isinstance(value, tuple) and len(value) == 2
+                        }
+                    )
                     raise RuntimeError(
-                        f"Required Hercules host TCP port {host}:{port} is unavailable."
+                        "Hercules host TCP ports remained unavailable after "
+                        f"{timeout:g} seconds: {ports}"
                     ) from exc
+                await asyncio.sleep(0.25)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -632,6 +788,7 @@ class DockerManager:
                 "hercules.managed": "true",
                 "hercules.project_root_hash": self._project_root_hash,
                 "hercules.project_root": str(self._config.project_root.resolve()),
+                "hercules.workspace_root_hash": self._workspace_root_hash,
                 "hercules.session_id": self._session_id,
                 "hercules.owner_pid": str(os.getpid()),
                 "hercules.instance_id": self._instance_id,
@@ -720,20 +877,34 @@ class DockerManager:
                 .get("Labels", {})
                 or {}
             )
+            workspace_hash = labels.get("hercules.workspace_root_hash", "")
+            instance_id = labels.get("hercules.instance_id", "")
+            other_instance = bool(
+                getattr(self, "_instance_id", "")
+                and instance_id
+                and instance_id != self._instance_id
+            )
+            legacy_live_owner = bool(
+                not workspace_hash
+                and instance_id != getattr(self, "_instance_id", "")
+                and _is_process_running(labels.get("hercules.owner_pid"))
+            )
             if (
                 labels.get("hercules.managed") != "true"
                 or labels.get("hercules.project_root_hash") != self._project_root_hash
                 or labels.get("hercules.session_id") != self._session_id
-                or (
-                    getattr(self, "_instance_id", "")
-                    and labels.get("hercules.instance_id") != self._instance_id
-                )
+                or (workspace_hash and workspace_hash != self._workspace_root_hash)
+                or (other_instance and not self._owns_instance_lock)
+                or legacy_live_owner
             ):
                 raise RuntimeError(
                     f"Container name '{self._container_name}' is already in use by "
                     "a container Hercules cannot prove it owns."
                 )
+            released_bindings = self._container_host_bindings(clash)
             await asyncio.to_thread(clash.remove, force=True)
+            await self._wait_for_host_ports_available(released_bindings)
+            self._record_reclaimed_container(self._container_name)
             logger.info(
                 "Removed owned pre-existing container '%s' before create.",
                 self._container_name,
@@ -746,7 +917,8 @@ class DockerManager:
             logger.warning("Failed to clear pre-existing container '%s': %s", self._container_name, exc)
 
         if "ports" in kwargs:
-            await asyncio.to_thread(self._preflight_host_ports, kwargs["ports"])
+            await self._wait_for_host_ports_available(kwargs["ports"])
+            self._host_port_bindings = dict(kwargs["ports"])
         elif kwargs.get("network_mode") == "host":
             host_ports: dict[str, object] = {
                 f"{self.msf_rpc_port}/tcp": (
@@ -768,12 +940,53 @@ class DockerManager:
                     "127.0.0.1",
                     int(stream_port),
                 )
-            await asyncio.to_thread(self._preflight_host_ports, host_ports)
+            await self._wait_for_host_ports_available(host_ports)
+            self._host_port_bindings = dict(host_ports)
+        else:
+            self._host_port_bindings = {}
 
+        client = self._client
+        if client is None:  # defensive invariant after _verify_setup
+            raise RuntimeError("Docker client became unavailable before create.")
+
+        async def create_owned_container() -> Container:
+            created = await asyncio.to_thread(client.containers.run, **kwargs)
+            return cast("Container", created)
+
+        create_task = asyncio.create_task(create_owned_container())
         try:
-            self._container = await asyncio.to_thread(
-                self._client.containers.run, **kwargs
-            )
+            self._container = await asyncio.shield(create_task)
+        except asyncio.CancelledError:
+            # ``to_thread`` cannot be interrupted after Docker accepted the
+            # create request. Settle it and remove any late-created container
+            # before propagating cancellation, otherwise a client timeout can
+            # leave fixed host ports reserved.
+            try:
+                created = await create_task
+            except Exception as exc:
+                logger.warning(
+                    "Container creation ended during shutdown: %s", exc
+                )
+            else:
+                self._container = created
+                try:
+                    released_bindings = {
+                        **getattr(self, "_host_port_bindings", {}),
+                        **self._container_host_bindings(created),
+                    }
+                    await asyncio.to_thread(created.remove, force=True)
+                    await self._wait_for_host_ports_available(released_bindings)
+                except NotFound:
+                    pass
+                except Exception as cleanup_error:
+                    logger.warning(
+                        "Late-created container cleanup was incomplete: %s",
+                        cleanup_error,
+                    )
+                finally:
+                    self._container = None
+                    self._host_port_bindings = {}
+            raise
         except Exception as exc:
             if isinstance(exc, APIError) and "port is already allocated" in str(exc).lower():
                 raise RuntimeError(
@@ -807,6 +1020,7 @@ class DockerManager:
 
     async def ensure_ready(self) -> None:
         """Wait until the container entrypoint has finished runtime setup."""
+        await self._wait_for_startup()
         await self._ensure_container_running()
         if getattr(self, "_ready", True):
             return
@@ -819,6 +1033,7 @@ class DockerManager:
     async def stop_container(self) -> None:
         """Stop and remove the container. Workspace files on host are preserved."""
         if self._container is None:
+            self._host_port_bindings = {}
             workspace = getattr(self, "_workspace", None)
             if workspace is not None:
                 try:
@@ -843,7 +1058,12 @@ class DockerManager:
         if not self._config.preserve_container:
             try:
                 logger.info("Force-removing container '%s'...", self._container_name)
+                released_bindings = {
+                    **getattr(self, "_host_port_bindings", {}),
+                    **self._container_host_bindings(self._container),
+                }
                 await asyncio.to_thread(self._container.remove, force=True)
+                await self._wait_for_host_ports_available(released_bindings)
             except NotFound:
                 pass
             except Exception as exc:
@@ -867,6 +1087,7 @@ class DockerManager:
         self._bootstrapped = False
         self._ready = False
         self._ready_task = None
+        self._host_port_bindings = {}
         workspace = getattr(self, "_workspace", None)
         if workspace is not None:
             try:
@@ -884,6 +1105,7 @@ class DockerManager:
             self._operator_stopped = True
             self._shutting_down = True
             try:
+                await self.cancel_startup()
                 await self.stop_container()
             finally:
                 # The durable operator flag continues to suppress recovery. The
@@ -968,6 +1190,7 @@ class DockerManager:
             self._operator_stopped = False
             self._shutting_down = False
             try:
+                self.clear_startup_state()
                 return await self.restart_container(rotate_workspace=True)
             except Exception:
                 self._operator_stopped = previously_stopped
@@ -1087,7 +1310,9 @@ class DockerManager:
                     raise RuntimeError(
                         f"Refusing to remove unowned container '{self._container_name}'."
                     )
+                released_bindings = self._container_host_bindings(stale)
                 await asyncio.to_thread(stale.remove, force=True)
+                await self._wait_for_host_ports_available(released_bindings)
             except NotFound:
                 pass
             except RuntimeError:
@@ -1163,14 +1388,22 @@ class DockerManager:
             if labels.get("hercules.project_root_hash") != self._project_root_hash:
                 continue
 
-            # A separate live MCP process may intentionally share the checkout
-            # while using its own workspace root, ports, and Docker network
-            # (acceptance runs do this). Instance ownership is stronger than a
-            # host PID, which can be reused after the original process exits.
+            workspace_hash = labels.get("hercules.workspace_root_hash", "")
             if (
-                getattr(self, "_instance_id", "")
-                and labels.get("hercules.instance_id") != self._instance_id
+                workspace_hash
+                and workspace_hash != getattr(self, "_workspace_root_hash", "")
             ):
+                # Acceptance and isolated operator instances may intentionally
+                # use the same source checkout with a different workspace.
+                continue
+
+            instance_id = labels.get("hercules.instance_id", "")
+            other_instance = bool(
+                getattr(self, "_instance_id", "")
+                and instance_id
+                and instance_id != self._instance_id
+            )
+            if other_instance and not getattr(self, "_owns_instance_lock", False):
                 logger.warning(
                     "Preserving container from another Hercules instance: %s",
                     name,
@@ -1179,14 +1412,30 @@ class DockerManager:
 
             owner_pid = labels.get("hercules.owner_pid")
             owner_live = _is_process_running(owner_pid)
-            if is_running and owner_live:
+            if (
+                not workspace_hash
+                and instance_id != getattr(self, "_instance_id", "")
+                and owner_live
+            ):
+                # A legacy container has no workspace identity. A live PID may
+                # belong to a deliberately isolated instance or may have been
+                # reused, so fail closed instead of deleting it.
+                logger.warning(
+                    "Preserving legacy Hercules container with a live owner: %s",
+                    name,
+                )
+                continue
+            if is_running and owner_live and not other_instance:
                 raise RuntimeError(
                     f"Another live Hercules container for this checkout is already running: "
                     f"{name} (owner PID {owner_pid}). Close that MCP session first."
                 )
 
             logger.info("Cleaning up orphaned Hercules container: %s", name)
+            released_bindings = self._container_host_bindings(container)
             await asyncio.to_thread(container.remove, force=True)
+            await self._wait_for_host_ports_available(released_bindings)
+            self._record_reclaimed_container(name)
 
     def _cleanup_empty_workspaces(self) -> None:
         """Remove only empty, inactive workspaces with valid ownership manifests."""
@@ -1207,8 +1456,14 @@ class DockerManager:
             active_running=self._container is not None,
         )
 
-    async def _ensure_container_running(self) -> None:
+    async def _ensure_container_running(
+        self,
+        *,
+        wait_for_startup: bool = True,
+    ) -> None:
         """Refresh Docker state and fail if the active container is stale."""
+        if wait_for_startup:
+            await self._wait_for_startup()
         if getattr(self, "_operator_stopped", False):
             raise RuntimeError(
                 "The Hercules container was explicitly stopped. "
@@ -1346,7 +1601,7 @@ class DockerManager:
         """
         recovery_meta: dict = {}
         try:
-            await self._ensure_container_running()
+            await self._ensure_container_running(wait_for_startup=require_ready)
             if require_ready:
                 await self.ensure_ready()
         except Exception as exc:

@@ -6,6 +6,7 @@ import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from hercules.core.services import (
@@ -15,6 +16,7 @@ from hercules.core.services import (
     JobService,
     MetasploitStateService,
 )
+from hercules.core.security import redact_secrets
 
 if TYPE_CHECKING:
     from hercules.core.concurrency import ConcurrencyManager
@@ -38,6 +40,7 @@ class RuntimeServices:
     workspace: WorkspaceManager
     concurrency: ConcurrencyManager | None = None
     msf_state: dict[str, Any] = field(default_factory=dict)
+    runtime_state: dict[str, Any] = field(default_factory=dict)
     legacy_context: dict[str, Any] = field(default_factory=dict)
     generation_resetters: list[ResetCallback] = field(default_factory=list)
     session_callbacks: list[SessionCallback] = field(default_factory=list)
@@ -90,8 +93,33 @@ class RuntimeServices:
         context["msf_status"] = state.get("status", "")
         context["msf_error"] = state.get("error", "")
 
+    def publish_runtime_state(self) -> None:
+        """Mirror startup state into the legacy lifespan mapping."""
+        self.legacy_context["runtime_state"] = self.runtime_state
+        self.legacy_context["runtime_status"] = self.runtime_state.get(
+            "status", "starting"
+        )
+        self.legacy_context["runtime_error"] = self.runtime_state.get(
+            "error", ""
+        )
+        self.legacy_context["runtime_diagnostic"] = self.runtime_state.get(
+            "diagnostic", self.runtime_state.get("error", "")
+        )
+
     async def start_new_session(self) -> str:
         """Rotate the workspace and reset every generation-bound integration."""
+        await self.docker.cancel_startup()
+        self.docker.clear_startup_state()
+        self.runtime_state.update(
+            {
+                "status": "starting",
+                "started_at": datetime.now(UTC).isoformat(),
+                "completed_at": "",
+                "error": "",
+                "diagnostic": "",
+            }
+        )
+        self.publish_runtime_state()
         old_task = self.msf_state.get("connect_task")
         if (
             old_task is not None
@@ -104,7 +132,35 @@ class RuntimeServices:
             except asyncio.CancelledError:
                 pass
 
-        new_session = await self.docker.new_session()
+        try:
+            new_session = await self.docker.new_session()
+        except Exception as exc:
+            safe_error = redact_secrets(
+                str(exc),
+                [
+                    getattr(self.config, "msf_password", ""),
+                    getattr(self.config, "browser_proxy_url", ""),
+                ],
+            )[:2000]
+            self.runtime_state.update(
+                {
+                    "status": "unavailable",
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    "error": safe_error,
+                    "diagnostic": safe_error,
+                }
+            )
+            self.publish_runtime_state()
+            raise
+        self.runtime_state.update(
+            {
+                "status": "ready",
+                "completed_at": datetime.now(UTC).isoformat(),
+                "error": "",
+                "diagnostic": "",
+            }
+        )
+        self.publish_runtime_state()
         for callback in self.session_callbacks:
             try:
                 callback(new_session)
@@ -164,6 +220,7 @@ def services_from_context(context: dict[str, Any]) -> RuntimeServices:
             workspace=context["docker"].workspace_manager,
             concurrency=context.get("concurrency"),
             msf_state=context.get("msf_state") or {},
+            runtime_state=context.get("runtime_state") or {},
             legacy_context=context,
         )
         context["services"] = services

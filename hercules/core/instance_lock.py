@@ -13,6 +13,7 @@ import os
 import platform
 import subprocess
 import sys
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,6 +30,7 @@ class HerculesInstanceLock:
     def __init__(self, project_root: Path) -> None:
         self.project_root = project_root.resolve()
         self.lock_path = self.project_root / ".hercules.lock"
+        self.instance_id = uuid.uuid4().hex
         self._file = None
         self._key = os.path.normcase(str(self.lock_path))
 
@@ -94,6 +96,7 @@ class HerculesInstanceLock:
     def _write_owner(self) -> None:
         payload = {
             "pid": os.getpid(),
+            "instance_id": self.instance_id,
             "project_root": str(self.project_root),
             "command": " ".join(sys.argv),
             "created_at": datetime.now(UTC).isoformat(),

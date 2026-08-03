@@ -63,7 +63,7 @@ from hercules.core.wordlists import WORDLIST_FILES, WORDLIST_SOURCES
 
 MAX_BUILD_CA_BYTES = 1024 * 1024
 RESOURCE_COUNT = 7
-SETUP_INFORMATION_SCHEMA_VERSION = 2
+SETUP_INFORMATION_SCHEMA_VERSION = 3
 _CERTIFICATE_BLOCK = re.compile(
     rb"-----BEGIN CERTIFICATE-----\s+.+?\s+-----END CERTIFICATE-----",
     re.DOTALL,
@@ -71,6 +71,30 @@ _CERTIFICATE_BLOCK = re.compile(
 _PRIVATE_KEY_MARKER = re.compile(
     rb"-----BEGIN [^-]*(?:PRIVATE KEY|OPENSSH PRIVATE KEY)-----"
 )
+
+
+class SourceAssociationError(ValueError):
+    """The launcher is not imported from a complete durable source checkout."""
+
+
+def validate_source_association(root: Path) -> None:
+    """Require the runtime package and build inputs to share one checkout."""
+    source = Path(root).resolve()
+    package_root = Path(__file__).resolve().parents[1]
+    required = (
+        source / "pyproject.toml",
+        source / "uv.lock",
+        source / "Dockerfile",
+        source / "docker" / "entrypoint.sh",
+        source / "skills" / "hercules-mcp" / "SKILL.md",
+    )
+    if package_root.parent != source or any(not path.is_file() for path in required):
+        raise SourceAssociationError(
+            "The Hercules launcher is not associated with a complete durable "
+            "source checkout. Install it as a locked editable tool from the "
+            "checkout, then verify that the imported hercules package resolves "
+            "inside that same checkout before building."
+        )
 
 
 def capture_surface() -> dict[str, Any]:
@@ -402,6 +426,14 @@ def _python_environment_facts(root: Path) -> dict[str, Any]:
 def _failure_diagnostics() -> list[dict[str, Any]]:
     return [
         {
+            "code": "source_association_invalid",
+            "retryable": False,
+            "resolution": (
+                "associate the absolute launcher with the complete durable "
+                "checkout through a locked editable tool environment"
+            ),
+        },
+        {
             "code": "prerequisite_missing",
             "retryable": False,
             "resolution": "obtain operator-approved Git, uv, or Docker support",
@@ -444,6 +476,21 @@ def _failure_diagnostics() -> list[dict[str, Any]]:
             "retryable": False,
             "resolution": "require a terminal-capable client with local STDIO MCP support",
         },
+        {
+            "code": "runtime_initializing",
+            "retryable": True,
+            "resolution": "keep the MCP connection open and retry the tool shortly",
+        },
+        {
+            "code": "runtime_unavailable",
+            "retryable": False,
+            "resolution": "correct the reported runtime bootstrap defect and restart Hercules",
+        },
+        {
+            "code": "stale_container_reclaimed",
+            "retryable": True,
+            "resolution": "retry after Hercules confirms every owned port was released",
+        },
     ]
 
 
@@ -460,6 +507,7 @@ def setup_information(
 ) -> dict[str, Any]:
     """Return deterministic setup facts; this function performs no mutation."""
     root = Path(project_root).resolve()
+    validate_source_association(root)
     project_dir = Path.cwd().resolve()
     state: dict[str, Any] = {}
     state_errors: list[str] = []
@@ -670,6 +718,54 @@ def setup_information(
             "agent_skills_optional": True,
             "unsupported_without_stdio": True,
             "templates_require_rendering": True,
+            "cold_connection_required": True,
+            "opencode": {
+                "type": "local",
+                "command_shape": "absolute command array",
+                "timeout_milliseconds": 120_000,
+            },
+        },
+        "runtime": {
+            "immediate_mcp_handshake": True,
+            "background_bootstrap": True,
+            "tool_wait_seconds": 120,
+            "states": [
+                "starting",
+                "ready",
+                "unavailable",
+                "cancelled",
+            ],
+            "metasploit_initializes_after_core": True,
+            "cold_start_assertions": [
+                "STDIO initialization and tool/resource listing complete before Docker readiness",
+                "Docker-backed calls share one shielded bootstrap task",
+                "a local tool call succeeds after core readiness",
+                "graceful shutdown removes the owned container and releases its ports",
+            ],
+        },
+        "transaction_cleanup": {
+            "mandatory_on_success_and_failure": True,
+            "track": [
+                "temporary paths",
+                "background processes",
+                "containers and ownership labels",
+                "port bindings",
+                "staging checkouts",
+                "client backups",
+            ],
+            "remove_only_transaction_owned": True,
+            "verify_ports_released": True,
+            "verify_no_secrets_in_logs_or_client_configuration": True,
+            "protected": [
+                "committed checkout",
+                ".env and generated secrets",
+                "schema-4 state",
+                "installed portable skill",
+                "selected image and valid Docker cache",
+                "verified wordlists",
+                "workspace evidence",
+                "unrelated client configuration",
+            ],
         },
         "diagnostics": _failure_diagnostics(),
         "state": {
@@ -720,6 +816,9 @@ def setup_information(
             "The MCP launcher is absolute and client configuration contains no secrets",
             "The portable skill exists independently from native plugin adapters",
             "MCP validation reports the expected tool count and seven resources",
+            "Cold STDIO initialization succeeds before Docker bootstrap completes",
+            "OpenCode uses a 120000 millisecond local-MCP timeout when selected",
+            "Transaction-owned temporary files, processes, containers, and ports are cleaned",
             "No external target is contacted during setup",
         ],
     }

@@ -35,8 +35,11 @@ else
     echo "[hercules] Wordlists are not required by this capability profile."
 fi
 
-# ── 2. Start Metasploit services (unless skipped) ───────────────────────────
-if [ "${SKIP_METASPLOIT}" != "true" ]; then
+# ── 2. Start Metasploit services asynchronously (unless skipped) ────────────
+# Core readiness is independent from PostgreSQL/msfrpcd. Hercules publishes its
+# MCP schemas immediately and the Metasploit tools already expose an explicit
+# initializing state while this function completes.
+start_metasploit() {
     echo "[hercules] Starting PostgreSQL for Metasploit..."
 
     PG_STARTED=0
@@ -69,7 +72,7 @@ if [ "${SKIP_METASPLOIT}" != "true" ]; then
 
     if [ -z "${MSF_PASSWORD:-}" ]; then
         echo "[hercules] ERROR: MSF_PASSWORD was not provided."
-        exit 1
+        return 1
     fi
     MSF_BIND_HOST="${MSF_BIND_HOST:-0.0.0.0}"
     MSF_RPC_PORT="${MSF_RPC_PORT:-55553}"
@@ -88,9 +91,14 @@ if [ "${SKIP_METASPLOIT}" != "true" ]; then
     done
     if [ "$MSFRPCD_READY" -ne 1 ]; then
         echo "[hercules] ERROR: msfrpcd did not listen on port ${MSF_RPC_PORT} within 60 seconds."
-        exit 1
+        return 1
     fi
     echo "[hercules] Metasploit services started."
+}
+
+if [ "${SKIP_METASPLOIT}" != "true" ]; then
+    start_metasploit &
+    echo "[hercules] Metasploit initialization continues in the background."
 else
     echo "[hercules] Metasploit skipped (SKIP_METASPLOIT=true)."
 fi
@@ -103,5 +111,5 @@ fi
 # headless; screenshots and the loopback stream relay remain available.
 
 touch /tmp/hercules-ready
-echo "[hercules] Container ready. Sleeping..."
+echo "[hercules] Core container ready. Sleeping..."
 exec sleep infinity

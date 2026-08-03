@@ -385,6 +385,8 @@ def tools_for_capabilities(keys: Iterable[str]) -> frozenset[str]:
 
 def normalize_capabilities(keys: Iterable[str]) -> frozenset[str]:
     """Validate a selection and always include mandatory core bundles."""
+    if isinstance(keys, str):
+        return parse_capabilities(keys)
     requested = {str(key).strip().lower() for key in keys if str(key).strip()}
     unknown = requested - ALL_CAPABILITIES
     if unknown:

@@ -31,9 +31,15 @@ logger = logging.getLogger("hercules.firewall")
 # Import the domain exception types defensively so the firewall stays importable
 # even if a module is refactored. Fall back to name-based matching when absent.
 try:  # pragma: no cover - trivial import guard
-    from hercules.core.docker_manager import ContainerUnavailable
+    from hercules.core.docker_manager import (
+        ContainerUnavailable,
+        RuntimeInitializing,
+        RuntimeUnavailable,
+    )
 except Exception:  # pragma: no cover
     ContainerUnavailable = None  # type: ignore[assignment]
+    RuntimeInitializing = None  # type: ignore[assignment]
+    RuntimeUnavailable = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - trivial import guard
     from hercules.tools.exploitation.metasploit_tool import (
@@ -68,6 +74,40 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
             next_steps=[
                 "Retry the same tool call in a few seconds.",
                 "If it persists, call system_list_sessions to check session state.",
+            ],
+        )
+
+    runtime_initializing = (
+        _is(exc, RuntimeInitializing)
+        or name == "RuntimeInitializing"
+        or "kali runtime is still initializing after" in msg.lower()
+    )
+    if runtime_initializing:
+        return usage_error(
+            tool,
+            "runtime_initializing",
+            "The Kali runtime is still initializing in the background.",
+            recoverable=True,
+            next_steps=[
+                "Retry the same tool call shortly.",
+                "The MCP connection and workspace remain available.",
+            ],
+        )
+
+    runtime_unavailable = (
+        _is(exc, RuntimeUnavailable)
+        or name == "RuntimeUnavailable"
+        or "hercules runtime is unavailable:" in msg.lower()
+    )
+    if runtime_unavailable:
+        return usage_error(
+            tool,
+            "runtime_unavailable",
+            msg or "The Kali runtime could not be initialized.",
+            recoverable=False,
+            next_steps=[
+                "Review the sanitized Hercules startup log for the failing component.",
+                "Correct the deterministic setup issue, then restart the MCP server.",
             ],
         )
 

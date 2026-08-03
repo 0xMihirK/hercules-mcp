@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import argparse
 import json
 import logging
 import logging.handlers
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -26,6 +28,7 @@ from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirew
 from hercules.core.guidance import SERVER_INSTRUCTIONS
 from hercules.core.instance_lock import HerculesInstanceLock, InstanceLockError
 from hercules.core.runtime import RuntimeServices
+from hercules.core.security import redact_secrets
 from hercules.core.tool_catalog import CORE_TOOLS, TOOL_REGISTRARS
 
 # Resource registrations
@@ -181,6 +184,98 @@ async def _connect_metasploit_background(context: dict) -> None:
         logger.warning("msfrpcd did not become ready: %s", exc)
 
 
+def _runtime_timestamp() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+async def _bootstrap_runtime(context: dict, services: RuntimeServices) -> None:
+    """Initialize Docker after MCP schemas are available to the client."""
+    docker_mgr = context["docker"]
+    config = context["config"]
+    runtime_state = services.runtime_state
+    runtime_state.update(
+        {
+            "status": "starting",
+            "started_at": _runtime_timestamp(),
+            "completed_at": "",
+            "error": "",
+            "diagnostic": "",
+        }
+    )
+    services.publish_runtime_state()
+    try:
+        await docker_mgr.start_container()
+        await docker_mgr.ensure_ready()
+    except asyncio.CancelledError:
+        runtime_state.update(
+            {
+                "status": "cancelled",
+                "completed_at": _runtime_timestamp(),
+                "error": "Runtime initialization was cancelled during shutdown.",
+                "diagnostic": "Runtime initialization was cancelled during shutdown.",
+            }
+        )
+        services.publish_runtime_state()
+        try:
+            await docker_mgr.stop_container()
+        except Exception as exc:
+            logger.warning("Runtime cancellation cleanup failed: %s", exc)
+        raise
+    except BaseException as exc:
+        safe_error = redact_secrets(
+            str(exc),
+            [
+                getattr(config, "msf_password", ""),
+                getattr(config, "browser_proxy_url", ""),
+            ],
+        )[:2000]
+        docker_mgr.mark_startup_unavailable(safe_error)
+        runtime_state.update(
+            {
+                "status": "unavailable",
+                "completed_at": _runtime_timestamp(),
+                "error": safe_error,
+                "diagnostic": safe_error,
+            }
+        )
+        services.publish_runtime_state()
+        logger.error("Hercules runtime initialization failed: %s", safe_error)
+        try:
+            await docker_mgr.stop_container()
+        except Exception as cleanup_error:
+            logger.warning("Incomplete runtime cleanup failed: %s", cleanup_error)
+        return
+
+    runtime_state.update(
+        {
+            "status": "ready",
+            "completed_at": _runtime_timestamp(),
+            "error": "",
+            "diagnostic": "",
+            "reclaimed_containers": list(
+                getattr(docker_mgr, "_reclaimed_containers", [])
+            ),
+        }
+    )
+    services.publish_runtime_state()
+    logger.info("Workspace: %s", docker_mgr.workspace_path)
+
+    if not config.skip_metasploit:
+        task = asyncio.create_task(_connect_metasploit_background(context))
+        context["msf_state"]["connect_task"] = task
+        context["msf_connect_task"] = task
+
+    if getattr(config, "watchdog_interval", 0) and config.watchdog_interval > 0:
+        watchdog_task = asyncio.create_task(
+            _watchdog(docker_mgr, config.watchdog_interval)
+        )
+        context["watchdog_task"] = watchdog_task
+        logger.info(
+            "Watchdog enabled: health check every %ds.",
+            config.watchdog_interval,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Composable lifespans
 # ---------------------------------------------------------------------------
@@ -196,7 +291,11 @@ async def docker_lifespan(server):
         logger.critical("%s", exc)
         raise SystemExit(str(exc)) from exc
 
-    docker_mgr = DockerManager(config)
+    docker_mgr = DockerManager(
+        config,
+        instance_id=instance_lock.instance_id,
+        owns_instance_lock=True,
+    )
 
     # Durable, host-side, session-tagged log for post-mortem of mid-session crashes.
     _add_file_logging(config.resolved_workspace_root, docker_mgr.session_id)
@@ -206,21 +305,6 @@ async def docker_lifespan(server):
     logger.info("Skip Metasploit: %s", config.skip_metasploit)
     logger.info("Preserve container: %s", config.preserve_container)
 
-    try:
-        await docker_mgr.start_container()
-        # Do not publish an MCP session backed by a half-started container.
-        # Readiness failures include recent entrypoint logs and are fatal here.
-        await docker_mgr.ensure_ready()
-    except BaseException:
-        docker_mgr.begin_shutdown()
-        try:
-            await docker_mgr.stop_container()
-        finally:
-            instance_lock.release()
-        raise
-    logger.info("Workspace: %s", docker_mgr.workspace_path)
-
-    # Connect to msfrpcd in the background if Metasploit is enabled.
     msf_state = {
         "client": None,
         "connect_task": None,
@@ -235,12 +319,23 @@ async def docker_lifespan(server):
         "msf_connect_task": None,
         "msf_status": msf_state["status"],
         "msf_error": "",
+        "runtime_state": {
+            "status": "starting",
+            "started_at": "",
+            "completed_at": "",
+            "error": "",
+            "diagnostic": "",
+        },
+        "runtime_status": "starting",
+        "runtime_error": "",
+        "runtime_diagnostic": "",
     }
     services = RuntimeServices(
         config=config,
         docker=docker_mgr,
         workspace=docker_mgr.workspace_manager,
         msf_state=msf_state,
+        runtime_state=lifespan_context["runtime_state"],
         legacy_context=lifespan_context,
     )
     from hercules.tools.browser.browser_tool import reset_browser_runtime_state
@@ -253,28 +348,27 @@ async def docker_lifespan(server):
     services.register_session_callback(set_log_session_id)
     docker_mgr.register_generation_callback(services.on_generation_change)
     lifespan_context["services"] = services
-    if not config.skip_metasploit:
-        try:
-            task = asyncio.create_task(_connect_metasploit_background(lifespan_context))
-            msf_state["connect_task"] = task
-            lifespan_context["msf_connect_task"] = task
-        except TimeoutError:
-            logger.warning("msfrpcd did not become ready — Metasploit tools will be unavailable.")
-
-    # Proactive container watchdog (0 disables).
-    if getattr(config, "watchdog_interval", 0) and config.watchdog_interval > 0:
-        watchdog_task = asyncio.create_task(_watchdog(docker_mgr, config.watchdog_interval))
-        lifespan_context["watchdog_task"] = watchdog_task
-        logger.info("Watchdog enabled: health check every %ds.", config.watchdog_interval)
+    startup_task = asyncio.create_task(
+        _bootstrap_runtime(lifespan_context, services)
+    )
+    docker_mgr.attach_startup_task(startup_task)
+    lifespan_context["runtime_startup_task"] = startup_task
 
     try:
         yield lifespan_context
     finally:
         try:
             # Signal teardown so the watchdog/recovery never resurrect a
-            # container we are deliberately removing, and cancel the watchdog
-            # BEFORE stopping the container.
+            # container we are deliberately removing. Settle bootstrap first
+            # so it cannot publish new watchdog/RPC tasks after we inspect them.
             docker_mgr.begin_shutdown()
+            startup_task = lifespan_context.get("runtime_startup_task")
+            if startup_task is not None and not startup_task.done():
+                startup_task.cancel()
+                try:
+                    await startup_task
+                except asyncio.CancelledError:
+                    pass
             wtask = lifespan_context.get("watchdog_task")
             if wtask is not None and not wtask.done():
                 wtask.cancel()
@@ -378,14 +472,49 @@ async def _mcp_surface_probe() -> dict[str, object]:
 
 
 def main():
-    """Run the Hercules MCP server."""
+    """Run the MCP server or one explicitly selected read-only command."""
     arguments = sys.argv[1:]
-    if "--setup-info-json" in arguments:
-        from hercules.core.setup_info import setup_information_from_argv
+    if arguments in (["-h"], ["--help"]):
+        parser = argparse.ArgumentParser(
+            prog="hercules",
+            description=(
+                "Hercules MCP server. With no arguments, starts the STDIO MCP "
+                "transport; all argument modes are read-only."
+            ),
+        )
+        parser.add_argument(
+            "--setup-info-json",
+            action="store_true",
+            help="print deterministic setup facts as JSON",
+        )
+        parser.add_argument(
+            "--validate-mcp-json",
+            action="store_true",
+            help="print the registered MCP surface as JSON",
+        )
+        parser.print_help()
+        return
+    if arguments and arguments[0] == "--setup-info-json":
+        from hercules.core.setup_info import (
+            SourceAssociationError,
+            setup_information_from_argv,
+        )
 
-        remaining = [value for value in arguments if value != "--setup-info-json"]
+        remaining = arguments[1:]
         try:
             payload = setup_information_from_argv(config.project_root, remaining)
+        except SourceAssociationError as exc:
+            print(
+                json.dumps(
+                    {
+                        "status": "error",
+                        "code": "source_association_invalid",
+                        "error": str(exc),
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise SystemExit(2) from exc
         except OSError as exc:
             print(
                 json.dumps(
@@ -412,9 +541,16 @@ def main():
             raise SystemExit(2) from exc
         print(json.dumps(payload, indent=2, sort_keys=True))
         return
-    if "--validate-mcp-json" in arguments:
+    if arguments == ["--validate-mcp-json"]:
         print(json.dumps(asyncio.run(_mcp_surface_probe()), sort_keys=True))
         return
+    if arguments:
+        print(
+            f"hercules: unrecognized arguments: {' '.join(arguments)}\n"
+            "Use 'hercules --help' for supported modes.",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
     mcp.run()
 
 

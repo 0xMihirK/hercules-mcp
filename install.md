@@ -25,7 +25,7 @@ report an unsupported client if local STDIO MCP is unavailable.
 
 ## Completion checkpoint
 
-Installation is complete only when all nine checkpoints below pass in order:
+Installation is complete only when all ten checkpoints below pass in order:
 
 1. The user confirmed intended use, capability set, scope, and any browser
    proxy preference.
@@ -37,7 +37,8 @@ Installation is complete only when all nine checkpoints below pass in order:
 6. Required assets, protected `.env`, and non-secret state are complete.
 7. The independent portable skill is installed when supported.
 8. Only the active client's Hercules entry points to the absolute STDIO launcher.
-9. Local MCP acceptance reports the expected tools and all seven resources.
+9. A real cold MCP connection reports the expected tools and all seven resources.
+10. Every transaction-owned temporary path, process, container, and port is gone.
 
 No external target, public-IP service, exploit, payload, credential service, or
 public browser page may be touched during setup. If a checkpoint fails, do not
@@ -110,6 +111,12 @@ Treat its output as the source of truth for:
 - optional certificate-only BuildKit secret metadata; and
 - retryable versus deterministic diagnostic categories.
 
+Capture setup JSON as UTF-8 stdout and keep stderr separate. Parse and validate
+the JSON rather than accepting a zero process exit alone. A
+`source_association_invalid` result means the launcher imported Hercules from
+an incomplete or non-editable package location; repair its association with the
+durable checkout before any image build.
+
 Stop if setup facts describe different source, capabilities, platform, trust,
 or browser inputs from those the user confirmed.
 
@@ -181,6 +188,13 @@ command verbatim. The entry uses STDIO, contains no secrets or checkout-relative
 working directory, and changes no unrelated client. Snapshot the existing
 Hercules entry, validate the effective replacement, and restore it on failure.
 
+Hercules completes MCP initialization and exposes schemas before its Docker
+runtime is ready. Validate the active client's cold-start timeout against its
+current schema. OpenCode's local entry must use its current `type: "local"`
+shape, an absolute command array, and `timeout: 120000` milliseconds. Preserve
+unrelated JSON/JSONC content and confirm the effective setting rather than only
+the source file that was edited.
+
 Apply the same contract to Codex, Claude Code, Cursor, OpenCode, or another
 STDIO MCP harness. For an unknown compatible client, provide its native generic
 STDIO entry and exact optional skill destination. For a client without local
@@ -190,14 +204,42 @@ STDIO support, stop as unsupported rather than leaving partial configuration.
 
 Validate through the real STDIO transport and server lifespan. Confirm image
 identity, protected runtime configuration, skill status, effective client
-registration, clean startup and shutdown, expected tool schemas, and read
-access to all seven resources. A full profile exposes 45 tools with Metasploit
-or 40 when Metasploit registration is disabled; custom profiles expose fewer.
+registration, an immediate cold connection, expected tool schemas, and read
+access to all seven resources while runtime bootstrap continues in the
+background. A successful launcher process exit is not MCP acceptance. Wait for
+core readiness, require a local Docker-backed tool call to succeed, and treat a
+structured tool error as a failed check. A full profile exposes 45 tools with
+Metasploit or 40 when Metasploit registration is disabled; custom profiles
+expose fewer.
 
-Exercise browser readiness only against an isolated local page. Confirm native
-screenshots and loopback-only streaming without navigating externally. Only
-after every selected check passes may the agent atomically commit setup state
-and report success.
+Exercise browser readiness only against an isolated local HTTP page. Confirm a
+successful navigation result, native screenshots, and loopback-only streaming
+without navigating externally. Confirm graceful MCP shutdown removes its owned
+container and releases RPC, listener, and stream ports. Only after every
+selected check passes may the agent atomically commit setup state.
+
+## 10. Clean up and close the transaction
+
+Cleanup is mandatory on success, failure, and interruption. From the beginning,
+track every temporary path, redirected stream, marker, background process,
+container, ownership label, port binding, staging checkout, and client backup
+created by the transaction. Use a `finally`-equivalent cleanup path so a failed
+acceptance check cannot bypass it.
+
+Terminate transaction-owned background processes and confirm they exited.
+Stop and remove verification or failed Hercules containers only after their
+exact ownership labels match this transaction, then confirm their ports are
+released. Remove transaction-owned scripts, logs, redirected stdout/stderr,
+markers, staging directories, and obsolete client snapshots. On failure,
+restore only the prior Hercules client entry. Verify that no secret entered a
+log or client configuration. Report each exact artifact that could not be
+cleaned; never conceal partial cleanup.
+
+Preserve the committed checkout, protected `.env`, generated secrets,
+schema-4 state, installed skill, selected image, valid Docker cache, verified
+wordlists, workspace evidence, and unrelated configuration. Never perform a
+broad Docker, temporary-directory, or filesystem prune. Report installation
+success only after this checkpoint passes.
 
 ## Failure classification and rollback
 
