@@ -25,7 +25,9 @@ report an unsupported client if local STDIO MCP is unavailable.
 
 ## Completion checkpoint
 
-Installation is complete only when all ten checkpoints below pass in order:
+Installation is complete only when all ten checkpoint barriers below pass in
+order. Independent work explicitly identified in the fast path may overlap,
+but no mutation may cross a barrier whose prerequisites have not passed:
 
 1. The user confirmed intended use, capability set, scope, and any browser
    proxy preference.
@@ -34,15 +36,56 @@ Installation is complete only when all ten checkpoints below pass in order:
 4. Read-only setup facts match the confirmed choices and current source.
 5. The capability-specific image matches every reported identity and readiness
    field.
-6. Required assets, protected `.env`, and non-secret state are complete.
+6. Required assets, protected `.env`, and the non-secret state candidate are
+   complete.
 7. The independent portable skill is installed when supported.
 8. Only the active client's Hercules entry points to the absolute STDIO launcher.
 9. A real cold MCP connection reports the expected tools and all seven resources.
-10. Every transaction-owned temporary path, process, container, and port is gone.
+10. Every transaction-owned temporary path, process, container, and port is gone,
+    and the schema-4 success state is committed last.
 
 No external target, public-IP service, exploit, payload, credential service, or
 public browser page may be touched during setup. If a checkpoint fails, do not
-claim success and do not continue to later checkpoints.
+claim success or commit work belonging to a later checkpoint.
+
+## Fast path and safe parallel execution
+
+Prefer verified reuse over repeated work. On an upgrade, retain the confirmed
+preferences and skip a checkout update, Python environment refresh, image
+build, asset download or extraction, skill copy, or client rewrite when its
+exact source, lockfile, fingerprint, checksum, content, and effective
+configuration already match. A matching name or successful process exit alone
+is not sufficient evidence.
+
+Use bounded, resource-aware concurrency only for independent work:
+
+1. After the user confirms choices, inspect the host and image platform, Docker
+   context and trust, existing state and assets, and active-client schema in
+   parallel.
+2. Prepare the durable source, locked launcher, and setup facts sequentially;
+   each establishes the identity required by the next operation.
+3. After setup facts validate, put the single Docker image build on the critical
+   path. In parallel, prepare only private transaction-staged candidates for the
+   skill, environment/state, and client entry. Do not install or commit them.
+4. Do not start missing multi-gigabyte downloads until deterministic image
+   preflight has passed. Existing cache discovery may overlap the build, but do
+   not run a full multi-gigabyte hash beside a local disk-heavy build on the same
+   constrained disk.
+5. After image identity and basic runtime validation pass, fetch independent
+   missing assets with at most two large transfers at once. Verify each checksum
+   independently and promote it atomically under the asset lock.
+6. Serialize `.env`, state, skill, and active-client changes so their snapshots
+   and rollback order remain deterministic.
+7. Run independent read-only acceptance checks and resource reads in parallel.
+   Serialize runtime readiness, browser state changes, disconnect recovery, and
+   preparation of the final success-state candidate.
+8. Stop and settle every transaction task before removing independent,
+   exact-owned temporary artifacts. Commit success state only after cleanup.
+
+Use less concurrency when CPU, memory, bandwidth, Docker capacity, or local
+storage would make parallel work slower or less reliable. Never launch two
+setup flows that can mutate the same `.env`, state, skill destination, client
+entry, asset root, or Docker identity.
 
 ## 1. Confirm the installation choices
 
@@ -67,6 +110,10 @@ Identify the real host OS, CPU architecture, Docker context, daemon state,
 rootless or desktop mode, corporate trust requirements, and active AI harness.
 Use native help and current vendor documentation to resolve facts. Never make
 unrequested privileged package, daemon, service, group, or shell-profile changes.
+
+Perform the independent read-only inspections from the fast path concurrently
+when the host can support them. Consolidate their results at this checkpoint
+before creating or updating the durable installation.
 
 Hercules images support `linux/amd64` and `linux/arm64`. An unsupported host may
 proceed only when the selected Docker context intentionally provides compatible
@@ -127,6 +174,12 @@ Dockerfile, platform, tag, arguments, and optional BuildKit secret. The default
 runtime is the digest-pinned `kali-last-release` image using only the
 `kali-last-snapshot` suite. Rolling packages are not an installation option.
 
+First inspect an existing image with the reported identity. Reuse it only when
+every required label, platform, capability-manifest field, backend, and runtime
+readiness check passes. Otherwise perform one build for the confirmed identity.
+While it runs, prepare only the private staged candidates allowed by the fast
+path; do not modify the effective installation or begin missing large downloads.
+
 The Dockerfile bootstraps a pinned public CA bundle before the first verified
 HTTPS APT request. If authorized TLS interception requires custom trust, accept
 only a bounded PEM bundle containing certificates and no private keys. Pass it
@@ -150,17 +203,31 @@ Keep reusable assets in `HERCULES_WORDLIST_ROOT`, preferably outside the
 checkout, and reuse valid caches. An unselected wordlist is not required rather
 than failed.
 
+After image preflight passes, independent missing archives may download with a
+maximum concurrency of two. Each uses a distinct private temporary destination,
+passes its pinned checksum and archive validation, and is promoted under the
+interprocess asset lock. Extraction remains protected by that lock. A failed
+transfer must not invalidate another verified cache.
+
 Preserve every existing `.env` value. Generate a strong URL-safe Metasploit RPC
 secret when needed, store it only in the protected `.env`, and never display it.
 Keep browser proxy credentials there as well. Apply private file permissions
 where supported.
 
-Maintain schema-4 non-secret state in the platform's user configuration area or
-the ignored project `.hercules/install.json`. Preserve unknown non-secret
-fields. Record the exact revision, scope, launcher, capability selection,
-platform, base digest, APT suite, image identity, expected count, workspace,
-asset root, CA fingerprint, browser artifact, skill path, and active client.
-Never store passwords, tokens, cookies, proxy URLs, or certificate contents.
+Prepare the schema-4 non-secret state candidate for the platform's user
+configuration area or the ignored project `.hercules/install.json`. Preserve
+unknown non-secret fields. Record the exact revision, scope, launcher,
+capability selection, platform, base digest, APT suite, image identity, expected
+count, workspace, asset root, CA fingerprint, browser artifact, skill path, and
+active client. Never store passwords, tokens, cookies, proxy URLs, or
+certificate contents. The candidate remains provisional until acceptance and
+cleanup pass; commit the success record last.
+
+Across this checkpoint and checkpoints 7-8, the protected `.env`, skill, and
+client entry may need to become effective for real transport acceptance. Apply
+each change serially at its own checkpoint and retain exact prior snapshots.
+Treat the changes as provisional during acceptance and restore the previous
+committed versions on failure.
 
 ## 7. Install the independent skill
 
@@ -220,6 +287,11 @@ structured tool error as a failed check. A full profile exposes 45 tools with
 Metasploit or 40 when Metasploit registration is disabled; custom profiles
 expose fewer.
 
+Image-label validation, skill-content verification, configuration secret
+checks, and the seven resource reads may run concurrently when independent.
+Keep operations that mutate one runtime or browser session ordered, and do not
+commit schema-4 success state until every required result has passed.
+
 When another Hercules client is already live, repeat the cold check without
 stopping it. The new client must connect immediately, preserve the existing
 container, select different effective ports, complete one local Docker-backed
@@ -237,7 +309,8 @@ Exercise browser readiness only against an isolated local HTTP page. Confirm a
 successful navigation result, native screenshots, and loopback-only streaming
 without navigating externally. Confirm graceful MCP shutdown removes its owned
 container and releases RPC, listener, and stream ports. Only after every
-selected check passes may the agent atomically commit setup state.
+selected check passes may the agent finalize the setup-state candidate; keep it
+private and uncommitted until cleanup passes.
 
 ## 10. Clean up and close the transaction
 
@@ -259,8 +332,41 @@ cleaned; never conceal partial cleanup.
 Preserve the committed checkout, protected `.env`, generated secrets,
 schema-4 state, installed skill, selected image, valid Docker cache, verified
 wordlists, workspace evidence, and unrelated configuration. Never perform a
-broad Docker, temporary-directory, or filesystem prune. Report installation
-success only after this checkpoint passes.
+broad Docker, temporary-directory, or filesystem prune. After cleanup passes,
+atomically commit the schema-4 success state as the installation's final
+mutation. Report installation success only after that commit succeeds.
+
+After that successful commit, print this exact line to the user's screen once:
+
+```text
+Remember, with great power comes great responsibility ;)
+```
+
+The quote is display-only. Do not store it in `.env`, setup state, logs, MCP
+configuration, or client metadata. Do not print it after a failed, rolled-back,
+interrupted, or partially cleaned installation. It confirms the installation
+transaction, not post-restart activation, so `activation_pending_restart` may
+still follow it.
+
+## Activate the client changes
+
+After acceptance and cleanup, determine how the active client discovers MCP
+configuration and Agent Skills from its effective schema, native help, or
+current authoritative documentation. Ask the user to perform the smallest
+necessary activation step:
+
+- reload only the Hercules MCP server when verified MCP hot reload is supported;
+- start a new agent session when settings or skills are discovered per session;
+- reload the IDE window or restart the application only when required.
+
+Never terminate or restart the user's agent or IDE automatically. If the
+effective Hercules connection and installed skill are already visible, report
+`installed_and_verified` and explicitly say that no restart is required.
+Otherwise report `activation_pending_restart`, state exactly what the user must
+reload or restart and why, and ask them to do it. When the user returns, verify
+the effective Hercules connection, expected tool and resource surface, and
+skill discovery without repeating installation or contacting an external
+target.
 
 ## Failure classification and rollback
 
