@@ -54,6 +54,14 @@ rather than reported as applied.
 
 When a proxy is active, non-proxied WebRTC UDP is blocked by default. Public egress verification must be user-initiated against an authorized IP-check page.
 
+Call `system_network_info` before assuming where a local service lives. In
+bridge mode, `localhost` and `127.0.0.1` are inside the Hercules container; use
+`host.docker.internal` for a service on the Docker engine host. With a remote
+Docker context, that alias reaches the remote engine rather than the coding-agent
+machine. Do not rewrite localhost implicitly. Scoped private/gateway addresses
+still require explicit authorization. A proxy hosted on the engine host follows
+the same rule.
+
 Use `browser_session` to list, inspect, close, or close all sessions. A live stream works when `BROWSER_STREAM_PORT` was configured before container startup. Hercules discovers the selected session's actual loopback WebSocket, replaces the generation-bound relay when the session changes, and exposes only the configured host-loopback port.
 
 ## Escape hatch and recovery

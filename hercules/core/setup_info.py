@@ -46,7 +46,12 @@ from hercules.core.build_info import (
     legacy_raw_image_identity,
     normalize_image_platform,
 )
-from hercules.core.config_io import SETUP_STATE_SCHEMA_VERSION, load_setup_state
+from hercules.core.config_io import (
+    SETUP_STATE_SCHEMA_VERSION,
+    dotenv_value_status,
+    load_setup_state,
+    read_dotenv_value,
+)
 from hercules.core.tool_catalog import (
     METASPLOIT_TOOLS,
     REGISTRARS,
@@ -445,6 +450,23 @@ def _failure_diagnostics() -> list[dict[str, Any]]:
             "resolution": "repair or select the intended Docker context, then recheck",
         },
         {
+            "code": "docker_registry_transport_failed",
+            "retryable": True,
+            "resolution": (
+                "preserve the exact build identity and cache, confirm the Docker "
+                "producer exit status, then retry at most twice for an EOF, timeout, "
+                "connection reset, or retryable registry 5xx response"
+            ),
+        },
+        {
+            "code": "docker_build_status_untrusted",
+            "retryable": False,
+            "resolution": (
+                "capture Docker stdout and stderr without a logging pipeline masking "
+                "the producer exit status, then classify the original failure"
+            ),
+        },
+        {
             "code": "docker_platform_emulation_unavailable",
             "retryable": False,
             "resolution": (
@@ -624,6 +646,27 @@ def setup_information(
     manifest_sha256 = capability_manifest_sha256(selected)
     surface = capture_surface()
     skill_validation = validate_skill_routing(root, surface)
+    dotenv_path = root / ".env"
+    configured_rpc_text = os.getenv("MSF_RPC_PORT")
+    if configured_rpc_text is None:
+        configured_rpc_text = read_dotenv_value(dotenv_path, "MSF_RPC_PORT")
+    try:
+        configured_rpc_port = int(configured_rpc_text or "15553")
+    except ValueError:
+        configured_rpc_port = 15_553
+    if not 1 <= configured_rpc_port <= 65_535:
+        configured_rpc_port = 15_553
+    automatic_text = os.getenv("HERCULES_AUTO_ALLOCATE_PORTS")
+    if automatic_text is None:
+        automatic_text = read_dotenv_value(
+            dotenv_path,
+            "HERCULES_AUTO_ALLOCATE_PORTS",
+        )
+    automatic_ports = str(automatic_text or "true").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     environment_values = {
         "HERCULES_INSTALLED_CAPABILITIES": formatted,
         "SKIP_METASPLOIT": "true" if skip_metasploit else "false",
@@ -632,8 +675,12 @@ def setup_information(
         "HERCULES_CLOAKBROWSER_VERSION": cloak_version,
         "HERCULES_CLOAKBROWSER_WHEEL_URL": cloak_url,
         "HERCULES_CLOAKBROWSER_SHA256": cloak_sha,
-        "HERCULES_AUTO_ALLOCATE_PORTS": "true",
+        "HERCULES_AUTO_ALLOCATE_PORTS": "true" if automatic_ports else "false",
+        "MSF_RPC_PORT": str(configured_rpc_port),
     }
+    msf_secret = dotenv_value_status(dotenv_path, "MSF_PASSWORD")
+    proxy_secret = dotenv_value_status(dotenv_path, "BROWSER_PROXY_URL")
+    legacy_proxy_secret = dotenv_value_status(dotenv_path, "BROWSER_PROXY")
     return {
         "schema_version": SETUP_INFORMATION_SCHEMA_VERSION,
         "read_only": True,
@@ -739,6 +786,25 @@ def setup_information(
             "non_secret_values": environment_values,
             "operator_paths": ["HERCULES_WORKSPACE_ROOT", "HERCULES_WORDLIST_ROOT"],
             "secret_values_not_returned": ["MSF_PASSWORD", "BROWSER_PROXY_URL"],
+            "secret_status": {
+                "MSF_PASSWORD": {
+                    "configured": bool(os.getenv("MSF_PASSWORD"))
+                    or msf_secret["configured"],
+                    "persisted": msf_secret["configured"],
+                },
+                "BROWSER_PROXY_URL": {
+                    "configured": bool(
+                        os.getenv("BROWSER_PROXY_URL") or os.getenv("BROWSER_PROXY")
+                    )
+                    or proxy_secret["configured"]
+                    or legacy_proxy_secret["configured"],
+                    "persisted": proxy_secret["configured"]
+                    or legacy_proxy_secret["configured"],
+                },
+            },
+            "secret_validation": (
+                "validate only presence and persistence; never print or dump .env values"
+            ),
         },
         "client_registration": {
             "transport": "stdio",
@@ -779,10 +845,23 @@ def setup_information(
             "port_allocation": {
                 "automatic_default": True,
                 "selection_slots": 128,
+                "default_metasploit_rpc_port": 15_553,
+                "automatic_service_fallback_range": [10_000, 32_767],
+                "configured_port_is_attempted_first": True,
+                "legacy_explicit_values_are_not_rewritten": True,
                 "serialized_across_checkouts": True,
                 "exact_process_start_identity": True,
                 "effective_ports_reported_by": "system_network_info",
                 "disable_with": "HERCULES_AUTO_ALLOCATE_PORTS=false",
+            },
+            "browser_networking": {
+                "localhost_scope_in_bridge_mode": "container",
+                "docker_host_alias": "host.docker.internal",
+                "docker_host_alias_target": "Docker engine host",
+                "remote_context_may_not_be_client_host": True,
+                "automatic_localhost_rewrite": False,
+                "container_local_acceptance_fixture_required": True,
+                "scoped_private_addresses_require_explicit_authorization": True,
             },
             "abrupt_exit_guardian": {
                 "enabled_by_default": True,

@@ -297,6 +297,16 @@ def register_system_tools(mcp: FastMCP) -> None:
         Concurrent MCP clients may receive different collision-free effective ports.
         """
         docker = ctx.lifespan_context["docker"]
+        # Network facts below include container interfaces and the Docker
+        # Desktop host-gateway alias.  Do not silently publish empty/false
+        # values while the shared background bootstrap is still running: that
+        # makes a healthy bridge look misconfigured and sends agents toward
+        # incorrect localhost workarounds.  Real runtime exceptions are left
+        # for the shared firewall, which returns the repairable
+        # runtime_initializing/runtime_unavailable response.
+        ensure_ready = getattr(docker, "ensure_ready", None)
+        if callable(ensure_ready):
+            await ensure_ready()
         host = await asyncio.to_thread(_host_network_snapshot)
         host_os = host["host_os"]
         network_mode = getattr(
@@ -320,6 +330,22 @@ def register_system_tools(mcp: FastMCP) -> None:
                 f"host loopback only (127.0.0.1:{docker.msf_rpc_port})"
             ),
             "port_allocation": docker.port_allocation,
+            "browser_localhost_scope": (
+                "docker_engine_host" if is_host_network else "container"
+            ),
+            "browser_host_access_hostname": (
+                "localhost" if is_host_network else "host.docker.internal"
+            ),
+            "browser_host_access_note": (
+                "Host networking shares the Docker engine host namespace."
+                if is_host_network
+                else (
+                    "Use host.docker.internal for a service on the Docker engine "
+                    "host; localhost remains inside the Hercules container. With "
+                    "a remote Docker context, this is the remote engine host, not "
+                    "necessarily the coding-agent machine."
+                )
+            ),
         }
 
         # --- Container interfaces ---
@@ -331,6 +357,27 @@ def register_system_tools(mcp: FastMCP) -> None:
             result["container_ips"] = container_result.stdout.strip().split()
         except Exception:
             result["container_ips"] = []
+
+        if is_host_network:
+            result["browser_host_gateway_resolved"] = True
+            result["browser_host_gateway_addresses"] = []
+        else:
+            try:
+                gateway_result = await docker.exec_command(
+                    "getent ahostsv4 host.docker.internal 2>/dev/null | "
+                    "awk '{print $1}' | sort -u",
+                    timeout=5,
+                    clean_output=False,
+                )
+                gateway_addresses = [
+                    value
+                    for value in gateway_result.stdout.strip().splitlines()
+                    if value
+                ]
+            except Exception:
+                gateway_addresses = []
+            result["browser_host_gateway_resolved"] = bool(gateway_addresses)
+            result["browser_host_gateway_addresses"] = gateway_addresses
 
         result["host_interfaces"] = host["host_interfaces"]
 

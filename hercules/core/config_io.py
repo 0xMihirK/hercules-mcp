@@ -77,6 +77,15 @@ def read_dotenv_value(path: Path, key: str) -> str | None:
     return found
 
 
+def dotenv_value_status(path: Path, key: str) -> dict[str, bool]:
+    """Describe a dotenv value without returning or deriving the value itself."""
+    value = read_dotenv_value(path, key)
+    return {
+        "present": value is not None,
+        "configured": bool(value),
+    }
+
+
 def upsert_dotenv(path: Path, updates: dict[str, str]) -> None:
     """Update selected dotenv keys without changing unrelated assignments."""
     lines = (

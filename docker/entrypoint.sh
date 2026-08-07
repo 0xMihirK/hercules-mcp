@@ -75,7 +75,7 @@ start_metasploit() {
         return 1
     fi
     MSF_BIND_HOST="${MSF_BIND_HOST:-0.0.0.0}"
-    MSF_RPC_PORT="${MSF_RPC_PORT:-55553}"
+    MSF_RPC_PORT="${MSF_RPC_PORT:-15553}"
     echo "[hercules] Starting msfrpcd on ${MSF_BIND_HOST}:${MSF_RPC_PORT}..."
     msfrpcd -P "$MSF_PASSWORD" -S -a "$MSF_BIND_HOST" -p "$MSF_RPC_PORT" &
 

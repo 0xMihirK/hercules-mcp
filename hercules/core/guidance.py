@@ -260,9 +260,9 @@ TOOL_DESCRIPTIONS = {
         "system_stop_container()",
     ),
     "system_network_info": _desc(
-        "Inspect host/container networking and recommend an LHOST for callbacks.",
-        "Exploit and listener setup before Metasploit or ncat reverse shell workflows.",
-        "Call this in the current MCP session before choosing callback ports. It returns effective RPC, listener, and browser-stream ports; concurrent IDE clients may receive a collision-free range instead of the configured defaults.",
+        "Inspect host/container networking, browser host access, and callback routes.",
+        "Before reverse listeners or accessing a Docker-host service from the browser.",
+        "Returns effective RPC/listener/stream ports, LHOST guidance, localhost scope, and the Docker-host alias. Concurrent IDE clients may receive different ports.",
         "system_network_info()",
     ),
     "ctf_binwalk": _desc(
@@ -281,7 +281,7 @@ TOOL_DESCRIPTIONS = {
         "Open a URL in cloakbrowser Chromium and start an interactive browsing session. This is the entry point for driving a real browser to test a JavaScript-heavy site, reproduce a web bug, handle an operator-authorized challenge, or capture visual evidence.",
         "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JavaScript-capable browser.",
         "url is scope-validated and redirects are revalidated. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
-        "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://127.0.0.1:8080')",
+        "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://host.docker.internal:8080')",
     ),
     "browser_snapshot": _desc(
         "Capture the page's accessibility tree as compact text with stable element references (@e1, @e2, ...). This is how the agent 'sees' the page and obtains the @refs used by browser_act and browser_read.",

@@ -171,6 +171,9 @@ browser while claiming CloakBrowser behavior.
   and credentials are redacted from responses and logs.
 - When a proxy is active, non-proxied WebRTC UDP is blocked by default.
 - Changes to proxy, locale, or timezone relaunch that session transactionally.
+- In bridge mode, browser `localhost` is inside the Hercules container. Use
+  `host.docker.internal` for a service on the Docker engine host; a remote
+  Docker context therefore reaches the remote engine rather than this computer.
 
 Docker does not provide residential or ISP egress; direct container traffic
 normally shares the host's public IP. CloakBrowser reduces common automation
@@ -299,6 +302,7 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_IMAGE_PLATFORM` | Exact `linux/amd64` or `linux/arm64` runtime platform |
 | `HERCULES_CLOAKBROWSER_WHEEL_URL` | Exact PyPI artifact URL for a preserved browser pin |
 | `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports exposed by bridge networking |
+| `MSF_RPC_PORT` | Loopback-only Metasploit RPC port (default `15553`) |
 | `HERCULES_AUTO_ALLOCATE_PORTS` | Select a collision-free runtime port set for concurrent clients (default `true`) |
 | `BROWSER_PROXY_URL` | Default browser proxy kept outside client configuration |
 | `BROWSER_STREAM_PORT` | Optional loopback-only browser stream port |
@@ -311,8 +315,16 @@ image capability manifest before deleting or rebuilding anything. It should
 distinguish missing Git, `uv`, or Docker; a stopped or incompatible daemon; TLS
 trust failure; image-label mismatch; missing backend or asset; CloakBrowser or
 managed-Chromium failure; MCP startup failure; and client-registration failure.
-An unchanged Docker layer failing again is a deterministic source defect, not a
-reason for another blind retry or for silently removing the selected capability.
+An unchanged package, checksum, or build-command failure is deterministic, not
+a reason for another blind retry or silently removing a capability. A registry
+EOF, connection reset, timeout, or retryable 5xx while pulling the pinned base
+may receive at most two bounded retries with unchanged image identity. The
+Docker producer's exit status must remain authoritative even when output is also
+sent to a logger such as `tee`.
+
+Agents must never print or dump `.env` to validate it. Read-only setup facts
+report only whether secrets are configured and persisted. Any exposed secret is
+rotated before acceptance without displaying its replacement.
 
 The pinned public CA bootstrap remains present before Kali's first HTTPS APT
 operation. In an authorized TLS-interception environment, the agent can pass a

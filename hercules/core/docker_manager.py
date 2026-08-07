@@ -74,6 +74,12 @@ logger = logging.getLogger("hercules.docker")
 # Container-internal services bind all interfaces only where Docker host
 # publication is separately constrained (or for explicit listener ports).
 _CONTAINER_ALL_INTERFACES = "0.0.0.0"  # nosec B104
+_DEFAULT_MSF_RPC_PORT = 15_553
+_SERVICE_FALLBACK_MIN = 10_000
+_SERVICE_FALLBACK_MAX = 32_767
+_SERVICE_FALLBACK_STRIDE = 131
+_RPC_FALLBACK_SEED = 15_553
+_STREAM_FALLBACK_SEED = 17_553
 
 
 class ContainerUnavailable(RuntimeError):
@@ -571,7 +577,7 @@ class DockerManager:
 
     @property
     def msf_rpc_port(self) -> int:
-        return int(getattr(self, "_msf_rpc_port", 55_553))
+        return int(getattr(self, "_msf_rpc_port", _DEFAULT_MSF_RPC_PORT))
 
     @property
     def browser_stream_port(self) -> int:
@@ -585,8 +591,34 @@ class DockerManager:
             "automatic": bool(
                 getattr(self._config, "auto_allocate_ports", True)
             ),
+            "strategy": (
+                "configured_then_low_service_pool"
+                if getattr(self._config, "auto_allocate_ports", True)
+                else "configured_only"
+            ),
             "slot": int(getattr(self, "_port_allocation_slot", 0)),
+            "attempts": int(getattr(self, "_port_allocation_slot", 0)) + 1,
             "reallocated": bool(getattr(self, "_ports_reallocated", False)),
+            "reallocation_reason": (
+                "configured_ports_unavailable"
+                if getattr(self, "_ports_reallocated", False)
+                else ""
+            ),
+            "automatic_service_fallback_range": [
+                _SERVICE_FALLBACK_MIN,
+                _SERVICE_FALLBACK_MAX,
+            ],
+            "configured_rpc_in_windows_default_dynamic_range": (
+                49_152
+                <= int(
+                    getattr(
+                        self,
+                        "_configured_msf_rpc_port",
+                        self.msf_rpc_port,
+                    )
+                )
+                <= 65_535
+            ),
             "configured": {
                 "metasploit_rpc": int(
                     getattr(self, "_configured_msf_rpc_port", self.msf_rpc_port)
@@ -805,6 +837,29 @@ class DockerManager:
                             f"{probe_host}:{port} is unavailable."
                         ) from exc
 
+    @staticmethod
+    def _fallback_service_port(
+        configured: int,
+        *,
+        seed: int,
+        ordinal: int,
+    ) -> int:
+        """Return a dispersed low service port, excluding the configured value."""
+        span = _SERVICE_FALLBACK_MAX - _SERVICE_FALLBACK_MIN + 1
+        wanted = int(ordinal)
+        seen = 0
+        for index in range(span):
+            candidate = _SERVICE_FALLBACK_MIN + (
+                (seed - _SERVICE_FALLBACK_MIN + index * _SERVICE_FALLBACK_STRIDE)
+                % span
+            )
+            if candidate == int(configured):
+                continue
+            if seen == wanted:
+                return candidate
+            seen += 1
+        raise RuntimeError("could not allocate a low loopback service port")
+
     def _candidate_runtime_ports(
         self,
         slot: int,
@@ -818,13 +873,31 @@ class DockerManager:
         listeners = tuple(
             int(port) + (int(slot) * stride) for port in configured_listeners
         )
-        rpc_port = int(getattr(self, "_configured_msf_rpc_port", 55_553)) + int(
-            slot
+        configured_rpc = int(
+            getattr(self, "_configured_msf_rpc_port", _DEFAULT_MSF_RPC_PORT)
         )
         configured_stream = int(
             getattr(self, "_configured_browser_stream_port", 0) or 0
         )
-        stream_port = configured_stream + int(slot) if configured_stream else 0
+        if int(slot) == 0:
+            rpc_port = configured_rpc
+            stream_port = configured_stream
+        else:
+            ordinal = int(slot) - 1
+            rpc_port = self._fallback_service_port(
+                configured_rpc,
+                seed=_RPC_FALLBACK_SEED,
+                ordinal=ordinal,
+            )
+            stream_port = (
+                self._fallback_service_port(
+                    configured_stream,
+                    seed=_STREAM_FALLBACK_SEED,
+                    ordinal=ordinal,
+                )
+                if configured_stream
+                else 0
+            )
         selected = [*listeners]
         if not self._config.skip_metasploit:
             selected.append(rpc_port)
@@ -902,8 +975,9 @@ class DockerManager:
             raise last_error
         raise RuntimeError(
             "Hercules could not find a collision-free runtime port allocation. "
-            "Close unused Hercules clients, expand the configured port range, or "
-            "set explicit non-conflicting ports."
+            "The configured surface and 127 dispersed low service-port fallbacks "
+            "were unavailable. Close unused Hercules clients, inspect OS-reserved "
+            "ports, or set explicit non-conflicting ports."
         ) from last_error
 
     @staticmethod
@@ -1171,6 +1245,13 @@ class DockerManager:
         if platform.system() == "Linux" and not configured_network:
             kwargs["network_mode"] = "host"
         else:
+            # Docker Desktop provides this name automatically. The explicit
+            # mapping also makes it portable to native Linux/custom bridge
+            # networks supported by modern Docker Engine. It names the Docker
+            # engine host, which may be remote from the MCP client process.
+            kwargs["extra_hosts"] = {
+                "host.docker.internal": "host-gateway",
+            }
             # Map RPC only when enabled; reverse-listener ports remain explicit.
             ports: dict[str, object] = {}
             if not self._config.skip_metasploit:

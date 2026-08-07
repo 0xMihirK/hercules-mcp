@@ -111,6 +111,13 @@ rootless or desktop mode, corporate trust requirements, and active AI harness.
 Use native help and current vendor documentation to resolve facts. Never make
 unrequested privileged package, daemon, service, group, or shell-profile changes.
 
+Inspect the host's TCP dynamic and excluded ranges before accepting runtime
+ports. New installations use loopback-only `MSF_RPC_PORT=15553`; it is below
+the standard Windows and Linux ephemeral ranges. Preserve an existing explicit
+value, including the historical `55553`, but keep automatic allocation enabled
+so Hercules can select and report a dispersed low service port when that value
+is unavailable. Do not rewrite an existing port merely because it is historical.
+
 Perform the independent read-only inspections from the fast path concurrently
 when the host can support them. Consolidate their results at this checkpoint
 before creating or updating the durable installation.
@@ -196,6 +203,18 @@ manifest checksum, runtime evidence, every required backend, and browser
 readiness before proceeding. The image identity changes whenever source build
 inputs, platform, capabilities, CA fingerprint, or browser pin changes.
 
+Trust the Docker build result only when the Docker producer's real exit status
+was captured. A logging or display pipeline must propagate that status; a
+successful logger such as `tee` cannot turn a failed build into success. Keep
+stdout and stderr separate when needed for reliable classification.
+
+A registry EOF, connection reset, timeout, or retryable registry 5xx while
+fetching the pinned base is a transport failure rather than a Dockerfile defect.
+With the exact image identity unchanged, retain valid cache and make at most two
+bounded retries. Stop after that limit. Do not retry certificate, checksum,
+manifest, package, architecture, or command failures without correcting their
+reported cause.
+
 ## 6. Commit assets, environment, and state
 
 Provision only checksum-verified wordlists required by the confirmed profile.
@@ -213,6 +232,12 @@ Preserve every existing `.env` value. Generate a strong URL-safe Metasploit RPC
 secret when needed, store it only in the protected `.env`, and never display it.
 Keep browser proxy credentials there as well. Apply private file permissions
 where supported.
+
+Never print, dump, echo, or read the complete `.env` back into the agent
+transcript. Validate secrets only through non-disclosing presence, persistence,
+and file-protection status; setup information reports those booleans without the
+values. If a secret reaches output, logs, a transcript, or client configuration,
+treat it as burned, rotate it before acceptance, and never display its replacement.
 
 Prepare the schema-4 non-secret state candidate for the platform's user
 configuration area or the ignored project `.hercules/install.json`. Preserve
@@ -305,12 +330,27 @@ time before removing that session's container. Treat a surviving owned
 container or port binding as an installation failure; never compensate with a
 broad Docker prune.
 
-Exercise browser readiness only against an isolated local HTTP page. Confirm a
-successful navigation result, native screenshots, and loopback-only streaming
-without navigating externally. Confirm graceful MCP shutdown removes its owned
-container and releases RPC, listener, and stream ports. Only after every
-selected check passes may the agent finalize the setup-state candidate; keep it
-private and uncommitted until cleanup passes.
+Exercise browser readiness against a transaction-owned HTTP fixture running
+inside the Hercules container. Use container loopback, confirm a successful
+navigation result, native screenshots, and loopback-only streaming, then stop
+the fixture and verify its port is released. This must not depend on permission
+to start a listener on the coding-agent host.
+
+In bridge mode, browser `localhost` is the Hercules container. To reach a
+service on the Docker engine host, use `host.docker.internal`, the name
+recommended by [Docker's networking guidance](https://docs.docker.com/desktop/features/networking/networking-how-tos/).
+Hercules provides the equivalent `host-gateway` mapping on supported bridge
+engines and reports its resolution through `system_network_info`. With a remote
+Docker context, that name reaches the remote engine host, not necessarily the
+coding-agent machine. The host service must listen on an interface reachable by
+Docker and be allowed by the host firewall. When target scopes are active,
+explicitly authorize the resolved private address or CIDR for the disposable
+check; never weaken the persisted policy or reinterpret `localhost` silently.
+
+Confirm graceful MCP shutdown removes its owned container and releases RPC,
+listener, fixture, and stream ports. Only after every selected check passes may
+the agent finalize the setup-state candidate; keep it private and uncommitted
+until cleanup passes.
 
 ## 10. Clean up and close the transaction
 
@@ -376,6 +416,8 @@ Do not blindly retry an unchanged failure:
 | --- | --- | --- |
 | Missing Git, uv, Docker, architecture, or STDIO support | Deterministic | Request the smallest operator prerequisite or report unsupported |
 | Docker daemon/context temporarily unavailable | Retryable after repair | Recheck the same confirmed context |
+| Pinned base pull EOF, reset, timeout, or retryable registry 5xx | Retryable twice | Preserve identity and cache, verify Docker's real exit status, then stop after two retries |
+| Build observed only through a status-masking output pipeline | Untrusted result | Recapture the Docker producer exit status before classifying the build |
 | Public or corporate TLS trust failure | Deterministic | Correct verified trust; never disable TLS or hostname checks |
 | Same Docker layer fails with unchanged inputs | Source defect | Stop, preserve the complete log, and identify the failing layer |
 | Backend or capability manifest missing | Deterministic | Rebuild the same confirmed profile; never silently omit it |

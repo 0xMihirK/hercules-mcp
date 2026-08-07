@@ -130,7 +130,9 @@ class HerculesConfig:
     # Metasploit
     msf_password: str = field(default_factory=_default_msf_password)
     skip_metasploit: bool = False
-    msf_rpc_port: int = 55_553
+    # Keep the default below the standard Windows/Linux ephemeral ranges. The
+    # host-facing RPC service is still published on loopback only.
+    msf_rpc_port: int = 15_553
 
     # Container lifecycle
     preserve_container: bool = False
@@ -258,8 +260,8 @@ class HerculesConfig:
             msf_password=msf_password,
             skip_metasploit=skip_metasploit,
             msf_rpc_port=_parse_int(
-                os.getenv("MSF_RPC_PORT", "55553"),
-                55_553,
+                os.getenv("MSF_RPC_PORT", "15553"),
+                15_553,
                 minimum=1,
                 maximum=65_535,
             ),
