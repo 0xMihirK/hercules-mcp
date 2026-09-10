@@ -44,7 +44,6 @@ def truncate_output(
     text: str,
     max_chars: int = 8000,
     head_ratio: float = 0.4,
-    tail_ratio: float = 0.6,
     artifact_path: str = "",
 ) -> tuple[str, bool]:
     """

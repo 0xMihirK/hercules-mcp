@@ -18,7 +18,8 @@ from typing import TYPE_CHECKING
 from fastmcp import Context
 
 from hercules.core.guidance import TOOL_DESCRIPTIONS
-from hercules.core.runtime import services_from_context
+from hercules.core.security import redact_secrets
+from hercules.output.sanitizer import escape_display_controls
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -151,10 +152,47 @@ def _host_network_snapshot() -> dict:
 
 def register_system_tools(mcp: FastMCP) -> None:
 
+    @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_container"])
+    async def system_start_container(ctx: Context = None) -> dict:
+        """Explicitly start or reattach the active Hercules container."""
+        context = ctx.lifespan_context
+        docker = context["docker"]
+        logger.info("Agent requested container startup (session: %s)", docker.session_id)
+        try:
+            start_mode = await docker.operator_start()
+        except Exception as exc:
+            config = context["config"]
+            safe_error = escape_display_controls(
+                redact_secrets(
+                    str(exc),
+                    [config.msf_password, config.browser_proxy],
+                )
+            )[:2000]
+            logger.error("Failed to start container: %s", safe_error)
+            return {
+                "tool": "system_start_container",
+                "status": "error",
+                "error": safe_error,
+                "session_id": docker.session_id,
+                "workspace": f"/opt/workspace (host: {docker.workspace_path})",
+                "container_running": docker.container_running,
+                "start_mode": "failed",
+                "message": "Container startup failed; the workspace was preserved.",
+            }
+        return {
+            "tool": "system_start_container",
+            "status": "success",
+            "session_id": docker.session_id,
+            "workspace": f"/opt/workspace (host: {docker.workspace_path})",
+            "container_running": docker.container_running,
+            "start_mode": start_mode,
+            "message": f"Session '{docker.session_id}' container is ready.",
+        }
+
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_new_session"])
     async def system_start_new_session(ctx: Context = None) -> dict:
         """
-        Start a fresh Hercules session with a clean, isolated workspace.
+        Create a fresh Hercules session with a clean, isolated workspace.
 
         WHEN TO USE:
         - You are switching to a DIFFERENT target or engagement.
@@ -169,22 +207,20 @@ def register_system_tools(mcp: FastMCP) -> None:
         WHAT THIS DOES:
         1. Creates a NEW workspace subfolder on the host (workspace/{session_id}/).
         2. Stops the current Docker container (if running).
-        3. Starts a new container with the clean workspace mounted.
-        4. Previous session data is preserved on disk but no longer accessible from the container.
+        3. Leaves the new session stopped until system_start_container is called.
+        4. Previous session data is preserved on disk.
 
         Returns the new session_id and workspace path.
         """
-        context = ctx.lifespan_context
-        services = services_from_context(context)
-        docker = services.docker
+        docker = ctx.lifespan_context["docker"]
 
         logger.info("Agent requested new session (current: %s)", docker.session_id)
 
         old_session = docker.session_id
         try:
-            new_session = await services.start_new_session()
+            new_session = await docker.new_session()
         except Exception as exc:
-            logger.error("Failed to start new session: %s", exc)
+            logger.error("Failed to create new session: %s", exc)
             return {
                 "tool": "system_start_new_session",
                 "status": "error",
@@ -193,7 +229,7 @@ def register_system_tools(mcp: FastMCP) -> None:
                 "active_session_id": docker.session_id,
                 "container_running": docker.container_running,
                 "message": (
-                    "Failed to start a new session. See active_session_id and "
+                    "Failed to create a new session. See active_session_id and "
                     "container_running for the exact recovery state."
                 ),
             }
@@ -204,7 +240,9 @@ def register_system_tools(mcp: FastMCP) -> None:
             "old_session_id": old_session,
             "new_session_id": new_session,
             "workspace": f"/opt/workspace (host: {docker.workspace_path})",
-            "message": f"New session '{new_session}' started. Previous session '{old_session}' data preserved on host.",
+            "container_running": False,
+            "next_steps": ["Call system_start_container before using Docker-backed tools."],
+            "message": f"New session '{new_session}' created and stopped. Previous session '{old_session}' data preserved on host.",
         }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_list_sessions"])
@@ -232,7 +270,7 @@ def register_system_tools(mcp: FastMCP) -> None:
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_stop_container"])
     async def system_stop_container(ctx: Context = None) -> dict:
         """
-        DANGER: Shuts down the Hercules environment for this server lifespan.
+        Shut down the active Hercules container while preserving its workspace.
 
         WHEN TO USE:
         - ALL your work is completely finished and you have delivered results to the user.
@@ -244,10 +282,11 @@ def register_system_tools(mcp: FastMCP) -> None:
         - You just want to tidy up files — use shell_exec with rm instead.
 
         WHAT THIS DOES:
-        - Stops and REMOVES the Docker container (not just stop — full removal).
+        - Stops and removes the Docker container, unless PRESERVE_CONTAINER keeps
+          the exact-owned stopped container for same-workspace reattachment.
         - Kills all background jobs, Metasploit sessions, and listeners.
         - The workspace files on the host are preserved, but the container is gone.
-        - Other tools remain unavailable until system_start_new_session is called.
+        - Docker-backed tools remain unavailable until system_start_container is called.
         """
         docker = ctx.lifespan_context["docker"]
 
@@ -255,15 +294,19 @@ def register_system_tools(mcp: FastMCP) -> None:
 
         try:
             session_id = docker.session_id
-            services = services_from_context(ctx.lifespan_context)
-            await services.stop_for_operator()
+            await docker.operator_stop()
+            disposition = (
+                "stopped and preserved"
+                if docker._config.preserve_container
+                else "stopped and removed"
+            )
             return {
                 "tool": "system_stop_container",
                 "status": "success",
                 "session_id": session_id,
                 "message": (
-                    f"Session '{session_id}' container stopped and removed. Workspace files "
-                    "are preserved; call system_start_new_session to resume."
+                    f"Session '{session_id}' container {disposition}. Workspace files "
+                    "are preserved; call system_start_container to resume."
                 ),
             }
         except Exception as exc:
@@ -299,11 +342,10 @@ def register_system_tools(mcp: FastMCP) -> None:
         docker = ctx.lifespan_context["docker"]
         # Network facts below include container interfaces and the Docker
         # Desktop host-gateway alias.  Do not silently publish empty/false
-        # values while the shared background bootstrap is still running: that
-        # makes a healthy bridge look misconfigured and sends agents toward
-        # incorrect localhost workarounds.  Real runtime exceptions are left
-        # for the shared firewall, which returns the repairable
-        # runtime_initializing/runtime_unavailable response.
+        # values before explicit startup: that makes a healthy bridge look
+        # misconfigured and sends agents toward incorrect localhost workarounds.
+        # RuntimeNotStarted is left for the shared firewall so the agent gets
+        # the exact system_start_container recovery step.
         ensure_ready = getattr(docker, "ensure_ready", None)
         if callable(ensure_ready):
             await ensure_ready()

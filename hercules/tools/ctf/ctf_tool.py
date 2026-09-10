@@ -35,12 +35,11 @@ def register_ctf_tools(mcp: FastMCP) -> None:
         """Firmware/archive analysis and extraction using binwalk."""
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
-        if hasattr(docker, "normalize_workspace_path"):
-            try:
-                filepath = docker.normalize_workspace_path(filepath)
-                await docker.validate_workspace_file(filepath)
-            except (OSError, ValueError) as exc:
-                return path_error("ctf_binwalk", filepath, str(exc))
+        try:
+            filepath = docker.normalize_workspace_path(filepath)
+            await docker.validate_workspace_file(filepath)
+        except (OSError, ValueError) as exc:
+            return path_error("ctf_binwalk", filepath, str(exc))
 
         parts = ["binwalk"]
         if extract:
@@ -75,12 +74,11 @@ def register_ctf_tools(mcp: FastMCP) -> None:
         """Steganography analysis and extraction via steghide."""
         docker = ctx.lifespan_context["docker"]
         concurrency = ctx.lifespan_context["concurrency"]
-        if hasattr(docker, "normalize_workspace_path"):
-            try:
-                filepath = docker.normalize_workspace_path(filepath)
-                await docker.validate_workspace_file(filepath)
-            except (OSError, ValueError) as exc:
-                return path_error("ctf_steghide", filepath, str(exc))
+        try:
+            filepath = docker.normalize_workspace_path(filepath)
+            await docker.validate_workspace_file(filepath)
+        except (OSError, ValueError) as exc:
+            return path_error("ctf_steghide", filepath, str(exc))
 
         action = (action or "").lower()
 
@@ -91,14 +89,7 @@ def register_ctf_tools(mcp: FastMCP) -> None:
             parts = ["steghide", action, "-sf", shlex.quote(filepath)]
             output_dir = f"/opt/workspace/steghide/{uuid.uuid4().hex[:12]}"
             output_path = f"{output_dir}/extracted.bin"
-            if hasattr(docker, "ensure_workspace_directory"):
-                await docker.ensure_workspace_directory(output_dir)
-            else:
-                await docker.exec_command(
-                    f"mkdir -p {shlex.quote(output_dir)}",
-                    timeout=15,
-                    clean_output=False,
-                )
+            await docker.ensure_workspace_directory(output_dir)
             parts.extend(["-xf", shlex.quote(output_path), "-f"])
         else:
             return selector_error(

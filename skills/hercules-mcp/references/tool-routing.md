@@ -14,7 +14,7 @@
 
 ## Routing rules
 
-Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 45 tools with Metasploit and 40 without it; operator opt-outs can make fewer tools available.
+Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 46 tools with Metasploit and 41 without it; operator opt-outs can make fewer tools available.
 
 Inspect the tools the client actually exposes before planning. If an optional
 tool is absent, prefer another structured capability. Do not assume an omitted
@@ -38,9 +38,10 @@ middleware may drop unknown fields.
 | Start a long command | `shell_exec_background` | Supply a unique job ID, then poll instead of blocking. |
 | Poll or tail a job | `shell_check_job` | Increase `tail_lines` only when necessary. |
 | Stop a background job | `shell_kill_job` | Confirm the returned state. |
-| Replace the container generation | `system_start_new_session` | Workspace persists; container-local state does not. |
+| Start Docker-backed work | `system_start_container` | Explicit, idempotent start/reattach of the current session. |
+| Create a clean stopped session | `system_start_new_session` | Previous workspace persists; call `system_start_container` when ready. |
 | See Hercules sessions | `system_list_sessions` | Distinct from browser and Metasploit sessions. |
-| Deliberately stop the container | `system_stop_container` | Terminal until a new system session is started. |
+| Deliberately stop the container | `system_stop_container` | Resume the same workspace with `system_start_container`. |
 | Choose listener/reachable addresses | `system_network_info` | Use in the current MCP session before payload/listener configuration. Concurrent IDE clients can have different effective ports. |
 | Read text or binary evidence | `workspace_read_file` | Choose `text` or `base64` encoding; page large files with `offset` and `max_bytes`. |
 | Write text or binary input | `workspace_write_file` | Use exactly one of text `content` or binary-safe `content_base64`. |

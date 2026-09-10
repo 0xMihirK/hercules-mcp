@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
+    "anyio>=4.5,<5",
     "fastmcp>=3.4.5,<4",
     "mcp>=1.29,<2",
     "docker>=7.1,<8",
@@ -32,7 +33,7 @@ hercules = "hercules.main:main"
 hercules-workspace = "hercules.workspace_cli:main"
 
 [tool.hatch.build]
-# The acceptance suite and CI experiments are intentionally local-only.
+# Tests and CI metadata are not included in published packages.
 exclude = [
     "tests",
     "tests/**",

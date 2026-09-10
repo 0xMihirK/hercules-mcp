@@ -12,17 +12,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import uuid
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 logger = logging.getLogger("hercules.concurrency")
 
 
 class ConcurrencyManager:
     """
-    Semaphore-based concurrency controller with timeout and job tracking.
+    Semaphore-based concurrency controller with timeouts and active counts.
 
     Heavy jobs: limited pool (default 3), 30s acquisition timeout.
     Light jobs: larger pool (default 10), 10s acquisition timeout.
@@ -35,11 +34,12 @@ class ConcurrencyManager:
         heavy_timeout: float = 30.0,
         light_timeout: float = 10.0,
     ) -> None:
-        self._heavy_sem = asyncio.Semaphore(max_heavy)
-        self._light_sem = asyncio.Semaphore(max_light)
-        self._heavy_timeout = heavy_timeout
-        self._light_timeout = light_timeout
-        self._active: dict[str, dict] = {}
+        self._semaphores = {
+            "heavy": asyncio.Semaphore(max_heavy),
+            "light": asyncio.Semaphore(max_light),
+        }
+        self._timeouts = {"heavy": heavy_timeout, "light": light_timeout}
+        self._active = {"heavy": 0, "light": 0}
 
         logger.info(
             "ConcurrencyManager initialized: max_heavy=%d, max_light=%d",
@@ -47,80 +47,36 @@ class ConcurrencyManager:
             max_light,
         )
 
-    @asynccontextmanager
-    async def acquire_heavy(self, tool_name: str) -> AsyncIterator[str]:
-        """
-        Acquire a heavy-job slot. Raises RuntimeError if the semaphore
-        cannot be acquired within the timeout.
-        """
-        job_id = f"{tool_name}-{uuid.uuid4().hex[:6]}"
-        try:
-            await asyncio.wait_for(
-                self._heavy_sem.acquire(), timeout=self._heavy_timeout
-            )
-        except TimeoutError:
-            logger.warning(
-                "Heavy concurrency limit reached: %s could not be scheduled.", tool_name
-            )
-            raise RuntimeError(
-                f"Concurrency limit reached: cannot schedule '{tool_name}' (heavy). "
-                f"Currently active: {len([j for j in self._active.values() if j['type'] == 'heavy'])} heavy jobs."
-            )
+    def acquire_heavy(self, tool_name: str) -> AbstractAsyncContextManager[str]:
+        """Acquire a heavy-job slot or raise RuntimeError on timeout."""
+        return self._acquire("heavy", tool_name)
 
-        self._active[job_id] = {
-            "tool": tool_name,
-            "type": "heavy",
-            "start": time.time(),
-        }
-        logger.debug("Acquired heavy slot: %s (%s)", tool_name, job_id)
-
-        try:
-            yield job_id
-        finally:
-            self._heavy_sem.release()
-            self._active.pop(job_id, None)
-            logger.debug("Released heavy slot: %s (%s)", tool_name, job_id)
+    def acquire_light(self, tool_name: str) -> AbstractAsyncContextManager[str]:
+        """Acquire a light-job slot or raise RuntimeError on timeout."""
+        return self._acquire("light", tool_name)
 
     @asynccontextmanager
-    async def acquire_light(self, tool_name: str) -> AsyncIterator[str]:
-        """
-        Acquire a light-job slot. Raises RuntimeError if the semaphore
-        cannot be acquired within the timeout.
-        """
+    async def _acquire(self, kind: str, tool_name: str) -> AsyncIterator[str]:
+        semaphore = self._semaphores[kind]
         job_id = f"{tool_name}-{uuid.uuid4().hex[:6]}"
         try:
-            await asyncio.wait_for(
-                self._light_sem.acquire(), timeout=self._light_timeout
-            )
+            await asyncio.wait_for(semaphore.acquire(), timeout=self._timeouts[kind])
         except TimeoutError:
             logger.warning(
-                "Light concurrency limit reached: %s could not be scheduled.", tool_name
+                "%s concurrency limit reached: %s could not be scheduled.",
+                kind.capitalize(),
+                tool_name,
             )
             raise RuntimeError(
-                f"Concurrency limit reached: cannot schedule '{tool_name}' (light). "
-                f"Currently active: {len([j for j in self._active.values() if j['type'] == 'light'])} light jobs."
+                f"Concurrency limit reached: cannot schedule '{tool_name}' ({kind}). "
+                f"Currently active: {self._active[kind]} {kind} jobs."
             )
 
-        self._active[job_id] = {
-            "tool": tool_name,
-            "type": "light",
-            "start": time.time(),
-        }
-        logger.debug("Acquired light slot: %s (%s)", tool_name, job_id)
-
+        self._active[kind] += 1
         try:
+            logger.debug("Acquired %s slot: %s (%s)", kind, tool_name, job_id)
             yield job_id
         finally:
-            self._light_sem.release()
-            self._active.pop(job_id, None)
-            logger.debug("Released light slot: %s (%s)", tool_name, job_id)
-
-    def active_jobs(self) -> dict[str, dict]:
-        """Return a snapshot of currently active jobs."""
-        return dict(self._active)
-
-    def active_count(self) -> dict[str, int]:
-        """Return counts of active heavy and light jobs."""
-        heavy = sum(1 for j in self._active.values() if j["type"] == "heavy")
-        light = sum(1 for j in self._active.values() if j["type"] == "light")
-        return {"heavy": heavy, "light": light, "total": heavy + light}
+            semaphore.release()
+            self._active[kind] -= 1
+            logger.debug("Released %s slot: %s (%s)", kind, tool_name, job_id)

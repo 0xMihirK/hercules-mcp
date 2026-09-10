@@ -51,7 +51,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or upgrade Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Adapt to my host and active terminal-capable AI client; on first install ask about intended use and capabilities, scope, and a browser proxy only when browser support is selected. Preserve existing configuration, secrets, assets, and evidence; configure only the active client with an absolute secret-free STDIO launcher, then complete local-only verification and mandatory cleanup. Never contact an external target, use a bare-PATH launcher, silently make privileged changes, or report success early. After cleanup, identify whether this client requires an MCP reload, a new agent session, or an IDE restart, and ask me to perform the smallest restart needed to load its new settings and skill.
+Install or update Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Before changing anything, inspect for an existing managed checkout, setup state, skill, and active-client registration. If Hercules is already installed, summarize its revision and non-secret configuration, then ask me to choose Update in place or Reinstall; do not mutate until I answer. Preserve configuration, secrets, capabilities, scope, assets, workspaces, and evidence unless I explicitly request deletion. Configure only the active client with an absolute secret-free STDIO launcher, run local-only verification including explicit container start and stop, and always clean transaction-owned temporary files, processes, containers, backups, and ports on success, failure, or interruption. Never contact an external target, use a bare-PATH launcher, silently make privileged changes, reset a dirty checkout, run a broad Docker/filesystem prune, or report success before cleanup. Finally tell me whether an MCP reload, new agent session, or IDE restart is required.
 ```
 
 The authoritative installation contract is [install.md](install.md). It defines
@@ -94,8 +94,8 @@ workspace services are mandatory.
 
 | Profile | Registered tools | Resources |
 | --- | ---: | ---: |
-| Full, including Metasploit | 45 | 7 |
-| Full, with `SKIP_METASPLOIT=true` | 40 | 7 |
+| Full, including Metasploit | 46 | 7 |
+| Full, with `SKIP_METASPLOIT=true` | 41 | 7 |
 | Custom selection | Fewer, according to selected and hidden tools | 7 |
 
 The catalog groups these stable capability keys:
@@ -120,26 +120,27 @@ cannot add a binary omitted from the image.
 ## How Hercules works
 
 1. The MCP client starts the absolute `hercules` STDIO launcher.
-2. Hercules exposes tool and resource schemas immediately while one shared,
-   shielded Docker bootstrap task continues in the background.
-3. Docker-backed calls wait for core readiness; Metasploit can continue
-   initializing independently after ordinary tools become usable.
+2. Hercules exposes tool and resource schemas immediately without creating a
+   Docker container.
+3. The agent calls `system_start_container` immediately before its first
+   Docker-backed operation. Repeated calls reuse the same container.
 4. A typed MCP call is validated and routed to a generation-bound service.
 5. The command runs inside the owned, capability-specific Kali container.
 6. Results are parsed and bounded while complete evidence is retained in the
    workspace when necessary.
 
-If core initialization is still running after a bounded tool wait, Hercules
-returns `runtime_initializing` without closing MCP. A deterministic startup
-failure returns `runtime_unavailable` while host-side schemas and resources
-remain accessible. On restart, Hercules reclaims only containers proven stale
-by their exact owner PID and creation time, project identity, and workspace
-identity; unrelated or live instances are preserved.
+Before explicit startup, Docker-backed tools return `runtime_not_started` with
+instructions to call `system_start_container`; they never start Docker
+implicitly. After explicit startup, unexpected container failures retain the
+existing same-workspace recovery behavior. Hercules reclaims only containers
+proven stale by exact owner PID and creation time, project identity, and
+workspace identity; unrelated or live instances are preserved.
 
 Each session has an eight-character hexadecimal ID and an owned manifest.
 Container replacement resets browser daemons, Metasploit clients, channels,
 jobs, and other generation-bound state while preserving host evidence. An
-operator-requested stop stays terminal until an explicit new session.
+operator-requested stop stays terminal until `system_start_container` is called.
+`system_start_new_session` creates a clean workspace and leaves it stopped.
 
 Target policies apply to structured DNS, WHOIS, HTTP, scanners, redirects,
 browser navigation, and Metasploit routes. Scoped hostnames are normalized and
@@ -278,10 +279,10 @@ layout, uses its current local-command form with an absolute command array and
 `.agents/skills/hercules-mcp`.
 
 Multiple coding agents and IDEs may connect at the same time. Hercules assigns
-each live STDIO server a separate workspace session and, when defaults are busy,
-a collision-free runtime port set. Agents must call `system_network_info` in
-their own MCP session before choosing callback or listener ports; ports copied
-from another client may belong to a different container.
+each live STDIO server a separate workspace session but creates no container
+until that session calls `system_start_container`. Active containers receive a
+collision-free runtime port set. Agents must call `system_network_info` after
+startup in their own MCP session before choosing callback or listener ports.
 
 If an IDE force-terminates its STDIO child, a detached guardian verifies the
 exact owner process identity and full Hercules labels before removing only that
@@ -354,12 +355,10 @@ Dockerfile                   # Deterministic capability-specific Kali image
 install.md                   # Agent-directed installation contract
 ```
 
-Before submitting changes, compile the package, run the local unit suite when
-available, validate setup facts and package contents, and check the Git diff for
-whitespace errors. Tests, vulnerable fixtures, acceptance evidence, `.env`,
-workspaces, wordlists, and distributions are local-only. `tests/` remains
-ignored and untracked, and neither the wheel nor source distribution contains
-it.
+Before submitting changes, compile the package, run the unit suite, validate
+setup facts and package contents, and check the Git diff for whitespace errors.
+Vulnerable fixtures, acceptance evidence, `.env`, workspaces, wordlists, and
+distributions are local-only. The wheel and source distribution exclude tests.
 
 ## Security model
 

@@ -7,17 +7,17 @@ Single source of truth shared by:
 
   * Hercules' read-only setup-information surface and selective image metadata;
   * the server ([hercules/main.py]) — to decide which tools to register, honoring
-    the operator's selection while NEVER skipping the *core* tools the agent
+    the operator's selection while NEVER hiding the *core* tools the agent
     depends on. ``shell_exec`` remains the raw-command escape hatch, but it
     cannot invoke a backend binary from an omitted capability.
 
 **Opt-out granularity is the capability, not the individual MCP tool.** Opting
 out of (say) ``metasploit`` automatically opts out of every ``metasploit_*``
 subtool; opting out of ``nmap`` drops ``nmap_scan`` + the NSE author/run tools.
-The capability's subtools are removed from MCP *registration*, so their
+The capability's subtools are hidden from the MCP surface, so their
 name/description/JSON-schema never enter the model's context (that is the token
 saving). New managed images contain only confirmed capability bundles.
-Independently hidden tools remain installed but are omitted from registration.
+Independently hidden tools remain installed but are not exposed to clients.
 
 This module is deliberately dependency-free (only the standard library) so it is
 cheap and safe to import from both the server and read-only setup introspection.
@@ -49,8 +49,6 @@ class ToolCategory:
 
     key: str
     title: str
-    emoji: str
-    blurb: str
     capabilities: tuple[Capability, ...]
     core: bool = False             # core categories are always registered (locked)
 
@@ -105,18 +103,12 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="core",
         title="Core / System",
-        emoji="🧩",
-        blurb=(
-            "Always included — the container shell, session control, and workspace I/O. "
-            "shell_exec can run arbitrary commands, but optional binaries exist only when "
-            "their capability bundle is installed."
-        ),
         core=True,
         capabilities=(
             Capability("shell", "Container shell + jobs", "bash",
                        ("shell_exec", "shell_exec_background", "shell_check_job", "shell_kill_job")),
             Capability("session", "Session / container control", "hercules session manager",
-                       ("system_start_new_session", "system_list_sessions",
+                       ("system_start_container", "system_start_new_session", "system_list_sessions",
                         "system_stop_container", "system_network_info")),
             Capability("workspace", "Workspace file I/O", "host bind-mount",
                        ("workspace_read_file", "workspace_write_file")),
@@ -125,8 +117,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="recon",
         title="Reconnaissance",
-        emoji="🛰",
-        blurb="DNS, WHOIS, and subdomain/ASN enumeration to map the target's footprint.",
         capabilities=(
             Capability("dns", "DNS lookups", "dnsx / dig", ("recon_dns",)),
             Capability("whois", "WHOIS", "whois", ("recon_whois",)),
@@ -136,8 +126,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="network",
         title="Network / Port Scanning",
-        emoji="📡",
-        blurb="Port/service discovery, NSE scripting, raw HTTP, banner grabbing, and packet crafting.",
         capabilities=(
             Capability("nmap", "Nmap (+ NSE authoring)", "nmap",
                        ("nmap_scan", "nmap_write_nse_script", "nmap_run_nse_script"),
@@ -150,8 +138,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="web",
         title="Web Scanning",
-        emoji="🕸",
-        blurb="Tech fingerprinting, content discovery, XSS/command-injection, Nuclei templates, and SQLi.",
         capabilities=(
             Capability("whatweb", "Web fingerprint", "whatweb / nikto / wafw00f", ("web_scan",)),
             Capability("fuzz", "Content discovery", "ffuf / gobuster", ("fuzz_dirs",)),
@@ -164,11 +150,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="exploitation",
         title="Exploitation",
-        emoji="💥",
-        blurb=(
-            "Exploit search plus the full Metasploit workflow. Opting out of Metasploit "
-            "drops all 5 metasploit_* subtools (search/run/sessions/payloads/listeners)."
-        ),
         capabilities=(
             Capability("searchsploit", "Exploit-DB search", "searchsploit", ("searchsploit",)),
             Capability("metasploit", "Metasploit framework",
@@ -182,8 +163,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="cracking",
         title="Password Cracking",
-        emoji="🔓",
-        blurb="Online brute-forcing (Hydra) and offline hash cracking (John the Ripper).",
         capabilities=(
             Capability("hydra", "Hydra (online brute-force)", "hydra", ("bruteforce_hydra",)),
             Capability("john", "John the Ripper (offline)", "john", ("crack_john",)),
@@ -192,8 +171,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="ctf",
         title="CTF / Forensics",
-        emoji="🚩",
-        blurb="Firmware/file carving and stego extraction for CTF and forensics tasks.",
         capabilities=(
             Capability("binwalk", "Binwalk (carving)", "binwalk", ("ctf_binwalk",)),
             Capability("steghide", "Steghide (stego)", "steghide", ("ctf_steghide",)),
@@ -202,12 +179,6 @@ CATEGORIES: tuple[ToolCategory, ...] = (
     ToolCategory(
         key="browser",
         title="Stealth Browser",
-        emoji="🌐",
-        blurb=(
-            "Drive cloakbrowser Chromium: navigate, snapshot the a11y tree, click/type, "
-            "return native screenshots, run JS, capture HAR. Fingerprint reduction can "
-            "improve consistency but does not guarantee bot-detection avoidance."
-        ),
         capabilities=(
             Capability("browser", "Stealth browser",
                        "agent-browser + cloakbrowser (stealth Chromium)",
@@ -294,7 +265,6 @@ METASPLOIT_TOOLS: frozenset[str] = frozenset(
     t for _cat, cap in iter_capabilities() if cap.metasploit for t in cap.tools
 )
 
-OPTIONAL_TOOLS: frozenset[str] = frozenset(all_tool_names()) - CORE_TOOLS
 ALL_CAPABILITIES: frozenset[str] = frozenset(
     cap.key for _cat, cap in iter_capabilities()
 )
@@ -302,10 +272,10 @@ OPTIONAL_CAPABILITIES: frozenset[str] = ALL_CAPABILITIES - CORE_CAPABILITIES
 FULL_TOOL_COUNT = len(all_tool_names())
 LIGHT_TOOL_COUNT = FULL_TOOL_COUNT - len(METASPLOIT_TOOLS)
 
-if (FULL_TOOL_COUNT, LIGHT_TOOL_COUNT) != (45, 40):
+if (FULL_TOOL_COUNT, LIGHT_TOOL_COUNT) != (46, 41):
     raise RuntimeError(
         "Hercules public tool catalog changed unexpectedly: "
-        f"{FULL_TOOL_COUNT}/{LIGHT_TOOL_COUNT}, expected 45/40"
+        f"{FULL_TOOL_COUNT}/{LIGHT_TOOL_COUNT}, expected 46/41"
     )
 
 # Structured selectors that installable agent guidance must describe.
@@ -363,14 +333,6 @@ TOOL_SELECTORS: dict[str, dict[str, tuple[str, ...]]] = {
         "action": ("current", "list", "close", "close_all", "stream"),
     },
 }
-
-
-def capability_of(tool_name: str) -> Capability | None:
-    """Return the capability that owns an MCP tool name, or None."""
-    for _cat, cap in iter_capabilities():
-        if tool_name in cap.tools:
-            return cap
-    return None
 
 
 def tools_for_capabilities(keys: Iterable[str]) -> frozenset[str]:
@@ -466,20 +428,6 @@ def catalog_payload() -> dict[str, object]:
     }
 
 
-def disabled_capabilities(disabled_tools: Iterable[str]) -> frozenset[str]:
-    """Given a set of disabled MCP tool names, return the keys of capabilities
-    that are fully disabled (every subtool present in the set). Core capabilities
-    are never reported as disabled."""
-    dset = set(disabled_tools)
-    out: set[str] = set()
-    for cat, cap in iter_capabilities():
-        if cat.core:
-            continue
-        if cap.tools and all(t in dset for t in cap.tools):
-            out.add(cap.key)
-    return frozenset(out)
-
-
 def parse_disabled(value: str) -> frozenset[str]:
     """Parse a comma/space separated ``HERCULES_DISABLED_TOOLS`` value into a set
     of MCP tool names. Core tools can never be disabled, so they are filtered out
@@ -494,8 +442,3 @@ def parse_disabled(value: str) -> frozenset[str]:
         if part.strip()
     }
     return frozenset(raw) - CORE_TOOLS
-
-
-def format_disabled(names: set[str] | frozenset[str] | list[str]) -> str:
-    """Serialize a disabled-tool set to the ``HERCULES_DISABLED_TOOLS`` form."""
-    return ",".join(sorted(set(names) - CORE_TOOLS))

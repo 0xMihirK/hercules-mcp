@@ -98,7 +98,7 @@ if os.name == "nt":
         ]
 
     class _IoStatusUnion(ctypes.Union):
-        _fields_ = [  # noqa: RUF012 - ctypes requires this mutable class layout
+        _fields_ = [
             ("Status", wintypes.LONG),
             ("Pointer", wintypes.LPVOID),
         ]
@@ -732,9 +732,6 @@ class WorkspaceManager:
     def session_path(self, session_id: str) -> Path:
         return self.root / _validate_session_id(session_id)
 
-    def manifest_path(self, session_id: str) -> Path:
-        return self.session_path(session_id) / MANIFEST_NAME
-
     def allocate_session(self, *, generation: int = 0) -> str:
         """Atomically reserve an unused eight-character session directory."""
         for _ in range(256):
@@ -821,9 +818,6 @@ class WorkspaceManager:
             finally:
                 self._close_anchor(anchor)
 
-    def mark_active(self, session_id: str, generation: int) -> None:
-        self.update_manifest(session_id, state="active", generation=int(generation))
-
     def mark_inactive(self, session_id: str, generation: int | None = None) -> None:
         changes: dict[str, Any] = {"state": "inactive"}
         if generation is not None:
@@ -873,38 +867,6 @@ class WorkspaceManager:
         if str(relative) == ".":
             return str(CONTAINER_WORKSPACE)
         return str(CONTAINER_WORKSPACE / relative)
-
-    def resolve_host_path(
-        self,
-        session_id: str,
-        container_path: str,
-        *,
-        for_write: bool = False,
-    ) -> Path:
-        normalized = self.normalize_container_path(container_path)
-        session_root = self.session_path(session_id)
-        if self.read_manifest(session_id) is None:
-            raise ValueError(f"workspace session '{session_id}' is not Hercules-owned")
-        relative = PurePosixPath(normalized).relative_to(CONTAINER_WORKSPACE)
-        candidate = session_root.joinpath(*relative.parts)
-
-        current = session_root
-        for index, part in enumerate(relative.parts):
-            current = current / part
-            if not current.exists() and not current.is_symlink():
-                if not for_write and index < len(relative.parts):
-                    break
-                continue
-            if _is_reparse_or_symlink(current):
-                raise ValueError(f"workspace path traverses a symbolic link: {part!r}")
-
-        resolved_root = session_root.resolve()
-        probe = candidate if candidate.exists() else candidate.parent
-        try:
-            probe.resolve().relative_to(resolved_root)
-        except (OSError, ValueError) as exc:
-            raise ValueError("workspace path resolves outside the active session") from exc
-        return candidate
 
     def atomic_write(
         self,
@@ -1315,10 +1277,17 @@ class WorkspaceManager:
             )
         return sessions
 
-    def cleanup_empty_owned(self, *, active_session: str = "") -> list[str]:
+    def cleanup_empty_owned(
+        self,
+        *,
+        active_session: str = "",
+        only_session: str = "",
+    ) -> list[str]:
         removed: list[str] = []
         for session in self.list_sessions(active_session=active_session):
             if (
+                (only_session and session["session_id"] != only_session)
+                or
                 session["session_id"] == active_session
                 or session["state"] == "active"
                 or not session["owned"]

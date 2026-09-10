@@ -256,19 +256,6 @@ def _can_adopt_existing_rockyou(target: Path, archive_path: Path) -> bool:
         return False
 
 
-def wordlists_ready(wordlists_dir: Path) -> bool:
-    """Verify both pinned archives and their extraction manifests."""
-    return _seclists_ready(
-        wordlists_dir / "SecLists",
-        wordlists_dir / "SecLists" / ".hercules-ready",
-        wordlists_dir / "SecLists.zip",
-    ) and _rockyou_ready(
-        wordlists_dir / "rockyou.txt",
-        wordlists_dir / ".rockyou.hercules-ready.json",
-        wordlists_dir / "rockyou.txt.tar.gz",
-    )
-
-
 def _extract_zip_regular_files(archive: zipfile.ZipFile, destination: Path) -> None:
     _validate_archive_names(destination, archive.namelist())
     for member in archive.infolist():

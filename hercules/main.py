@@ -16,7 +16,6 @@ import logging
 import logging.handlers
 import sys
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
 from fastmcp import FastMCP
@@ -27,9 +26,12 @@ from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager
 from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirewall
 from hercules.core.guidance import SERVER_INSTRUCTIONS
-from hercules.core.runtime import RuntimeServices
-from hercules.core.security import redact_secrets
-from hercules.core.tool_catalog import CORE_TOOLS, TOOL_REGISTRARS
+from hercules.core.tool_catalog import (
+    CORE_TOOLS,
+    METASPLOIT_TOOLS,
+    TOOL_REGISTRARS,
+    all_tool_names,
+)
 
 # Resource registrations
 from hercules.resources.agent_skills import register_agent_skill_resources
@@ -106,38 +108,6 @@ _configure_stderr_logging()
 logger = logging.getLogger("hercules")
 
 
-class _RegistrationFilter:
-    """Thin proxy around the FastMCP server that lets the operator opt out of
-    individual installed MCP tools (set via ``HERCULES_DISABLED_TOOLS``).
-
-    A disabled tool simply isn't registered, so its name/description/schema never
-    enters the model's context — that is the token saving. The binary is still in
-    the image, so the agent can fall back to ``shell_exec``. Core tools are never
-    skippable (``shell_exec`` itself is the fallback path). Every non-``tool``
-    attribute access is forwarded to the real server unchanged, so middleware,
-    resources, and the request-handler patch below all see the genuine FastMCP.
-    """
-
-    def __init__(self, mcp, disabled: frozenset[str] | set[str]):
-        self._mcp = mcp
-        self._disabled = {d for d in disabled if d not in CORE_TOOLS}
-        self.skipped: list[str] = []
-
-    def tool(self, *args, **kwargs):
-        real_decorator = self._mcp.tool(*args, **kwargs)
-
-        def decorator(fn):
-            if getattr(fn, "__name__", "") in self._disabled:
-                self.skipped.append(fn.__name__)
-                return fn  # not registered → dropped from the tool surface
-            return real_decorator(fn)
-
-        return decorator
-
-    def __getattr__(self, name):
-        return getattr(self._mcp, name)
-
-
 async def _watchdog(docker_mgr, interval: int) -> None:
     """
     Proactively detect a dead container and recover it BEFORE the next tool
@@ -158,125 +128,6 @@ async def _watchdog(docker_mgr, interval: int) -> None:
             logger.warning("Watchdog recovery attempt failed: %s", exc)
 
 
-async def _connect_metasploit_background(context: dict) -> None:
-    """Connect to msfrpcd without blocking MCP initialization."""
-    docker_mgr = context["docker"]
-    state = context["msf_state"]
-    state["status"] = "initializing"
-    context["msf_status"] = "initializing"
-    try:
-        client = await docker_mgr.wait_for_msfrpcd()
-        state["client"] = client
-        context["msf_client"] = client
-        state["status"] = "ready"
-        context["msf_status"] = "ready"
-        state["error"] = ""
-        context["msf_error"] = ""
-    except asyncio.CancelledError:
-        state["status"] = "cancelled"
-        context["msf_status"] = "cancelled"
-        raise
-    except Exception as exc:
-        state["status"] = "unavailable"
-        state["error"] = str(exc)
-        context["msf_status"] = "unavailable"
-        context["msf_error"] = str(exc)
-        logger.warning("msfrpcd did not become ready: %s", exc)
-
-
-def _runtime_timestamp() -> str:
-    return datetime.now(UTC).isoformat()
-
-
-async def _bootstrap_runtime(context: dict, services: RuntimeServices) -> None:
-    """Initialize Docker after MCP schemas are available to the client."""
-    docker_mgr = context["docker"]
-    config = context["config"]
-    runtime_state = services.runtime_state
-    runtime_state.update(
-        {
-            "status": "starting",
-            "started_at": _runtime_timestamp(),
-            "completed_at": "",
-            "error": "",
-            "diagnostic": "",
-        }
-    )
-    services.publish_runtime_state()
-    try:
-        await docker_mgr.start_container()
-        await docker_mgr.ensure_ready()
-    except asyncio.CancelledError:
-        runtime_state.update(
-            {
-                "status": "cancelled",
-                "completed_at": _runtime_timestamp(),
-                "error": "Runtime initialization was cancelled during shutdown.",
-                "diagnostic": "Runtime initialization was cancelled during shutdown.",
-            }
-        )
-        services.publish_runtime_state()
-        try:
-            await docker_mgr.stop_container()
-        except Exception as exc:
-            logger.warning("Runtime cancellation cleanup failed: %s", exc)
-        raise
-    except BaseException as exc:
-        safe_error = redact_secrets(
-            str(exc),
-            [
-                getattr(config, "msf_password", ""),
-                getattr(config, "browser_proxy_url", ""),
-            ],
-        )[:2000]
-        docker_mgr.mark_startup_unavailable(safe_error)
-        runtime_state.update(
-            {
-                "status": "unavailable",
-                "completed_at": _runtime_timestamp(),
-                "error": safe_error,
-                "diagnostic": safe_error,
-            }
-        )
-        services.publish_runtime_state()
-        logger.error("Hercules runtime initialization failed: %s", safe_error)
-        try:
-            await docker_mgr.stop_container()
-        except Exception as cleanup_error:
-            logger.warning("Incomplete runtime cleanup failed: %s", cleanup_error)
-        return
-
-    runtime_state.update(
-        {
-            "status": "ready",
-            "completed_at": _runtime_timestamp(),
-            "error": "",
-            "diagnostic": "",
-            "reclaimed_containers": list(
-                getattr(docker_mgr, "_reclaimed_containers", [])
-            ),
-            "port_allocation": docker_mgr.port_allocation,
-        }
-    )
-    services.publish_runtime_state()
-    logger.info("Workspace: %s", docker_mgr.workspace_path)
-
-    if not config.skip_metasploit:
-        task = asyncio.create_task(_connect_metasploit_background(context))
-        context["msf_state"]["connect_task"] = task
-        context["msf_connect_task"] = task
-
-    if getattr(config, "watchdog_interval", 0) and config.watchdog_interval > 0:
-        watchdog_task = asyncio.create_task(
-            _watchdog(docker_mgr, config.watchdog_interval)
-        )
-        context["watchdog_task"] = watchdog_task
-        logger.info(
-            "Watchdog enabled: health check every %ds.",
-            config.watchdog_interval,
-        )
-
-
 # ---------------------------------------------------------------------------
 # Composable lifespans
 # ---------------------------------------------------------------------------
@@ -288,7 +139,6 @@ async def docker_lifespan(server):
     docker_mgr = DockerManager(
         config,
         instance_id=uuid.uuid4().hex,
-        owns_instance_lock=False,
     )
 
     # Durable, host-side, session-tagged log for post-mortem of mid-session crashes.
@@ -299,85 +149,52 @@ async def docker_lifespan(server):
     logger.info("Skip Metasploit: %s", config.skip_metasploit)
     logger.info("Preserve container: %s", config.preserve_container)
 
-    msf_state = {
-        "client": None,
-        "connect_task": None,
-        "status": "disabled" if config.skip_metasploit else "initializing",
-        "error": "",
-    }
+    msf_state = {"client": None}
     lifespan_context = {
         "docker": docker_mgr,
         "config": config,
         "msf_state": msf_state,
-        "msf_client": None,
-        "msf_connect_task": None,
-        "msf_status": msf_state["status"],
-        "msf_error": "",
-        "runtime_state": {
-            "status": "starting",
-            "started_at": "",
-            "completed_at": "",
-            "error": "",
-            "diagnostic": "",
-        },
-        "runtime_status": "starting",
-        "runtime_error": "",
-        "runtime_diagnostic": "",
     }
-    services = RuntimeServices(
-        config=config,
-        docker=docker_mgr,
-        workspace=docker_mgr.workspace_manager,
-        msf_state=msf_state,
-        runtime_state=lifespan_context["runtime_state"],
-        legacy_context=lifespan_context,
-    )
     from hercules.tools.browser.browser_tool import reset_browser_runtime_state
     from hercules.tools.exploitation.metasploit_tool import (
         reset_metasploit_runtime_state,
     )
 
-    services.register_generation_resetter(reset_browser_runtime_state)
-    services.register_generation_resetter(reset_metasploit_runtime_state)
-    services.register_session_callback(set_log_session_id)
-    docker_mgr.register_generation_callback(services.on_generation_change)
-    lifespan_context["services"] = services
-    startup_task = asyncio.create_task(
-        _bootstrap_runtime(lifespan_context, services)
-    )
-    docker_mgr.attach_startup_task(startup_task)
-    lifespan_context["runtime_startup_task"] = startup_task
+    def reset_generation_state(_generation: int) -> None:
+        reset_browser_runtime_state()
+        reset_metasploit_runtime_state()
+        msf_state["client"] = None
+        set_log_session_id(docker_mgr.session_id)
+
+    docker_mgr.register_generation_callback(reset_generation_state)
+
+    watchdog_task = None
+    if getattr(config, "watchdog_interval", 0) and config.watchdog_interval > 0:
+        watchdog_task = asyncio.create_task(
+            _watchdog(docker_mgr, config.watchdog_interval)
+        )
+        logger.info(
+            "Watchdog enabled: health check every %ds after explicit startup.",
+            config.watchdog_interval,
+        )
 
     try:
         yield lifespan_context
     finally:
-        # Signal teardown so the watchdog/recovery never resurrect a
-        # container we are deliberately removing. Settle bootstrap first
-        # so it cannot publish new watchdog/RPC tasks after we inspect them.
+        # Signal teardown so the watchdog/recovery never resurrects a
+        # container we are deliberately removing.
         docker_mgr.begin_shutdown()
-        startup_task = lifespan_context.get("runtime_startup_task")
-        if startup_task is not None and not startup_task.done():
-            startup_task.cancel()
+        if watchdog_task is not None and not watchdog_task.done():
+            watchdog_task.cancel()
             try:
-                await startup_task
-            except asyncio.CancelledError:
-                pass
-        wtask = lifespan_context.get("watchdog_task")
-        if wtask is not None and not wtask.done():
-            wtask.cancel()
-            try:
-                await wtask
-            except asyncio.CancelledError:
-                pass
-        task = lifespan_context.get("msf_connect_task")
-        if task is not None and not task.done():
-            task.cancel()
-            try:
-                await task
+                await watchdog_task
             except asyncio.CancelledError:
                 pass
         logger.info("=== Hercules shutting down ===")
-        await docker_mgr.stop_container()
+        try:
+            await docker_mgr.stop_container(release_workspace=True)
+        finally:
+            docker_mgr.cleanup_unused_workspace()
 
 
 @lifespan
@@ -406,10 +223,12 @@ mcp = FastMCP(
     lifespan=docker_lifespan | concurrency_lifespan,
 )
 
-# Register tools installed in the confirmed capability profile, minus any
-# independently hidden HERCULES_DISABLED_TOOLS entries. Core tools are fixed.
+# Expose the confirmed capability profile minus independently hidden tools.
+# FastMCP visibility hides both schemas and calls; core tools remain fixed.
 config = HerculesConfig.from_env()
-_reg = _RegistrationFilter(mcp, config.disabled_tools)
+_hidden_tools = (set(config.disabled_tools) & set(all_tool_names())) - CORE_TOOLS
+if config.skip_metasploit:
+    _hidden_tools -= METASPLOIT_TOOLS
 
 for registrar in TOOL_REGISTRARS:
     if registrar.metasploit and config.skip_metasploit:
@@ -420,12 +239,13 @@ for registrar in TOOL_REGISTRARS:
     module_name, function_name = registrar.path.split(":", 1)
     module = importlib.import_module(module_name)
     register = getattr(module, function_name)
-    register(_reg)
+    register(mcp)
 
-if _reg.skipped:
+if _hidden_tools:
+    mcp.disable(names=_hidden_tools, components={"tool"})
     logger.info(
-        "Uninstalled or operator-hidden tools (not registered): %s",
-        ", ".join(sorted(set(_reg.skipped))),
+        "Uninstalled or operator-hidden tools (not exposed): %s",
+        ", ".join(sorted(_hidden_tools)),
     )
 
 # Register post-exploitation resources (resources are never opt-out-able).
@@ -458,7 +278,7 @@ async def _mcp_surface_probe() -> dict[str, object]:
         "metasploit_enabled": not config.skip_metasploit,
         "installed_capabilities": sorted(config.installed_capabilities),
         "operator_disabled_tools": sorted(config.operator_disabled_tools),
-        "unavailable_or_hidden_tools": sorted(set(_reg.skipped)),
+        "unavailable_or_hidden_tools": sorted(_hidden_tools),
     }
 
 
@@ -542,7 +362,7 @@ def main():
             file=sys.stderr,
         )
         raise SystemExit(2)
-    mcp.run()
+    mcp.run(show_banner=False)
 
 
 if __name__ == "__main__":

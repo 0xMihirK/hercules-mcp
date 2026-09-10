@@ -17,7 +17,8 @@ Consolidated selector fields include `tool`, `module_type`, `encoding`,
 | `shell_kill_job` | **`job_id`**. |
 | `workspace_read_file` | **`path`**; `encoding=text|base64`; `offset`; `max_bytes`. Continue from `next_offset` when `truncated=true`. |
 | `workspace_write_file` | **`path`**; exactly one of `content` or `content_base64`; `mode`. |
-| `system_start_new_session` | No parameters. |
+| `system_start_container` | No parameters. Starts or reattaches the current session idempotently. |
+| `system_start_new_session` | No parameters. Creates a clean stopped session. |
 | `system_list_sessions` | No parameters. |
 | `system_stop_container` | No parameters. |
 | `system_network_info` | No parameters. |

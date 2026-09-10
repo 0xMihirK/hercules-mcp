@@ -11,7 +11,6 @@ import binascii
 import logging
 import posixpath
 import re
-from types import SimpleNamespace
 from typing import TYPE_CHECKING, Literal
 
 from fastmcp import Context
@@ -117,28 +116,11 @@ def register_file_tools(mcp: FastMCP) -> None:
             )
 
         try:
-            if hasattr(docker, "read_file_chunk"):
-                result = await docker.read_file_chunk(
-                    path,
-                    offset=offset,
-                    max_bytes=max_bytes,
-                )
-            else:
-                if offset or max_bytes:
-                    raise ValueError(
-                        "this compatibility runtime does not support paged reads"
-                    )
-                if encoding == "text":
-                    data = (await docker.read_file(path)).encode("utf-8")
-                else:
-                    data = await docker.read_file_bytes(path)
-                result = SimpleNamespace(
-                    data=data,
-                    total_bytes=len(data),
-                    offset=0,
-                    truncated=False,
-                    next_offset=None,
-                )
+            result = await docker.read_file_chunk(
+                path,
+                offset=offset,
+                max_bytes=max_bytes,
+            )
             response = {
                 "tool": "workspace_read_file",
                 "path": path,

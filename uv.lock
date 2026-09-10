@@ -550,6 +550,7 @@ name = "hercules-mcp"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "anyio" },
     { name = "defusedxml" },
     { name = "docker" },
     { name = "fastmcp" },
@@ -566,6 +567,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anyio", specifier = ">=4.5,<5" },
     { name = "defusedxml", specifier = ">=0.7.1,<1" },
     { name = "docker", specifier = ">=7.1,<8" },
     { name = "fastmcp", specifier = ">=3.4.5,<4" },

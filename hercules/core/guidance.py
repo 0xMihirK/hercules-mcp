@@ -18,6 +18,8 @@ Hercules runs authorized security tools in a managed Kali container. Confirm
 scope, start passive/light, verify evidence, and escalate only when authorized.
 Prefer structured tools; shell_exec, browser_cmd, raw_args, and extra_args are
 administrator escape hatches outside complete structured-target guarantees.
+The container starts only when you call system_start_container. Reuse it while
+Docker-backed work is active, then call system_stop_container when finished.
 
 Use HTTP tools for direct requests and browser_open -> wait/snapshot ->
 act/read -> screenshot for JavaScript, session state, interaction, or visual
@@ -241,10 +243,16 @@ TOOL_DESCRIPTIONS = {
         "Relative paths resolve under /opt/workspace; paths outside it and symlink/reparse escapes are rejected. Supply either content or content_base64, never both. mode defaults to 0644. For NSE and Nuclei authoring prefer the dedicated write tools.",
         "workspace_write_file(path='targets.txt', content='http://host\\n')\nworkspace_write_file(path='payload.bin', content_base64='AAE=', mode='0644')",
     ),
+    "system_start_container": _desc(
+        "Explicitly start or reattach the current Hercules session's Kali container.",
+        "Immediately before the first Docker-backed operation in a stopped session.",
+        "No arguments. Repeated and concurrent calls reuse the same session/container. It does not create a new workspace; use system_start_new_session when a clean workspace is required.",
+        "system_start_container()",
+    ),
     "system_start_new_session": _desc(
-        "Start a fresh Hercules container session with a clean mounted workspace.",
+        "Create a fresh stopped Hercules session with a clean mounted workspace.",
         "Session lifecycle management when switching targets or engagements.",
-        "Creates a new workspace and stops the current container. Previous host workspace data is preserved. Metasploit RPC is reinitialized when enabled.",
+        "Creates a new workspace and stops the current container without starting another. Previous host workspace data is preserved. Call system_start_container before Docker-backed work.",
         "system_start_new_session()",
     ),
     "system_list_sessions": _desc(
@@ -256,7 +264,7 @@ TOOL_DESCRIPTIONS = {
     "system_stop_container": _desc(
         "Stop and remove the current Hercules container while preserving workspace files.",
         "End-of-engagement cleanup when no further tools need to run.",
-        "After this tool succeeds, MCP tools that require the container cannot run until a new session is started. It stops background jobs and container-side processes.",
+        "After this tool succeeds, Docker-backed tools return runtime_not_started until system_start_container is called. It stops background jobs and container-side processes.",
         "system_stop_container()",
     ),
     "system_network_info": _desc(

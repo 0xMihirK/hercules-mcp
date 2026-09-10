@@ -152,11 +152,7 @@ def register_shell_tools(mcp: FastMCP) -> None:
                 "status": "invalid_parameter",
                 "error": str(exc),
             }
-        termination = (
-            await docker.terminate_job(job_id)
-            if hasattr(docker, "terminate_job")
-            else {"killed": await docker.kill_job(job_id)}
-        )
+        termination = await docker.terminate_job(job_id)
         return {
             "tool": "shell_kill_job",
             "job_id": job_id,

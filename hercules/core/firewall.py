@@ -24,8 +24,19 @@ from fastmcp.server.middleware.middleware import CallNext, Middleware, Middlewar
 from fastmcp.tools.base import ToolResult
 
 from hercules.core.guidance import backend_unavailable, usage_error
+from hercules.core.tool_catalog import all_tool_names
 
 logger = logging.getLogger("hercules.firewall")
+
+_HOST_ONLY_TOOLS = frozenset(
+    {
+        "system_list_sessions",
+        "system_start_container",
+        "system_start_new_session",
+        "system_stop_container",
+    }
+)
+_DOCKER_BACKED_TOOLS = frozenset(all_tool_names()) - _HOST_ONLY_TOOLS
 
 
 # Import the domain exception types defensively so the firewall stays importable
@@ -33,21 +44,17 @@ logger = logging.getLogger("hercules.firewall")
 try:  # pragma: no cover - trivial import guard
     from hercules.core.docker_manager import (
         ContainerUnavailable,
-        RuntimeInitializing,
-        RuntimeUnavailable,
+        RuntimeNotStarted,
     )
 except Exception:  # pragma: no cover
     ContainerUnavailable = None  # type: ignore[assignment]
-    RuntimeInitializing = None  # type: ignore[assignment]
-    RuntimeUnavailable = None  # type: ignore[assignment]
+    RuntimeNotStarted = None  # type: ignore[assignment]
 
 try:  # pragma: no cover - trivial import guard
     from hercules.tools.exploitation.metasploit_tool import (
-        MetasploitInitializing,
         MetasploitUnavailable,
     )
 except Exception:  # pragma: no cover
-    MetasploitInitializing = None  # type: ignore[assignment]
     MetasploitUnavailable = None  # type: ignore[assignment]
 
 
@@ -65,6 +72,24 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
     name = type(exc).__name__
     msg = str(exc)
 
+    runtime_not_started = (
+        _is(exc, RuntimeNotStarted)
+        or name == "RuntimeNotStarted"
+        or "call system_start_container before using docker-backed tools"
+        in msg.lower()
+    )
+    if runtime_not_started:
+        return usage_error(
+            tool,
+            "runtime_not_started",
+            "The Kali container has not been started for this MCP session.",
+            recoverable=True,
+            next_steps=[
+                "Call system_start_container.",
+                "Retry the Docker-backed tool after startup succeeds.",
+            ],
+        )
+
     if _is(exc, ContainerUnavailable) or name == "ContainerUnavailable":
         return usage_error(
             tool,
@@ -76,50 +101,6 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
                 "If it persists, call system_list_sessions to check session state.",
             ],
         )
-
-    runtime_initializing = (
-        _is(exc, RuntimeInitializing)
-        or name == "RuntimeInitializing"
-        or "kali runtime is still initializing after" in msg.lower()
-    )
-    if runtime_initializing:
-        return usage_error(
-            tool,
-            "runtime_initializing",
-            "The Kali runtime is still initializing in the background.",
-            recoverable=True,
-            next_steps=[
-                "Retry the same tool call shortly.",
-                "The MCP connection and workspace remain available.",
-            ],
-        )
-
-    runtime_unavailable = (
-        _is(exc, RuntimeUnavailable)
-        or name == "RuntimeUnavailable"
-        or "hercules runtime is unavailable:" in msg.lower()
-    )
-    if runtime_unavailable:
-        return usage_error(
-            tool,
-            "runtime_unavailable",
-            msg or "The Kali runtime could not be initialized.",
-            recoverable=False,
-            next_steps=[
-                "Review the sanitized Hercules startup log for the failing component.",
-                "Correct the deterministic setup issue, then restart the MCP server.",
-            ],
-        )
-
-    if _is(exc, MetasploitInitializing) or name == "MetasploitInitializing":
-        result = backend_unavailable(
-            tool,
-            "Metasploit RPC is still initializing. Retry the same tool call shortly.",
-            next_steps="Wait a few seconds, then retry the same tool call.",
-        )
-        result["error_type"] = "backend_initializing"
-        result["recoverable"] = True
-        return result
 
     if _is(exc, MetasploitUnavailable) or name == "MetasploitUnavailable":
         result = backend_unavailable(tool, msg or "Metasploit RPC is unavailable.")
@@ -185,16 +166,29 @@ class ToolExceptionFirewall(Middleware):
         context: MiddlewareContext,
         call_next: CallNext,
     ) -> ToolResult:
+        tool_name = getattr(getattr(context, "message", None), "name", "<unknown>")
         try:
+            if tool_name in _DOCKER_BACKED_TOOLS:
+                fastmcp_context = getattr(context, "fastmcp_context", None)
+                server = getattr(fastmcp_context, "fastmcp", None)
+                try:
+                    registered = (
+                        await server.get_tool(tool_name)
+                        if server is not None
+                        else None
+                    )
+                except Exception:
+                    registered = None
+                if registered is not None:
+                    fastmcp_context.lifespan_context["docker"].require_runtime_started()
             return await call_next(context)
         except Exception as exc:  # NOT BaseException: let CancelledError/SystemExit propagate
-            tool_name = getattr(getattr(context, "message", None), "name", "<unknown>")
-            try:
-                logger.exception("Firewall caught exception in tool '%s'", tool_name)
-            except Exception:
-                pass
             try:
                 payload = classify_exception(exc, tool_name)
+                if payload.get("error_type") == "runtime_not_started":
+                    logger.info("Docker-backed tool '%s' called while stopped.", tool_name)
+                else:
+                    logger.exception("Firewall caught exception in tool '%s'", tool_name)
                 return ToolResult(structured_content=payload)
             except Exception:
                 # Last resort — the firewall must NEVER raise.

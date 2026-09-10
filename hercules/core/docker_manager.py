@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, cast
 
+from anyio import CancelScope
 from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 
 import docker
@@ -52,7 +53,7 @@ from hercules.core.build_info import (
     legacy_raw_image_identity,
 )
 from hercules.core.instance_lock import HerculesPortAllocationLock
-from hercules.core.security import redact_secrets, reject_control_chars, safe_filename
+from hercules.core.security import redact_secrets, safe_filename
 from hercules.core.tool_catalog import (
     ALL_CAPABILITIES,
     format_capabilities,
@@ -86,12 +87,8 @@ class ContainerUnavailable(RuntimeError):
     """Raised when Docker reports the active container is gone or stopped."""
 
 
-class RuntimeInitializing(RuntimeError):
-    """Raised when a tool reaches its bounded wait while bootstrap continues."""
-
-
-class RuntimeUnavailable(RuntimeError):
-    """Raised when background runtime bootstrap failed deterministically."""
+class RuntimeNotStarted(RuntimeError):
+    """Raised when a Docker-backed tool is called before explicit startup."""
 
 
 def _project_hash(project_root) -> str:
@@ -439,12 +436,12 @@ class DockerManager:
     """
     Manages the lifecycle of the Hercules Kali Docker container.
 
-    Startup flow:
+    Explicit startup flow:
       1. Check Docker is installed and the daemon is running.
       2. Verify the immutable selected-capability image.
       3. Prepare only wordlists required by the selected capabilities.
       4. Create the container with workspace + wordlists mounted.
-      5. Poll readiness in the background while MCP clients initialize.
+      5. Wait for readiness before returning to the calling agent.
 
     All public methods are async-safe.
     """
@@ -456,7 +453,6 @@ class DockerManager:
         config: HerculesConfig,
         *,
         instance_id: str | None = None,
-        owns_instance_lock: bool = False,
     ) -> None:
         self._config = config
         installed = config.installed_capabilities or ALL_CAPABILITIES
@@ -476,6 +472,7 @@ class DockerManager:
             cloakbrowser_version=config.cloakbrowser_version,
             cloakbrowser_sha256=config.cloakbrowser_sha256,
         )
+        self._instance_id: str = instance_id or uuid.uuid4().hex
         self._client: docker.DockerClient | None = None
         self._container: Container | None = None
         self._workspace = WorkspaceManager(
@@ -483,9 +480,26 @@ class DockerManager:
             max_inline_bytes=config.max_inline_file_bytes,
         )
         self._session_id: str = self._workspace.allocate_session()
+        try:
+            self._claim_workspace(self._session_id, 0, container_started=False)
+        except Exception:
+            try:
+                self._workspace.cleanup_empty_owned(
+                    active_session="",
+                    only_session=self._session_id,
+                )
+            except (OSError, ValueError) as cleanup_error:
+                logger.warning(
+                    "Failed to clean unclaimed workspace: %s",
+                    cleanup_error,
+                )
+            raise
         self._container_name: str = f"hercules-{self._session_id}"
         self._generation: int = 0
-        self._operator_stopped: bool = False
+        # MCP connections expose schemas and host-side resources without
+        # starting Docker. Only system_start_container clears this flag.
+        self._operator_stopped: bool = True
+        self._workspace_was_started: bool = False
         self._configured_listener_ports: tuple[int, ...] = tuple(
             config.listener_ports
         )
@@ -515,23 +529,13 @@ class DockerManager:
                 "BROWSER_STREAM_PORT must not overlap MSF_RPC_PORT or "
                 "HERCULES_LISTENER_PORTS."
             )
-        self._listener_port_range: tuple[int, int] = (
-            (min(self._listener_ports), max(self._listener_ports))
-            if self._listener_ports
-            else (0, 0)
-        )
         self._project_root_hash: str = _project_hash(config.project_root)
         self._workspace_root_hash: str = _project_hash(
             config.resolved_workspace_root
         )
-        self._instance_id: str = instance_id or uuid.uuid4().hex
-        self._owns_instance_lock: bool = bool(owns_instance_lock)
         self._bootstrapped: bool = False
         self._ready: bool = False
         self._ready_task: asyncio.Task | None = None
-        self._startup_task: asyncio.Task | None = None
-        self._startup_error: str = ""
-        self._startup_wait_seconds: float = 120.0
         self._reclaimed_containers: list[str] = []
         self._host_port_bindings: dict[str, object] = {}
         # Serializes container recovery so concurrent tool calls can't spawn
@@ -556,20 +560,17 @@ class DockerManager:
         # Set while stop_container() is tearing down, so the watchdog and
         # recovery paths never resurrect a container we are deliberately killing.
         self._shutting_down: bool = False
+        self._cleanup_abandoned_cold_workspaces()
 
     @property
     def session_id(self) -> str:
-        """Unique ID for the current session. Changes on restart."""
+        """Unique ID for the current session. Changes only on new_session()."""
         return self._session_id
 
     @property
     def generation(self) -> int:
         """Monotonic container generation used to invalidate process-local caches."""
         return self._generation
-
-    @property
-    def listener_port_range(self) -> tuple[int, int]:
-        return self._listener_port_range
 
     @property
     def listener_ports(self) -> tuple[int, ...]:
@@ -642,10 +643,6 @@ class DockerManager:
         }
 
     @property
-    def workspace_manager(self) -> WorkspaceManager:
-        return self._workspace
-
-    @property
     def workspace_path(self) -> Path:
         return self._workspace.session_path(self._session_id)
 
@@ -716,76 +713,72 @@ class DockerManager:
                 return candidate
         raise RuntimeError("could not allocate a private browser stream relay port")
 
-    def mark_operator_stopped(self) -> None:
-        """Prevent implicit recovery until an explicit session rotation."""
-        self._operator_stopped = True
-
     def begin_shutdown(self) -> None:
         """Disable watchdog/recovery while an intentional teardown is in progress."""
         self._shutting_down = True
 
-    def attach_startup_task(self, task: asyncio.Task) -> None:
-        """Attach the single lifespan-owned background bootstrap task."""
-        current = getattr(self, "_startup_task", None)
-        if current is not None and not current.done() and current is not task:
-            raise RuntimeError("a Hercules runtime bootstrap task is already active")
-        self._startup_task = task
-        self._startup_error = ""
-
-    def mark_startup_unavailable(self, message: str) -> None:
-        """Record a sanitized deterministic bootstrap failure for later calls."""
-        self._startup_error = str(message).strip()[:2000]
-
-    def clear_startup_state(self) -> None:
-        """Allow an explicit session start after a failed initial bootstrap."""
-        task = getattr(self, "_startup_task", None)
-        if task is not None and not task.done():
-            raise RuntimeError("runtime bootstrap is still active")
-        self._startup_task = None
-        self._startup_error = ""
-
-    async def cancel_startup(self) -> None:
-        """Cancel and settle bootstrap before intentional container teardown."""
-        task = getattr(self, "_startup_task", None)
-        if task is None or task.done() or task is asyncio.current_task():
-            return
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
-
-    async def _wait_for_startup(self) -> None:
-        """Wait once for lifespan bootstrap without letting callers cancel it."""
-        task = getattr(self, "_startup_task", None)
-        if task is not None and task is not asyncio.current_task():
-            if not task.done():
-                try:
-                    await asyncio.wait_for(
-                        asyncio.shield(task),
-                        timeout=float(
-                            getattr(self, "_startup_wait_seconds", 120.0)
-                        ),
-                    )
-                except TimeoutError as exc:
-                    raise RuntimeInitializing(
-                        "The Kali runtime is still initializing after 120 seconds."
-                    ) from exc
-            # Consume a task exception defensively if a compatibility caller
-            # supplied its own bootstrap task instead of the lifespan wrapper.
-            if task.done() and not task.cancelled():
-                error = task.exception()
-                if error is not None:
-                    raise RuntimeUnavailable(str(error)) from error
-        startup_error = str(getattr(self, "_startup_error", "") or "")
-        if startup_error:
-            raise RuntimeUnavailable(
-                f"The Hercules runtime is unavailable: {startup_error}"
-            )
-
     def register_generation_callback(self, callback) -> None:
         """Register a process-local cache reset callback."""
         self._generation_callbacks.append(callback)
+
+    def _claim_workspace(
+        self,
+        session_id: str,
+        generation: int,
+        *,
+        container_started: bool,
+    ) -> None:
+        """Record the exact live MCP owner separately from container state."""
+        self._workspace.update_manifest(
+            session_id,
+            state="active",
+            generation=int(generation),
+            owner_pid=os.getpid(),
+            owner_start_token=_process_start_token(os.getpid()),
+            instance_id=self._instance_id,
+            container_started=bool(container_started),
+        )
+
+    def _cleanup_abandoned_cold_workspaces(self) -> None:
+        """Remove only manifest-only cold sessions whose exact owner is dead."""
+        try:
+            sessions = self._workspace.list_sessions(active_session=self._session_id)
+        except (OSError, ValueError) as exc:
+            logger.warning("Failed to inspect abandoned cold workspaces: %s", exc)
+            return
+        for session in sessions:
+            session_id = str(session.get("session_id", ""))
+            if session_id == self._session_id or not session.get("owned"):
+                continue
+            manifest = self._workspace.read_manifest(session_id)
+            if (
+                not manifest
+                or manifest.get("state") != "active"
+                or manifest.get("container_started") is not False
+            ):
+                continue
+            owner = {
+                "hercules.owner_pid": str(manifest.get("owner_pid", "")),
+                "hercules.owner_start_token": str(
+                    manifest.get("owner_start_token", "")
+                ),
+            }
+            if _owner_process_is_live(owner):
+                continue
+            try:
+                self._workspace.mark_inactive(
+                    session_id,
+                    int(manifest.get("generation", 0)),
+                )
+                removed = self._workspace.cleanup_empty_owned(
+                    active_session=self._session_id,
+                    only_session=session_id,
+                )
+            except (OSError, ValueError) as exc:
+                logger.warning("Failed to clean abandoned cold workspace: %s", exc)
+                continue
+            if removed:
+                logger.info("Cleaned abandoned cold session workspace: %s", session_id)
 
     def _record_reclaimed_container(self, name: str) -> None:
         reclaimed = getattr(self, "_reclaimed_containers", None)
@@ -951,9 +944,6 @@ class DockerManager:
 
             self._msf_rpc_port = rpc_port
             self._listener_ports = listeners
-            self._listener_port_range = (
-                (min(listeners), max(listeners)) if listeners else (0, 0)
-            )
             self._browser_stream_host_port = stream_port
             if platform.system() == "Linux":
                 self._browser_stream_relay_port = stream_port
@@ -1050,13 +1040,22 @@ class DockerManager:
         except asyncio.CancelledError:
             # A blocked native file-lock acquisition cannot be interrupted.
             # Settle it and release if it completes after caller cancellation.
-            await acquire_task
-            await asyncio.to_thread(allocation_lock.release)
+            with CancelScope(shield=True):
+                await acquire_task
+                await asyncio.to_thread(allocation_lock.release)
             raise
         try:
             await self._start_container_locked()
         finally:
-            await asyncio.to_thread(allocation_lock.release)
+            with CancelScope(shield=True):
+                release_task = asyncio.create_task(
+                    asyncio.to_thread(allocation_lock.release)
+                )
+                try:
+                    await asyncio.shield(release_task)
+                except asyncio.CancelledError:
+                    await release_task
+                    raise
 
     def _start_orphan_guardian(self) -> None:
         """Launch independent exact-owner cleanup for abrupt client exits."""
@@ -1090,12 +1089,11 @@ class DockerManager:
             "stdout": subprocess.DEVNULL,
             "stderr": subprocess.DEVNULL,
             "close_fds": True,
+            "shell": False,
         }
         if os.name == "nt":
             kwargs["creationflags"] = (
-                subprocess.CREATE_NEW_PROCESS_GROUP
-                | subprocess.DETACHED_PROCESS
-                | subprocess.CREATE_NO_WINDOW
+                subprocess.CREATE_NO_WINDOW
                 | subprocess.CREATE_BREAKAWAY_FROM_JOB
             )
         else:
@@ -1153,7 +1151,6 @@ class DockerManager:
         )
         wordlists_path.mkdir(parents=True, exist_ok=True)
 
-        self._cleanup_empty_workspaces()
         if self._config.workspace_auto_prune:
             result = await asyncio.to_thread(
                 self._workspace.prune,
@@ -1392,31 +1389,15 @@ class DockerManager:
             # create request. Settle it and remove any late-created container
             # before propagating cancellation, otherwise a client timeout can
             # leave fixed host ports reserved.
-            try:
-                created = await create_task
-            except Exception as exc:
-                logger.warning(
-                    "Container creation ended during shutdown: %s", exc
-                )
-            else:
-                self._container = created
+            with CancelScope(shield=True):
                 try:
-                    released_bindings = {
-                        **getattr(self, "_host_port_bindings", {}),
-                        **self._container_host_bindings(created),
-                    }
-                    await asyncio.to_thread(created.remove, force=True)
-                    await self._wait_for_host_ports_available(released_bindings)
-                except NotFound:
-                    pass
-                except Exception as cleanup_error:
+                    self._container = await create_task
+                except Exception as exc:
                     logger.warning(
-                        "Late-created container cleanup was incomplete: %s",
-                        cleanup_error,
+                        "Container creation ended during shutdown: %s", exc
                     )
-                finally:
-                    self._container = None
-                    self._host_port_bindings = {}
+                else:
+                    await self.stop_container(force_remove=True)
             raise
         except Exception as exc:
             if isinstance(exc, APIError) and "port is already allocated" in str(exc).lower():
@@ -1437,10 +1418,12 @@ class DockerManager:
 
         self._generation += 1
         await asyncio.to_thread(
-            self._workspace.mark_active,
+            self._claim_workspace,
             self._session_id,
             self._generation,
+            container_started=True,
         )
+        self._workspace_was_started = True
         self._bootstrapped = True
         self._ready = False
         self._ready_task = asyncio.create_task(self._mark_ready())
@@ -1452,7 +1435,6 @@ class DockerManager:
 
     async def ensure_ready(self) -> None:
         """Wait until the container entrypoint has finished runtime setup."""
-        await self._wait_for_startup()
         await self._ensure_container_running()
         if getattr(self, "_ready", True):
             return
@@ -1460,14 +1442,19 @@ class DockerManager:
         if task is None:
             await self._mark_ready()
             return
-        await task
+        await asyncio.shield(task)
 
-    async def stop_container(self) -> None:
+    async def stop_container(
+        self,
+        *,
+        force_remove: bool = False,
+        release_workspace: bool = False,
+    ) -> None:
         """Stop and remove the container. Workspace files on host are preserved."""
         if self._container is None:
             self._host_port_bindings = {}
             workspace = getattr(self, "_workspace", None)
-            if workspace is not None:
+            if release_workspace and workspace is not None:
                 try:
                     await asyncio.to_thread(
                         workspace.mark_inactive,
@@ -1488,7 +1475,7 @@ class DockerManager:
                 pass
 
         stop_error: Exception | None = None
-        if not self._config.preserve_container:
+        if force_remove or not self._config.preserve_container:
             try:
                 logger.info("Force-removing container '%s'...", self._container_name)
                 released_bindings = {
@@ -1523,7 +1510,7 @@ class DockerManager:
         self._host_port_bindings = {}
         await self._settle_orphan_guardian()
         workspace = getattr(self, "_workspace", None)
-        if workspace is not None:
+        if release_workspace and workspace is not None:
             try:
                 await asyncio.to_thread(
                     workspace.mark_inactive,
@@ -1534,100 +1521,115 @@ class DockerManager:
                 pass
 
     async def operator_stop(self) -> None:
-        """Terminal operator-requested stop serialized against every recovery path."""
+        """Operator-requested stop serialized against every recovery path."""
         async with self._get_recovery_lock():
             self._operator_stopped = True
             self._shutting_down = True
             try:
-                await self.cancel_startup()
                 await self.stop_container()
             finally:
                 # The durable operator flag continues to suppress recovery. The
                 # transient flag is reserved for an in-progress teardown.
                 self._shutting_down = False
 
-    async def restart_container(self, rotate_workspace: bool = True) -> str:
-        """
-        Recreate the container.
-
-        rotate_workspace=True (default): mint a NEW session ID and a fresh empty
-        workspace, then start clean. Used by ``new_session`` /
-        ``system_start_new_session`` when the agent deliberately wants a clean
-        slate.
-
-        rotate_workspace=False: PRESERVE the current session ID, container name,
-        and host workspace dir, recreating the container with the SAME
-        /opt/workspace mount. Used by recovery so a container crash is
-        transparent and previously written files / job logs survive.
-
-        Ensures the workspace subfolder exists BEFORE tearing down the old
-        container, so a failure in start_container() never leaves the manager
-        pointing at an ID that corresponds to nothing.
-
-        Returns the (possibly unchanged) session_id.
-        """
-        old_session_id = self._session_id
-        old_name = self._container_name
-        if rotate_workspace:
-            new_session_id = await asyncio.to_thread(
-                self._workspace.allocate_session,
-                generation=self._generation,
-            )
-            new_name = f"hercules-{new_session_id}"
-        else:
-            new_session_id = old_session_id
-            new_name = old_name
-
+    async def restart_container(self) -> str:
+        """Recreate the current container while preserving its workspace."""
         await self.stop_container()
-        self._session_id = new_session_id
-        self._container_name = new_name
-        try:
-            await self.start_container()
-            await self.ensure_ready()
-        except Exception as start_error:
-            if rotate_workspace:
-                try:
-                    await self.stop_container()
-                except Exception as cleanup_error:
-                    logger.warning(
-                        "Failed to stop incomplete new-session container: %s",
-                        cleanup_error,
-                    )
-                self._session_id = old_session_id
-                self._container_name = old_name
-                try:
-                    await self.start_container()
-                    await self.ensure_ready()
-                except Exception as rollback_error:
-                    raise RuntimeError(
-                        "New session startup failed and the previous session could "
-                        f"not be restored: startup={start_error}; rollback={rollback_error}"
-                    ) from start_error
-                self._cleanup_empty_workspaces()
-                raise RuntimeError(
-                    "New session startup failed; the previous session was restored: "
-                    f"{start_error}"
-                ) from start_error
-            raise
+        await self.start_container()
+        await self.ensure_ready()
         return self._session_id
 
     async def new_session(self) -> str:
-        """
-        Deliberately rotate to a fresh, empty session (clean slate).
-
-        Holds the recovery lock so a concurrent watchdog/tool recovery cannot
-        race the rotation. This is the public entry point for
-        system_start_new_session.
-        """
+        """Create a fresh workspace and leave its container explicitly stopped."""
         async with self._get_recovery_lock():
-            previously_stopped = bool(getattr(self, "_operator_stopped", False))
-            self._operator_stopped = False
-            self._shutting_down = False
+            old_session_id = self._session_id
+            new_generation = self._generation + 1
+            new_session_id = ""
+
+            async def prepare_session() -> None:
+                nonlocal new_session_id
+                new_session_id = await asyncio.to_thread(
+                    self._workspace.allocate_session,
+                    generation=new_generation,
+                )
+                await asyncio.to_thread(
+                    self._claim_workspace,
+                    new_session_id,
+                    new_generation,
+                    container_started=False,
+                )
+                self._operator_stopped = True
+                self._shutting_down = True
+                await self.stop_container(release_workspace=True)
+
+            # Native workspace and Docker operations cannot be interrupted.
+            # Keep their results until preparation settles, then either commit
+            # the candidate or roll it back before releasing the lifecycle lock.
+            prepare_task = asyncio.create_task(prepare_session())
             try:
-                self.clear_startup_state()
-                return await self.restart_container(rotate_workspace=True)
-            except Exception:
-                self._operator_stopped = previously_stopped
+                await asyncio.shield(prepare_task)
+            except BaseException:
+                with CancelScope(shield=True):
+                    try:
+                        await prepare_task
+                    except (Exception, asyncio.CancelledError):
+                        pass  # Preserve the original failure after rollback.
+                    if new_session_id:
+                        try:
+                            await asyncio.to_thread(
+                                self._workspace.mark_inactive,
+                                new_session_id,
+                                new_generation,
+                            )
+                            await asyncio.to_thread(
+                                self._workspace.cleanup_empty_owned,
+                                active_session=old_session_id,
+                                only_session=new_session_id,
+                            )
+                        except (OSError, ValueError) as exc:
+                            logger.warning("Failed to clean candidate workspace: %s", exc)
+                raise
+            finally:
+                self._shutting_down = False
+            self._session_id = new_session_id
+            self._container_name = f"hercules-{new_session_id}"
+            self._generation = new_generation
+            self._workspace_was_started = False
+            self._notify_generation_changed()
+            return new_session_id
+
+    async def operator_start(self) -> str:
+        """Explicitly start or reattach the current session's owned container."""
+        async with self._get_recovery_lock():
+            if getattr(self, "_shutting_down", False):
+                raise RuntimeError("Hercules is shutting down.")
+            self._operator_stopped = False
+            try:
+                if self._container is not None:
+                    try:
+                        await self._ensure_container_running()
+                    except ContainerUnavailable:
+                        mode = await self.reattach_container()
+                    else:
+                        await self.ensure_ready()
+                        return "already_running"
+                elif self._client is None:
+                    await self.start_container()
+                    mode = "created"
+                else:
+                    mode = await self.reattach_container()
+                await self.ensure_ready()
+                return mode
+            except BaseException:
+                self._operator_stopped = True
+                self._shutting_down = True
+                try:
+                    with CancelScope(shield=True):
+                        await self.stop_container(force_remove=True)
+                except Exception as cleanup_error:
+                    logger.warning("Explicit startup cleanup failed: %s", cleanup_error)
+                finally:
+                    self._shutting_down = False
                 raise
 
     async def reattach_container(self) -> str:
@@ -1640,7 +1642,7 @@ class DockerManager:
              preserves /opt/workspace AND any in-container writes outside the
              mount.
           2. Otherwise recreate a container with the SAME name and SAME
-             workspace mount via restart_container(rotate_workspace=False).
+             workspace mount via restart_container().
              This preserves /opt/workspace through the host bind mount.
 
         The caller MUST hold the recovery lock. Returns the recovery mode
@@ -1699,13 +1701,19 @@ class DockerManager:
                     getattr(existing, "attrs", {}).get("State", {}).get("Status")
                     or getattr(existing, "status", "")
                 )
-                if state == "paused":
-                    await asyncio.to_thread(existing.unpause)
-                elif state != "running":
-                    # exited / created → start the SAME container (preserves FS).
-                    await asyncio.to_thread(existing.start)
-                # A running legacy/current container can be adopted directly.
+                # Retain the exact-owned handle before a native start that may
+                # outlive request cancellation, so operator cleanup can remove it.
                 self._container = existing
+                if state != "running":
+                    resume = existing.unpause if state == "paused" else existing.start
+                    resume_task = asyncio.create_task(asyncio.to_thread(resume))
+                    try:
+                        await asyncio.shield(resume_task)
+                    except asyncio.CancelledError:
+                        with CancelScope(shield=True):
+                            await resume_task
+                        raise
+                # A running legacy/current container can be adopted directly.
                 self._generation = getattr(self, "_generation", 0) + 1
                 self._notify_generation_changed()
                 mode = "restart"
@@ -1753,7 +1761,7 @@ class DockerManager:
                 raise
             except Exception as exc:
                 logger.warning("reattach: failed to remove stale container: %s", exc)
-            await self.restart_container(rotate_workspace=False)
+            await self.restart_container()
             mode = "recreate"
         else:
             # docker-start path: start_container was not called, so spawn the
@@ -1763,9 +1771,10 @@ class DockerManager:
             self._ready_task = asyncio.create_task(self._mark_ready())
 
         await asyncio.to_thread(
-            self._workspace.mark_active,
+            self._claim_workspace,
             self._session_id,
             self._generation,
+            container_started=True,
         )
 
         logger.info(
@@ -1872,17 +1881,21 @@ class DockerManager:
             await self._wait_for_host_ports_available(released_bindings)
             self._record_reclaimed_container(name)
 
-    def _cleanup_empty_workspaces(self) -> None:
-        """Remove only empty, inactive workspaces with valid ownership manifests."""
+    def cleanup_unused_workspace(self) -> None:
+        """Remove the empty workspace of an MCP connection that never started."""
+        if getattr(self, "_workspace_was_started", False):
+            return
         try:
+            self._workspace.mark_inactive(self._session_id, self._generation)
             removed = self._workspace.cleanup_empty_owned(
-                active_session=self._session_id
+                active_session="",
+                only_session=self._session_id,
             )
-        except OSError as exc:
-            logger.warning("Failed to inspect empty workspace sessions: %s", exc)
+        except (OSError, ValueError) as exc:
+            logger.warning("Failed to clean unused workspace session: %s", exc)
             return
         for session_id in removed:
-            logger.info("Cleaned up empty owned session workspace: %s", session_id)
+            logger.info("Cleaned up unused owned session workspace: %s", session_id)
 
     def list_sessions(self) -> list[dict]:
         """List all session workspace folders on disk with metadata."""
@@ -1891,19 +1904,19 @@ class DockerManager:
             active_running=self._container is not None,
         )
 
-    async def _ensure_container_running(
-        self,
-        *,
-        wait_for_startup: bool = True,
-    ) -> None:
-        """Refresh Docker state and fail if the active container is stale."""
-        if wait_for_startup:
-            await self._wait_for_startup()
-        if getattr(self, "_operator_stopped", False):
-            raise RuntimeError(
-                "The Hercules container was explicitly stopped. "
-                "Call system_start_new_session to start a fresh environment."
+    def require_runtime_started(self) -> None:
+        """Reject intentional stopped states without inspecting or recovering Docker."""
+        if getattr(self, "_operator_stopped", False) or getattr(
+            self, "_shutting_down", False
+        ):
+            raise RuntimeNotStarted(
+                "The Hercules container is stopped. Call system_start_container "
+                "before using Docker-backed tools."
             )
+
+    async def _ensure_container_running(self) -> None:
+        """Refresh Docker state and fail if the active container is stale."""
+        self.require_runtime_started()
         if self._container is None:
             raise ContainerUnavailable("Container is not running.")
         try:
@@ -2036,7 +2049,7 @@ class DockerManager:
         """
         recovery_meta: dict = {}
         try:
-            await self._ensure_container_running(wait_for_startup=require_ready)
+            await self._ensure_container_running()
             if require_ready:
                 await self.ensure_ready()
         except Exception as exc:
@@ -2062,40 +2075,8 @@ class DockerManager:
         safe_cmd = escape_display_controls(redact_secrets(cmd, secret_values))
 
         async def _run_once():
-            api = getattr(getattr(self, "_client", None), "api", None)
-            container_id = getattr(self._container, "id", None)
-            if api is None or not container_id:
-                # Compatibility path for simple fake containers in local tests.
-                def _legacy_run():
-                    return self._container.exec_run(
-                        cmd=["bash", "-c", cmd],
-                        stdout=True,
-                        stderr=True,
-                        demux=True,
-                        workdir=workdir,
-                        environment=env,
-                    )
-
-                legacy = await asyncio.wait_for(
-                    asyncio.to_thread(_legacy_run), timeout=effective_timeout
-                )
-                legacy_stdout, legacy_stderr = legacy.output
-                return (
-                    legacy.exit_code,
-                    legacy_stdout or b"",
-                    legacy_stderr or b"",
-                    False,
-                    False,
-                    {
-                        "stdout_total_bytes": len(legacy_stdout or b""),
-                        "stderr_total_bytes": len(legacy_stderr or b""),
-                        "stdout_stream_truncated": False,
-                        "stderr_stream_truncated": False,
-                        "stdout_stream_artifact": "",
-                        "stderr_stream_artifact": "",
-                    },
-                )
-
+            api = self._client.api
+            container_id = self._container.id
             exec_token = uuid.uuid4().hex
             control_dir = "/run/hercules/exec"
             pid_path = f"{control_dir}/{exec_token}.pgid"
@@ -2273,18 +2254,6 @@ class DockerManager:
                 terminated,
                 stream_meta,
             ) = await _run_once()
-        except TimeoutError:
-            # Only the fake-container compatibility path reaches this branch.
-            exit_code, stdout_raw, stderr_raw = -1, b"", b""
-            timed_out, terminated = True, False
-            stream_meta = {
-                "stdout_total_bytes": 0,
-                "stderr_total_bytes": 0,
-                "stdout_stream_truncated": False,
-                "stderr_stream_truncated": False,
-                "stdout_stream_artifact": "",
-                "stderr_stream_artifact": "",
-            }
         except Exception as exc:
             if require_ready and _recoverable_docker_error(exc):
                 recovery_meta = await self._recover_container(str(exc))
@@ -2642,28 +2611,6 @@ class DockerManager:
             partial_output=bool(timed_out and (stdout_raw or stderr_raw)),
             **recovery_meta,
         )
-
-    async def exec_argv(
-        self,
-        argv: list[str],
-        **kwargs,
-    ) -> ExecResult:
-        """Execute structured argv through the managed executor.
-
-        This is the internal path for commands composed entirely from named
-        parameters. Each argument is single-line validated and quoted. Public
-        raw shell and documented raw-argument surfaces continue to use
-        ``exec_command`` explicitly.
-        """
-        if not argv:
-            raise ValueError("argv must contain at least one argument")
-        quoted = [
-            shlex.quote(
-                reject_control_chars(str(argument), label=f"argv[{index}]")
-            )
-            for index, argument in enumerate(argv)
-        ]
-        return await self.exec_command(" ".join(quoted), **kwargs)
 
     async def _browser_relay_is_running(self, state: dict[str, object]) -> bool:
         try:
@@ -3321,12 +3268,6 @@ class DockerManager:
             "state": metadata["state"],
         }
 
-    async def kill_job(self, job_id: str) -> bool:
-        """Compatibility wrapper returning the historical boolean."""
-        result = await self.terminate_job(job_id)
-        return bool(result["killed"])
-
-
     # ------------------------------------------------------------------
     # File I/O through the owned host bind mount
     # ------------------------------------------------------------------
@@ -3603,7 +3544,7 @@ class DockerManager:
           1. Docker is installed and daemon is running.
           2. The pre-built hercules-kali image exists.
 
-        Raises SystemExit with a clear, actionable message if not.
+        Raises RuntimeError with a clear, actionable message if not.
         """
         # Check Docker availability
         logger.info("Checking Docker availability...")
@@ -3633,7 +3574,7 @@ class DockerManager:
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
-            raise SystemExit(error_msg) from exc
+            raise RuntimeError(error_msg) from exc
 
         # Check the canonical image first. For one compatibility release, an
         # otherwise identical pre-canonicalization image may be reused from the
@@ -3721,7 +3662,7 @@ class DockerManager:
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
-            raise SystemExit(error_msg)
+            raise RuntimeError(error_msg)
 
     async def _verify_image_runtime_ready(self) -> None:
         """Fail early if a stale local image is missing required runtime files."""
@@ -3790,7 +3731,7 @@ class DockerManager:
                 + "=" * 60 + "\n"
             )
             logger.critical(error_msg)
-            raise SystemExit(error_msg) from exc
+            raise RuntimeError(error_msg) from exc
 
     async def _ensure_wordlists(self) -> dict[str, Path]:
         """Prepare only wordlists required by the installed capability profile."""
@@ -3834,7 +3775,3 @@ class DockerManager:
     @property
     def container(self) -> Container | None:
         return self._container
-
-    @property
-    def is_ready(self) -> bool:
-        return self._container is not None and self._bootstrapped and self._ready

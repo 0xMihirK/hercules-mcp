@@ -191,21 +191,6 @@ def render_terminal(
     return "".join(output)
 
 
-def strip_ansi(text: str) -> str:
-    """Remove terminal controls while retaining the final visible characters."""
-    return render_terminal(text)
-
-
-def collapse_carriage_returns(text: str) -> str:
-    """Compatibility wrapper for the terminal renderer."""
-    return render_terminal(text)
-
-
-def compress_whitespace(text: str) -> str:
-    """Explicit opt-in whitespace compaction; not part of universal sanitation."""
-    return re.sub(r"\n{3,}", "\n\n", text)
-
-
 def sanitize(text: str) -> str:
     """Remove terminal-only controls without globally rewriting whitespace."""
     return render_terminal(text)

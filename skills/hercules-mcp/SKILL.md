@@ -17,6 +17,8 @@ Use Hercules as a staged security workflow, not as a bag of unrelated commands.
 
 ## Select the smallest effective tool
 
+- Call `system_start_container` only immediately before the first Docker-backed
+  operation. Reuse the active container, and stop it when the work is complete.
 - Prefer a structured Hercules tool. Use `shell_exec` only when the typed surface cannot express the operation.
 - Check the tools currently exposed before planning. Optional capabilities may be uninstalled or independently hidden; do not invent a missing tool or assume its binary exists. Use an available structured alternative. Use the administrator escape hatch only when the necessary backend is installed and the raw operation is authorized.
 - Use `network_curl` for deterministic HTTP requests. Use browser tools when JavaScript, authentication state, DOM interaction, or visual evidence matters.
@@ -34,7 +36,7 @@ Read [parameter-reference.md](references/parameter-reference.md) before repairin
 2. Focus: choose the narrowest relevant scanner, script, template, or browser path.
 3. Verify: corroborate findings with a second signal and retain raw evidence when needed.
 4. Escalate: exploit, brute-force, generate payloads, or start listeners only when explicitly authorized.
-5. Recover: inspect timeout and partial-output fields, manage jobs or sessions, and start a new Hercules session after generation-bound state is lost.
+5. Recover: inspect timeout and partial-output fields, manage jobs or sessions, and explicitly restart the current container or create a clean stopped session when needed.
 6. Report: separate observed evidence from inference, note incomplete output, and state what was not tested.
 
 Parallelize independent passive or light probes within advertised concurrency limits. Serialize dependent scans, browser mutations in one session, credential testing, exploitation, and interactive session work. Normalize targets and reuse existing results or artifacts instead of repeating a scan.
@@ -55,4 +57,5 @@ Parallelize independent passive or light probes within advertised concurrency li
 - Check `terminated` before assuming the timed-out process stopped.
 - Read artifacts when `output_complete=false`, `output_filtered=true`, filtering occurred, or truncation is reported. `exit_code=0` means the process completed; it does not prove a vulnerability or complete assessment.
 - After container recovery or `system_start_new_session`, assume browser daemons, Metasploit clients/channels, and background processes were reset; workspace files persist.
-- After `system_stop_container`, call `system_start_new_session` before expecting another tool to recover the container.
+- `runtime_not_started` means no container was created; call `system_start_container`, then retry the Docker-backed tool.
+- After `system_stop_container`, call `system_start_container` to resume the same workspace. Use `system_start_new_session` only for a clean workspace.

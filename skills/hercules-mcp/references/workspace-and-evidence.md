@@ -5,9 +5,10 @@
 Hercules mounts one owned host session at `/opt/workspace`. Keep the current
 system session while working on the same engagement. Call
 `system_start_new_session` only when changing engagements or when a clean
-workspace is required. The rotation is transactional: on startup failure,
-inspect the returned active session and recovery state instead of assuming the
-old evidence was lost.
+workspace is required. It stops the current container, creates the workspace,
+and leaves the new session stopped. Call `system_start_container` when ready to
+use Docker-backed tools; failure to create the new session leaves the previous
+session and evidence intact.
 
 `system_list_sessions` reports ownership, state, generation, timestamps, bytes,
 pinning, and retention eligibility. An `active`, `pinned`, `unowned`, or
@@ -63,4 +64,5 @@ Container replacement invalidates browser refs/daemons, Metasploit clients and
 channels, and running background processes. Workspace evidence persists.
 Reopen browser state, reconnect Metasploit, and relaunch necessary jobs from
 their recorded inputs. After `system_stop_container`, explicitly call
-`system_start_new_session`; ordinary tools will not silently resurrect it.
+`system_start_container` to resume the same workspace. Ordinary tools never
+start a stopped container. Use `system_start_new_session` only for a clean one.

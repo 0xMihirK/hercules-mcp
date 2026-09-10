@@ -22,7 +22,6 @@ workspace/
 .hercules/
 AGENTS.md
 CLAUDE.md
-tests/
 
 # Agent / CI (local-only, not committed)
 .github/

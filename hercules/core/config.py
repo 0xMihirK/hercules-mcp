@@ -139,10 +139,6 @@ class HerculesConfig:
     use_privileged: bool = False
     docker_network: str = ""
     auto_allocate_ports: bool = True
-    # Deprecated compatibility field. Selective images use
-    # HERCULES_INSTALLED_CAPABILITIES; this legacy value has no build effect.
-    tool_install_mode: str = ""
-
     # Concurrency
     max_concurrent_heavy: int = 3
     max_concurrent_light: int = 10
@@ -273,7 +269,6 @@ class HerculesConfig:
             auto_allocate_ports=_parse_bool(
                 os.getenv("HERCULES_AUTO_ALLOCATE_PORTS", "true")
             ),
-            tool_install_mode=legacy_install_mode,
             max_concurrent_heavy=_parse_int(
                 os.getenv("MAX_CONCURRENT_HEAVY", "3"), 3, minimum=1, maximum=128
             ),
