@@ -75,3 +75,4 @@ website/node_modules/
 website/public/
 website/dist/
 website/test-results/
+website/capture/hercules-surface.json

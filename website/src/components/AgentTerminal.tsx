@@ -1,207 +1,229 @@
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { useInView } from "motion/react";
 import { Terminal } from "./ui/terminal";
 import {
-  DEMO_PROMPT,
+  parseRecording,
+  RecordingCursor,
+  RecordingWriter,
+} from "../recording.js";
+import {
   profiles,
-  initialSession,
-  handleInput,
-  renderScreen,
-  execute,
+  scenarios,
   type Client,
-} from "../client-sandbox";
+  type Scenario,
+} from "../recording-profiles";
+
+const cache = new Map<string, ReturnType<typeof parseRecording>>();
 export default function AgentTerminal({
   client,
-  offset,
   paused,
   reduced,
-  tools = [],
 }: {
   client: Client;
-  offset: number;
   paused: boolean;
   reduced: boolean;
-  tools?: string[];
 }) {
   const card = useRef<HTMLDivElement>(null),
     host = useRef<HTMLDivElement>(null),
-    terminal = useRef<XTerm | null>(null);
-  const session = useRef(initialSession(client)),
-    clock = useRef(0),
-    last = useRef<number | null>(null),
-    playing = useRef(true),
-    takingOver = useRef(false);
-  const [localPaused, setLocalPaused] = useState(false),
+    viewport = useRef<HTMLDivElement>(null),
+    openButton = useRef<HTMLButtonElement>(null);
+  const [scenario, setScenario] = useState<Scenario>("scan"),
+    [localPaused, setLocalPaused] = useState(false),
     [expanded, setExpanded] = useState(false),
-    [replay, setReplay] = useState(0),
-    [interactive, setInteractive] = useState(false),
-    [status, setStatus] = useState(
-      "Hercules MCP connected. 46 tools available.",
-    );
-  const paintKey = useRef(""),
-    openButton = useRef<HTMLButtonElement>(null),
-    toolNames = useRef(tools);
-  toolNames.current = tools;
-  const visible = useInView(card, { amount: 0.08 }),
-    flags = useRef({ paused, reduced, visible, localPaused });
-  flags.current = { paused, reduced, visible, localPaused };
-  const p = profiles[client];
+    [replay, setReplay] = useState(0);
+  const [motionOverride, setMotionOverride] = useState(false);
+  const [mobile, setMobile] = useState(() => innerWidth < 800),
+    [error, setError] = useState(""),
+    [ready, setReady] = useState(false),
+    [progress, setProgress] = useState(0);
+  const elapsed = useRef(0),
+    generationRef = useRef(0),
+    visible = useInView(card, { amount: 0.08 });
+  const flags = useRef({
+    paused,
+    reduced,
+    motionOverride,
+    localPaused,
+    visible,
+    expanded,
+  });
+  flags.current = {
+    paused,
+    reduced,
+    motionOverride,
+    localPaused,
+    visible,
+    expanded,
+  };
+  const still = reduced && !motionOverride;
+  const stopped = localPaused || still;
+  const profile = profiles[client];
   useEffect(() => {
-    if (!host.current) return;
-    const term = new XTerm({
-      fontFamily: '"IBM Plex Mono", "Cascadia Mono", Consolas, monospace',
-      fontSize: innerWidth < 800 ? 11 : 12,
-      lineHeight: 1.35,
-      letterSpacing: 0,
-      cursorBlink: !reduced,
-      scrollback: 100,
-      convertEol: true,
-      theme: {
-        background: p.background,
-        foreground: client === "hermes" ? "#FFF8DC" : "#eeeeee",
-        cursor: p.accent,
-        selectionBackground: "#636b7655",
-      },
-      allowProposedApi: false,
-      screenReaderMode: false,
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(host.current);
-    terminal.current = term;
-    const paint = () => {
-      const output = renderScreen(
-        session.current,
-        client,
-        term.cols,
-        term.rows,
-        clock.current,
-        false,
-        toolNames.current,
-      );
-      if (output !== paintKey.current) {
-        term.write(output);
-        paintKey.current = output;
-      }
+    const query = matchMedia("(max-width: 799px)");
+    const update = () => setMobile(query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    const generation = ++generationRef.current,
+      abort = new AbortController();
+    let terminal: XTerm | undefined,
+      observer: ResizeObserver | undefined,
+      frame = 0,
+      cursor: RecordingCursor | undefined,
+      writer: RecordingWriter | undefined,
+      last: number | null = null,
+      updateAt = 0;
+    const visibilityChanged = () => {
+      last = null;
     };
-    const resize = () => {
+    document.addEventListener("visibilitychange", visibilityChanged);
+    const valid = () =>
+      generation === generationRef.current && !abort.signal.aborted;
+    setReady(false);
+    setError("");
+    async function initialize() {
       try {
-        fit.fit();
-        paintKey.current = "";
-        paint();
-      } catch {}
-    };
-    const observer = new ResizeObserver(resize);
-    observer.observe(host.current);
-    document.fonts.ready.then(resize);
-    resize();
-    const input = term.onData((data) => {
-      if (playing.current && !takingOver.current)
-        session.current = { ...session.current, input: "", cursor: 0 };
-      takingOver.current = true;
-      playing.current = false;
-      setInteractive(true);
-      session.current = handleInput(
-        session.current,
-        client,
-        data,
-        clock.current,
-      );
-      if (flags.current.reduced && session.current.screen === "task")
-        session.current.taskStart = clock.current - 9;
-      setStatus(
-        `${p.name}: ${session.current.screen}. ${session.current.transcript}`,
-      );
-      term.options.screenReaderMode = session.current.screen !== "task";
-      paint();
-    });
-    let frame = 0,
-      lastPaint = -Infinity;
-    function tick(timestamp: number) {
-      const f = flags.current,
-        active = f.visible && !f.paused && !f.localPaused && !document.hidden;
-      if (active && !f.reduced) {
-        if (last.current !== null)
-          clock.current += Math.min(0.1, (timestamp - last.current) / 1000);
-        last.current = timestamp;
-      } else last.current = null;
-      if (active && timestamp - lastPaint > 100) {
-        lastPaint = timestamp;
-        const t = Math.max(0, clock.current - offset);
-        if (playing.current && !takingOver.current && !f.reduced) {
-          if (t < 2.4)
-            session.current = { ...session.current, screen: "home", input: "" };
-          else if (t < 4.5)
-            session.current = { ...session.current, screen: "mcp", input: "" };
-          else if (t < 7.7) {
-            const len = Math.min(
-              DEMO_PROMPT.length,
-              Math.floor((t - 5.2) * 18),
-            );
-            session.current = {
-              ...session.current,
-              screen: "home",
-              input: DEMO_PROMPT.slice(0, Math.max(0, len)),
-              cursor: Math.max(0, len),
-            };
-          } else if (session.current.screen !== "task")
-            session.current = execute(
-              { ...session.current, input: DEMO_PROMPT },
-              client,
-              clock.current,
-            );
-          if (t > 19) playing.current = false;
+        const url = `${import.meta.env.BASE_URL}assets/recordings/${client}-${scenario}-${mobile ? 80 : 120}.cast`;
+        const fontReady = document.fonts.load('12px "IBM Plex Mono"');
+        let recording = cache.get(url);
+        if (!recording) {
+          const response = await fetch(url, { signal: abort.signal });
+          if (!response.ok) throw new Error("Recording unavailable");
+          recording = parseRecording(await response.text());
+          cache.set(url, recording);
         }
-        if (
-          f.reduced &&
-          session.current.screen === "home" &&
-          !takingOver.current
-        )
-          session.current = { ...session.current, transcript: "" };
-        const output = renderScreen(
-          session.current,
-          client,
-          term.cols,
-          term.rows,
-          clock.current,
-          playing.current && !f.reduced && t < 2.4,
-          toolNames.current,
+        await fontReady;
+        const duration = recording.duration;
+        if (!valid() || !host.current || !viewport.current) return;
+        cursor = new RecordingCursor(recording);
+        terminal = new XTerm({
+          cols: recording.header.width,
+          rows: recording.header.height,
+          fontFamily: '"IBM Plex Mono", monospace',
+          fontSize: 12,
+          lineHeight: 1,
+          letterSpacing: 0,
+          convertEol: false,
+          disableStdin: true,
+          cursorBlink: false,
+          scrollback: 0,
+          minimumContrastRatio: 1,
+          theme: {
+            background: profile.background,
+            foreground: "#eeeeee",
+            cursor: "#eeeeee",
+          },
+        });
+        terminal.open(host.current);
+        terminal.textarea?.setAttribute("tabindex", "-1");
+        const size = () => {
+          if (
+            !host.current ||
+            !viewport.current ||
+            !terminal?.element ||
+            !valid()
+          )
+            return;
+          const screen =
+            host.current.querySelector<HTMLElement>(".xterm-screen");
+          if (!screen) return;
+          const width = screen.offsetWidth,
+            height = screen.offsetHeight;
+          if (!width || !height) return;
+          const scale = Math.min(
+            viewport.current.clientWidth / width,
+            viewport.current.clientHeight / height,
+            flags.current.expanded ? 1.6 : 1.15,
+          );
+          host.current.style.width = `${width}px`;
+          host.current.style.height = `${height}px`;
+          host.current.style.transform = `translate(-50%, -50%) scale(${scale})`;
+        };
+        observer = new ResizeObserver(size);
+        observer.observe(viewport.current);
+        size();
+        elapsed.current = Math.min(
+          flags.current.reduced && !flags.current.motionOverride
+            ? recording.duration
+            : elapsed.current,
+          recording.duration,
         );
-        if (output !== paintKey.current) {
-          term.write(output);
-          paintKey.current = output;
+        await new Promise<void>((resolve) =>
+          terminal!.write(cursor!.drain(elapsed.current), resolve),
+        );
+        if (!valid()) return;
+        writer = new RecordingWriter(
+          cursor,
+          (output: string, done: () => void) => terminal!.write(output, done),
+        );
+        size();
+        setReady(true);
+        function tick(timestamp: number) {
+          if (!valid() || !cursor || !terminal) return;
+          const f = flags.current,
+            active =
+              !f.paused &&
+              !f.localPaused &&
+              (!f.reduced || f.motionOverride) &&
+              (f.visible || f.expanded) &&
+              !document.hidden;
+          if (active) {
+            if (last !== null) elapsed.current += (timestamp - last) / 1000;
+            if (writer) {
+              writer.writeAt(elapsed.current);
+              if (cursor.finished && !writer.pending) {
+                elapsed.current = 0;
+                setScenario(
+                  (current) =>
+                    scenarios[
+                      (scenarios.findIndex((item) => item.id === current) + 1) %
+                        scenarios.length
+                    ].id,
+                );
+                return;
+              }
+            }
+          }
+          last = active ? timestamp : null;
+          if (timestamp - updateAt > 500) {
+            updateAt = timestamp;
+            setProgress(Math.min(100, (elapsed.current / duration) * 100));
+          }
+          frame = requestAnimationFrame(tick);
         }
+        frame = requestAnimationFrame(tick);
+      } catch {
+        if (valid()) setError("Could not load this recording.");
       }
-      frame = requestAnimationFrame(tick);
     }
-    frame = requestAnimationFrame(tick);
+    initialize();
     return () => {
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      abort.abort();
+      generationRef.current++;
+      writer?.cancel();
       cancelAnimationFrame(frame);
-      observer.disconnect();
-      input.dispose();
-      term.dispose();
-      terminal.current = null;
-      last.current = null;
+      observer?.disconnect();
+      terminal?.dispose();
+      host.current?.replaceChildren();
     };
-  }, [client, replay, reduced]);
+  }, [client, scenario, mobile, replay, reduced, profile.background]);
   useEffect(() => {
     if (!expanded) return;
-    terminal.current?.focus();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     const key = (event: KeyboardEvent) => {
-      if (
-        event.key === "Escape" &&
-        session.current.screen === "home" &&
-        !session.current.input
-      ) {
+      if (event.key === "Escape") {
+        event.preventDefault();
         setExpanded(false);
-        event.stopPropagation();
       }
-      if (event.key === "Tab" && session.current.screen !== "commands") {
-        const controls =
-          card.current?.querySelectorAll<HTMLElement>("button,textarea");
+      if (event.key === "Tab") {
+        const controls = card.current?.querySelectorAll<HTMLElement>(
+          "button:not(:disabled),select:not(:disabled)",
+        );
         if (!controls?.length) return;
         const first = controls[0],
           last = controls[controls.length - 1];
@@ -214,74 +236,68 @@ export default function AgentTerminal({
         }
       }
     };
-    document.addEventListener("keydown", key, true);
-    const prior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    openButton.current?.focus();
+    document.addEventListener("keydown", key);
     return () => {
-      document.removeEventListener("keydown", key, true);
-      document.body.style.overflow = prior;
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", key);
       openButton.current?.focus();
     };
   }, [expanded]);
   function restart() {
-    session.current = initialSession(client);
-    clock.current = 0;
-    last.current = null;
-    paintKey.current = "";
-    playing.current = true;
-    takingOver.current = false;
-    setInteractive(false);
-    setLocalPaused(false);
+    elapsed.current = 0;
+    setProgress(0);
     setReplay((n) => n + 1);
-  }
-  function example() {
-    takingOver.current = true;
-    playing.current = false;
-    setInteractive(true);
-    session.current = execute(
-      { ...session.current, input: DEMO_PROMPT },
-      client,
-      clock.current,
-    );
-    if (reduced) session.current.taskStart = clock.current - 9;
-    terminal.current?.focus();
   }
   return (
     <div
       ref={card}
       className={`agent-card ${expanded ? "agent-expanded" : ""}`}
-      role={expanded ? "dialog" : undefined}
+      role={expanded ? "dialog" : "group"}
       aria-modal={expanded || undefined}
-      aria-label={`${p.name} interactive demo`}
+      aria-label={`${profile.name} recorded demonstration`}
     >
       <Terminal
         sequence={false}
         header={
           <div className="agent-toolbar">
             <div className="agent-name">
-              <span style={{ color: p.accent }}>
+              <span style={{ color: profile.accent }}>
                 {client === "hermes"
                   ? "☤"
                   : client === "codex"
                     ? ">_"
-                    : client === "claude"
-                      ? "✳"
-                      : "◧"}
+                    : client === "opencode"
+                      ? "◧"
+                      : "✳"}
               </span>
-              {p.name}
-              <small>{p.version}</small>
+              {profile.name}
+              <small>{profile.version}</small>
             </div>
             <div className="agent-actions">
               <button
-                title={localPaused ? "Resume" : "Pause"}
-                aria-label={`${localPaused ? "Resume" : "Pause"} ${p.name}`}
-                onClick={() => setLocalPaused(!localPaused)}
+                disabled={paused || !ready}
+                title={
+                  paused
+                    ? "Resume animations using the page control"
+                    : stopped
+                      ? "Play"
+                      : "Pause"
+                }
+                aria-label={`${stopped ? "Play" : "Pause"} ${profile.name}`}
+                onClick={() => {
+                  if (still) {
+                    setMotionOverride(true);
+                    setLocalPaused(false);
+                    restart();
+                  } else setLocalPaused(!localPaused);
+                }}
               >
-                {localPaused ? "▷" : "Ⅱ"}
+                {stopped ? "▷" : "Ⅱ"}
               </button>
               <button
                 title="Replay"
-                aria-label={`Replay ${p.name}`}
+                aria-label={`Replay ${profile.name}`}
                 onClick={restart}
               >
                 ↺
@@ -289,7 +305,7 @@ export default function AgentTerminal({
               <button
                 ref={openButton}
                 title={expanded ? "Close" : "Enlarge"}
-                aria-label={`${expanded ? "Close" : "Enlarge"} ${p.name}`}
+                aria-label={`${expanded ? "Close" : "Enlarge"} ${profile.name}`}
                 onClick={() => setExpanded(!expanded)}
               >
                 {expanded ? "×" : "⛶"}
@@ -299,30 +315,54 @@ export default function AgentTerminal({
         }
         body={
           <div
-            className="terminal-screen"
-            ref={host}
-            onClick={() => {
-              if (playing.current && !takingOver.current)
-                session.current = { ...session.current, input: "", cursor: 0 };
-              playing.current = false;
-              takingOver.current = true;
-              setInteractive(true);
-              terminal.current?.focus();
-            }}
-          />
+            className="terminal-viewport"
+            ref={viewport}
+            style={{ background: profile.background }}
+          >
+            <div className="terminal-recording" ref={host} aria-hidden="true" />
+            {!ready && (
+              <div className="recording-state mono" role="status">
+                {error || "Loading native recording…"}
+                {error && <button onClick={restart}>Try again</button>}
+              </div>
+            )}
+          </div>
         }
       />
-      <p className="sr-only" aria-live="polite">
-        {status}
-      </p>
-      <div className="agent-hint">
-        <span>
-          {interactive
-            ? "Keyboard active · Esc returns to prompt"
-            : `Try ${p.statusCommand} · / for commands`}
+      <div className="recording-controls">
+        <label className="sr-only" htmlFor={`example-${client}`}>
+          {profile.name} example
+        </label>
+        <select
+          id={`example-${client}`}
+          value={scenario}
+          onChange={(event) => {
+            elapsed.current = 0;
+            setProgress(0);
+            setScenario(event.target.value as Scenario);
+          }}
+        >
+          {scenarios.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))}
+        </select>
+        <span className="mono">
+          {still
+            ? "Still frame"
+            : paused || localPaused
+              ? "Paused"
+              : "Recorded · 1×"}
         </span>
-        <button onClick={example}>Try a Hercules task ↗</button>
       </div>
+      <div className="recording-progress" aria-hidden="true">
+        <div style={{ width: `${progress}%`, background: profile.accent }} />
+      </div>
+      <p className="sr-only">
+        Native terminal interface with scripted example results. Use the example
+        selector and playback controls.
+      </p>
     </div>
   );
 }

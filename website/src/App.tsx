@@ -275,19 +275,19 @@ export default function App() {
             eyebrow="Your agent. Its own interface."
             title={
               <>
-                Same Hercules.
+                Hercules works
                 <br />
-                Four ways in.
+                with your agent.
               </>
             }
-            description="Watch the connection, inspect the MCP tools, then try a local-lab task. Explore each client’s commands and controls."
+            description="Connect any agent, worker, or custom integration that supports STDIO MCP. Run Hercules on Windows, macOS, or Linux with Docker. These four clients are examples."
           />
           <div className="demo-notice mono">
             <span>
               <span className="live-dot" />
-              Interactive browser replicas
+              Native UI recordings · scripted examples
             </span>
-            <span>Illustrative local lab · execution is simulated</span>
+            <span>Recorded in Docker · no external targets scanned</span>
           </div>
           <Suspense
             fallback={
@@ -298,22 +298,20 @@ export default function App() {
           >
             <div className="agent-grid">
               {(["claude", "codex", "opencode", "hermes"] as const).map(
-                (client, i) => (
+                (client) => (
                   <AgentTerminal
                     key={client}
                     client={client}
-                    offset={i * 0.65}
                     paused={paused}
                     reduced={!!reduced}
-                    tools={catalog?.capabilities.flatMap((c) => c.mcp_tools)}
                   />
                 ),
               )}
             </div>
           </Suspense>
           <p className="section-note">
-            Click a terminal to take over. Its command menu, help, settings, and
-            history are interactive. Enlarge a terminal for more room.
+            Choose an example, pause the recording, or enlarge a terminal for a
+            closer look. Each client keeps its own interface and animation timing.
           </p>
         </section>
         <section
@@ -583,9 +581,10 @@ export default function App() {
               starts with a prompt<span className="copper">.</span>
             </h2>
             <p className="install-description">
-              Paste this into your terminal-capable AI agent. It follows the
-              repository’s installation contract for your operating system and
-              active client.
+              Connect any agent, worker, or custom integration that supports
+              STDIO MCP. Hercules runs with Docker on Windows, macOS, and Linux.
+              Paste this prompt into your terminal-capable agent to install or
+              update it for your operating system and client.
             </p>
             <div className="install-box">
               <div className="install-header">
