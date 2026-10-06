@@ -394,30 +394,88 @@ button:focus-visible,
   width: 100%;
   overflow: hidden;
 }
-.terminal-screen {
+.terminal-viewport {
+  position: relative;
   height: 420px;
-  padding: 16px 18px;
+  min-width: 0;
   overflow: hidden;
 }
-.terminal-screen .xterm {
-  height: 100%;
+.terminal-recording {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 0;
+  transform-origin: center;
 }
-.terminal-screen .xterm-viewport {
-  overscroll-behavior: contain;
-}
-.agent-hint {
+.recording-state {
+  position: absolute;
+  inset: 0;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  padding: 10px 18px;
-  gap: 12px;
-  color: #a6afba;
-  font: 400 9px var(--mono);
+  justify-content: center;
+  gap: 16px;
+  background: #0a0a0a;
+  font-size: 11px;
+  color: var(--muted);
 }
-.agent-hint button {
-  font: inherit;
+.recording-state button {
   color: var(--copper);
+}
+.recording-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--muted);
+}
+.recording-controls select {
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 5px 7px;
+  font: inherit;
+  max-width: 65%;
+}
+.recording-controls select:focus-visible {
+  outline: 2px solid var(--hover);
+}
+.recording-progress {
+  height: 2px;
+  background: var(--surface);
+}
+.recording-progress > div {
+  height: 100%;
+  opacity: 0.65;
+}
+.agent-expanded .terminal-shell {
+  display: flex;
+  flex-direction: column;
+}
+.agent-expanded .terminal-viewport {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+@media (max-width: 1100px) {
+  .terminal-viewport {
+    height: 400px;
+  }
+}
+@media (max-width: 799px) {
+  .terminal-viewport {
+    height: 300px;
+  }
+  .recording-controls {
+    padding: 10px;
+    font-size: 9px;
+  }
+  .agent-name {
+    gap: 7px;
+    font-size: 12px;
+  }
 }
 .section-note {
   font-size: 11px;
@@ -436,9 +494,6 @@ button:focus-visible,
 .agent-expanded .terminal-shell {
   flex: 1;
   min-height: 0;
-}
-.agent-expanded .terminal-screen {
-  height: calc(92vh - 110px);
 }
 .workflow-section {
   min-height: 240svh;
@@ -877,11 +932,6 @@ button:focus-visible,
 .motion-off .hero-content {
   margin-top: 0 !important;
 }
-@media (min-width: 1700px) {
-  .terminal-screen {
-    height: 420px;
-  }
-}
 @media (max-width: 1100px) {
   .hero h1 {
     font-size: clamp(60px, 8.6vw, 110px);
@@ -897,9 +947,6 @@ button:focus-visible,
   }
   .agent-grid {
     grid-template-columns: 1fr;
-  }
-  .terminal-screen {
-    height: 400px;
   }
   .catalog {
     gap: 40px;
@@ -995,14 +1042,6 @@ button:focus-visible,
     padding: 13px 14px;
   }
   .agent-name small {
-    font-size: 8px;
-  }
-  .terminal-screen {
-    padding: 14px 10px;
-    height: 330px;
-  }
-  .agent-hint {
-    padding: 10px;
     font-size: 8px;
   }
   .workflow-section {
@@ -1142,9 +1181,6 @@ button:focus-visible,
   }
   .agent-expanded {
     inset: 3vh 3vw;
-  }
-  .agent-expanded .terminal-screen {
-    height: calc(94vh - 100px);
   }
   .background-scrim {
     background: rgba(16, 19, 23, 0.7);

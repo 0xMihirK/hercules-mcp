@@ -43,7 +43,7 @@ jobs:
       - name: Install website dependencies
         working-directory: website
         run: npm ci
-      - name: Verify procedural renderer
+      - name: Verify background and native playback
         working-directory: website
         run: npm test
       - name: Build public site

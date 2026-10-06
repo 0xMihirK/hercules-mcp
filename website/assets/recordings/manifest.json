@@ -1,0 +1,544 @@
+{
+  "format": "asciicast-v2",
+  "playbackSpeed": 1,
+  "nativeUI": true,
+  "scriptedModelAndToolResults": true,
+  "accountAccess": false,
+  "externalNetwork": false,
+  "term": "xterm-256color",
+  "theme": "native dark",
+  "font": "IBM Plex Mono",
+  "reproductionImage": "sha256:afa8ac2ccfc25d4ef7c527cf4f8247cfdb8007f9abc223817107d516538c0232",
+  "herculesSourceCommit": "5a9d71aac08bc628400f87fc605dcbeb9ed7a513",
+  "schemaSha256": "7fc3caf8f81432d5ea2448a72580b2c3a4a35951ce86cf792f17116dd1960928",
+  "recordings": [
+    {
+      "file": "claude-scan-120.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "scan",
+      "columns": 120,
+      "rows": 36,
+      "duration": 64.856852,
+      "timestamp": 1791321350,
+      "chapters": {
+        "mcp": 10.012838946999977,
+        "query": 18.81672329500002,
+        "report": 54.34911980499999
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "91568e080aeec8ed1da80663191aaedc7d6668e928c6a9c4b34de4e862ae0e7f"
+    },
+    {
+      "file": "claude-scan-80.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "scan",
+      "columns": 80,
+      "rows": 28,
+      "duration": 65.31747,
+      "timestamp": 1791321993,
+      "chapters": {
+        "mcp": 10.003867964999927,
+        "query": 18.807209786999966,
+        "report": 54.790945273000034
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "3aa9554496f77ad707a0b9d27b3d07ee758ff1062413dc44b3628b82a33b81cf"
+    },
+    {
+      "file": "claude-ctf-120.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "ctf",
+      "columns": 120,
+      "rows": 36,
+      "duration": 66.073051,
+      "timestamp": 1791321437,
+      "chapters": {
+        "mcp": 10.00167231599994,
+        "query": 18.802117566999915,
+        "report": 55.538787626000044
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "1570b4dd578f3502f5ba9a8dd8943e456abd3c0e72c67aaa45c03dd651f0e032"
+    },
+    {
+      "file": "claude-ctf-80.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "ctf",
+      "columns": 80,
+      "rows": 28,
+      "duration": 66.618463,
+      "timestamp": 1791322060,
+      "chapters": {
+        "mcp": 10.011587281999937,
+        "query": 18.824695001000055,
+        "report": 56.093559056000004
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "7a6398643618e66c39d2efea284ce0a2d88f37d3f30eb66014f44c94a1005b04"
+    },
+    {
+      "file": "claude-web-120.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "web",
+      "columns": 120,
+      "rows": 36,
+      "duration": 66.334973,
+      "timestamp": 1791321524,
+      "chapters": {
+        "mcp": 10.012999450000052,
+        "query": 18.811396315999946,
+        "report": 55.83063395399995
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "c65f01df67c406dadccc9b28c802563e04fdc86f2be0a0b8b29600372da5ed7e"
+    },
+    {
+      "file": "claude-web-80.cast",
+      "client": "claude",
+      "version": "2.1.291",
+      "scenario": "web",
+      "columns": 80,
+      "rows": 28,
+      "duration": 66.510141,
+      "timestamp": 1791322128,
+      "chapters": {
+        "mcp": 10.02148435800018,
+        "query": 18.819352073000164,
+        "report": 55.995496839
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "9c80902e7556ca255bf3a9ac3ec21b0fde380dc2745cd31b3be2e104da91a290"
+    },
+    {
+      "file": "codex-scan-120.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "scan",
+      "columns": 120,
+      "rows": 36,
+      "duration": 72.998496,
+      "timestamp": 1791322635,
+      "chapters": {
+        "mcp": 20.015172111000084,
+        "query": 28.814665117999812,
+        "report": 62.48985935200017
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "d9d6aea006337f9174925a78f090b292e3a11f1a550a641eb14159db84f38630"
+    },
+    {
+      "file": "codex-scan-80.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "scan",
+      "columns": 80,
+      "rows": 28,
+      "duration": 74.547771,
+      "timestamp": 1791322710,
+      "chapters": {
+        "mcp": 20.00584608500003,
+        "query": 28.810100040999988,
+        "report": 64.02359722500023
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "f2937f8f8587dbe4558528a9d26a4968b7ec0e6f6e6cc7aae5bb27a7e9fd7875"
+    },
+    {
+      "file": "codex-ctf-120.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "ctf",
+      "columns": 120,
+      "rows": 36,
+      "duration": 75.83559,
+      "timestamp": 1791322635,
+      "chapters": {
+        "mcp": 20.009181806000015,
+        "query": 28.806404043999738,
+        "report": 65.31580340799974
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "c2b109e91dfc39b9c36a52aa6208f90cff10406b3aceaf3fca887cd412bb10de"
+    },
+    {
+      "file": "codex-ctf-80.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "ctf",
+      "columns": 80,
+      "rows": 28,
+      "duration": 73.88113,
+      "timestamp": 1791322719,
+      "chapters": {
+        "mcp": 20.021919657000126,
+        "query": 28.824455605000185,
+        "report": 63.351196012999935
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "5b86e94fbd89e7691a5c2740745f9299427514fc2cc992a01aab13edddf96960"
+    },
+    {
+      "file": "codex-web-120.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "web",
+      "columns": 120,
+      "rows": 36,
+      "duration": 74.01847,
+      "timestamp": 1791322635,
+      "chapters": {
+        "mcp": 20.009231030999672,
+        "query": 28.806793401999858,
+        "report": 63.48433780899995
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "aa3bed1ac511062e900ad518f01f4921e408a56cc351aa1157843978ffa4ed76"
+    },
+    {
+      "file": "codex-web-80.cast",
+      "client": "codex",
+      "version": "0.147.0",
+      "scenario": "web",
+      "columns": 80,
+      "rows": 28,
+      "duration": 75.687474,
+      "timestamp": 1791322711,
+      "chapters": {
+        "mcp": 20.014784728999985,
+        "query": 28.80984243999983,
+        "report": 65.15978124599997
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "50d422ccd5b0d7c371588ddc82a66bed314c961de743ff4c6f870514a023c772"
+    },
+    {
+      "file": "opencode-scan-120.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "scan",
+      "columns": 120,
+      "rows": 36,
+      "duration": 57.958518,
+      "timestamp": 1791321343,
+      "chapters": {
+        "mcp": 10.018194586999925,
+        "query": 18.80079567799992,
+        "report": 47.43669927099995
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "6adc3c2c69bdd77929268a7f49ed7159e43fdfb3f0695b9de7124bf07840448f"
+    },
+    {
+      "file": "opencode-scan-80.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "scan",
+      "columns": 80,
+      "rows": 28,
+      "duration": 59.132969,
+      "timestamp": 1791321403,
+      "chapters": {
+        "mcp": 10.017869489999953,
+        "query": 18.806046126000002,
+        "report": 48.60279917699995
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "b03850371979095040e576203b8c9050f52629a39fe0ca97834dfb0cdc110ed2"
+    },
+    {
+      "file": "opencode-ctf-120.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "ctf",
+      "columns": 120,
+      "rows": 36,
+      "duration": 59.360831,
+      "timestamp": 1791321463,
+      "chapters": {
+        "mcp": 10.024292872999922,
+        "query": 18.811916662999852,
+        "report": 48.83732120399998
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "0744f1ca9015857ac9edcbae8c09c8678e55296c1b6cad086360465b33c8c8d6"
+    },
+    {
+      "file": "opencode-ctf-80.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "ctf",
+      "columns": 80,
+      "rows": 28,
+      "duration": 59.69258,
+      "timestamp": 1791321524,
+      "chapters": {
+        "mcp": 10.01738992699984,
+        "query": 18.808915492999905,
+        "report": 49.17649570000003
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "de3062a567d0bebadef9e44cdd96668188d86644302d3b7e7dccff41791a2921"
+    },
+    {
+      "file": "opencode-web-120.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "web",
+      "columns": 120,
+      "rows": 36,
+      "duration": 59.789434,
+      "timestamp": 1791321585,
+      "chapters": {
+        "mcp": 10.009364936999873,
+        "query": 18.814013992999936,
+        "report": 49.276801778999925
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "2684c7e4ab755c9b7ebc6ccc5882673584ab62346807dcb3bf266c1b0068ce9b"
+    },
+    {
+      "file": "opencode-web-80.cast",
+      "client": "opencode",
+      "version": "1.18.34",
+      "scenario": "web",
+      "columns": 80,
+      "rows": 28,
+      "duration": 60.297712,
+      "timestamp": 1791321646,
+      "chapters": {
+        "mcp": 10.012034140999958,
+        "query": 18.81869742100007,
+        "report": 49.792093596000086
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "13bb18c9e49753938e9073a7fe841468adfbe635ce7afe11ac2f85b92f200239"
+    },
+    {
+      "file": "hermes-scan-120.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "scan",
+      "columns": 120,
+      "rows": 36,
+      "duration": 71.194013,
+      "timestamp": 1791321816,
+      "chapters": {
+        "mcp": 20.009138209999946,
+        "query": 28.823621669000023,
+        "report": 59.70880432399986
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "a86797f135b60c9594d5418a8ce1ee7587554c1b8cab9365e026ad5660f13ebb"
+    },
+    {
+      "file": "hermes-scan-80.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "scan",
+      "columns": 80,
+      "rows": 28,
+      "duration": 70.738913,
+      "timestamp": 1791321888,
+      "chapters": {
+        "mcp": 20.01631660199996,
+        "query": 28.805108988000075,
+        "report": 59.2919554529999
+      },
+      "tools": [
+        "system_start_container",
+        "nmap_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "ad4aea3d6f2fa88e4dc66942c7764b2bf422dba8b185ffdba8d68ef072c64bfb"
+    },
+    {
+      "file": "hermes-ctf-120.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "ctf",
+      "columns": 120,
+      "rows": 36,
+      "duration": 72.060476,
+      "timestamp": 1791322034,
+      "chapters": {
+        "mcp": 20.019990323000002,
+        "query": 28.812465809999868,
+        "report": 60.15653565799994
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "aa371b48bc2560c9ad092c258cec38eff4b25077b61bb56e7b2bd4d1dd9240d8"
+    },
+    {
+      "file": "hermes-ctf-80.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "ctf",
+      "columns": 80,
+      "rows": 28,
+      "duration": 73.325811,
+      "timestamp": 1791322109,
+      "chapters": {
+        "mcp": 20.004703049,
+        "query": 28.815995945999976,
+        "report": 61.43334247500002
+      },
+      "tools": [
+        "system_start_container",
+        "ctf_binwalk",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "1f2bf1f07093e4be52bdd527e7b5723363585e155bf11921a1eec77633ad5cba"
+    },
+    {
+      "file": "hermes-web-120.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "web",
+      "columns": 120,
+      "rows": 36,
+      "duration": 71.807936,
+      "timestamp": 1791322034,
+      "chapters": {
+        "mcp": 20.01529113300012,
+        "query": 28.81612789900014,
+        "report": 60.187903543000175
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "d3442faf8cf1e9a594cc2a1c3d0cb7992fc712d96e8b828fbd4630ee76b92dac"
+    },
+    {
+      "file": "hermes-web-80.cast",
+      "client": "hermes",
+      "version": "3f524a2459efe4ab32061c418e309e5da1a931fd",
+      "scenario": "web",
+      "columns": 80,
+      "rows": 28,
+      "duration": 73.314049,
+      "timestamp": 1791322108,
+      "chapters": {
+        "mcp": 20.01337123799999,
+        "query": 28.800183581000102,
+        "report": 61.67907309600014
+      },
+      "tools": [
+        "system_start_container",
+        "web_scan",
+        "workspace_read_file",
+        "workspace_write_file"
+      ],
+      "sha256": "352b30025061a306a710fda9328a624dadb466b43199f33321d08ddcd9afbc80"
+    }
+  ]
+}
