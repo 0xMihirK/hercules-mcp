@@ -21,6 +21,9 @@ container. It keeps evidence in managed host workspaces and returns bounded,
 agent-friendly results without hiding whether output was filtered, truncated,
 or interrupted.
 
+[Explore the Hercules showcase](https://0xmihirk.github.io/hercules-mcp/) for an
+interactive introduction to the workflow, tools, and workspace evidence.
+
 > **Authorized use only.** Run Hercules only against systems for which you have
 > explicit permission. Installation and verification are local and
 > non-destructive; they must not scan, exploit, navigate to, or check public

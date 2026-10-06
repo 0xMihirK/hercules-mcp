@@ -14,3 +14,4 @@ spectifcations/
 .gemini/
 .pytest_cache/
 .ruff_cache/
+website/

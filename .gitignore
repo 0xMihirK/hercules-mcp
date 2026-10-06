@@ -62,3 +62,16 @@ snapshot_report.html
 # Scratch render images at the repo root (real assets live in assets/)
 /*.png
 /*.svg
+
+# Only the public showcase workflow is tracked; other local CI files stay private.
+!.github/
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/pages.yml
+
+# Website dependencies and generated public/build output
+website/node_modules/
+website/public/
+website/dist/
+website/test-results/
