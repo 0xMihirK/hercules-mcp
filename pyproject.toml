@@ -39,6 +39,8 @@ exclude = [
     "tests/**",
     ".github",
     ".github/**",
+    "website",
+    "website/**",
 ]
 
 [tool.hatch.build.targets.wheel]
