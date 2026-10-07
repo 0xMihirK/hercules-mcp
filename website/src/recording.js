@@ -1,4 +1,16 @@
 /** Raw asciicast v2 parsing and playback position, independent of the renderer. */
+/**
+ * @template {string} T
+ * @param {T[]} ids
+ * @param {T | null} [previous]
+ * @param {() => number} [random]
+ * @returns {T}
+ */
+export function chooseScenario(ids, previous = null, random = Math.random) {
+  const available = ids.filter((id) => id !== previous);
+  return available[Math.floor(random() * available.length)];
+}
+
 export function parseRecording(source) {
   const lines = source
     .trim()

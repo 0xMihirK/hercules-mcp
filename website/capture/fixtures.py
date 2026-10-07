@@ -11,46 +11,42 @@ import sys
 import threading
 import time
 import uuid
-import base64
-import io
-import zipfile
+import subprocess
+from ctf_lab import create_challenge, archive_offset, FLAG_DIGEST
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SURFACE = json.loads(Path("/capture/hercules-surface.json").read_text())
-PROMPTS = {
-    "scan": "Scan scanme.nmap.org for me and prepare a report. Use Hercules MCP.",
-    "ctf": "Solve the local CTF challenge in challenge.png and save a write-up. Use Hercules MCP.",
-    "web": "Scan http://shop.lab.test for vulnerabilities and prepare a report. Use Hercules MCP.",
-}
-PHASES = {
-    "scan": ["Discover services", "Review the evidence", "Write the report"],
-    "ctf": ["Inspect the challenge", "Recover the flag", "Write the solution"],
-    "web": ["Inspect the website", "Check sample findings", "Write the report"],
-}
+CASES = json.loads(Path(__file__).with_name("cases.json").read_text())
+PROMPTS = {key: case["prompt"] for key, case in CASES.items()}
+PHASES = {key: case["phases"] for key, case in CASES.items()}
 REPORTS = {
     "scan": "# Network assessment\n\nIllustrative fixture results, not a scan of scanme.nmap.org.\n\n22/tcp: SSH. 80/tcp: HTTP. 9929/tcp: nping.\nNo vulnerability is established by an open port alone.\n\nEvidence: artifacts/scan.xml\nNext: verify exposed services against your authorized scope.\n",
-    "ctf": "# CTF solution\n\nLocal demonstration challenge.\n\n1. Inspected the PNG and found an appended ZIP signature.\n2. Read the recovered note.\n3. Decoded the clue and recovered HERCULES{keep_the_evidence}.\n\nEvidence: artifacts/challenge-analysis.txt\n",
+    "ctf": f"# CTF write-up: Signal route\n\nLocal, reproducible file-forensics challenge.\n\n1. Found a ZIP appended after a valid 64x64 PNG.\n2. Read the PNG metadata clue: route=13,14,17,19,7.\n3. Extracted README.md, decoy.txt, manifest.json and payload.bin.\n4. Converted the zero-based route to the repeating XOR key NORTH.\n5. XOR-decoded the payload, then decoded its base64 layer.\n6. Rejected the decoy and verified the recovered flag against the manifest.\n\nFlag: HERCULES{{evidence_before_answers}}\nSHA-256: {FLAG_DIGEST}\nChecksum match: true. Decoy match: false.\n\nEvidence: artifacts/ctf/solution.json and artifacts/ctf/manifest.json\nReproduce: python ctf_lab.py extract challenge.png artifacts/ctf\nThen: python ctf_lab.py solve challenge.png artifacts/ctf\n",
     "web": "# Web assessment\n\nIllustrative results for the fictional shop.lab.test lab.\n\nMedium: a sample development endpoint exposes debug metadata.\nLow: Content-Security-Policy is absent from the sample response.\n\nRecommendations: disable debug endpoints and configure a tested CSP.\nEvidence: artifacts/web-findings.json\n",
+    "dns": "# DNS report\n\nIllustrative DNS answers for the fictional shop.lab.test lab.\n\nA record: 192.0.2.20. TTL: 300 seconds.\nThe sample query completed with NOERROR.\nThis address is fixture data, not a discovered external host.\n\nEvidence: artifacts/dns-records.json\n",
+    "headers": "# HTTP header review\n\nIllustrative response from the fictional portal.lab.test lab.\n\nPresent: Strict-Transport-Security with max-age=31536000.\nAbsent in the sample: Content-Security-Policy and a frame policy.\n\nReview the app's resource and embedding requirements before configuring CSP.\nEvidence: artifacts/response-headers.txt\n",
+    "browser": "# Login page review\n\nIllustrative snapshot of the fictional portal.lab.test login page.\n\nThe email field has an accessible name. The password field has none.\nAssociate a visible label with the password field, then verify keyboard focus.\nNo credentials were entered and no form was submitted.\n\nEvidence: artifacts/login-snapshot.txt\n",
 }
 
 EVIDENCE = {
     "scan": '<nmaprun scanner="scripted-fixture"><host><ports><port protocol="tcp" portid="22"><state state="open"/><service name="ssh"/></port><port protocol="tcp" portid="80"><state state="open"/><service name="http"/></port><port protocol="tcp" portid="9929"><state state="open"/><service name="nping"/></port></ports></host></nmaprun>\n',
-    "ctf": "Scripted binwalk fixture: PNG signature at 0; appended ZIP signature.\nRecovered note: HERCULES{keep_the_evidence}\n",
     "web": json.dumps({"fictional_lab": "shop.lab.test", "fixture": True, "findings": [{"severity": "medium", "title": "Sample debug endpoint"}, {"severity": "low", "title": "Missing Content-Security-Policy"}]}, indent=2) + "\n",
+    "dns": json.dumps({"fixture": True, "question": {"name": "shop.lab.test", "type": "A"}, "status": "NOERROR", "answers": [{"name": "shop.lab.test", "type": "A", "ttl": 300, "value": "192.0.2.20"}]}, indent=2) + "\n",
+    "headers": "HTTP/2 200\ncontent-type: text/html; charset=utf-8\nstrict-transport-security: max-age=31536000\nx-hercules-fixture: true\n\nContent-Security-Policy: absent from the sample\nFrame policy: absent from the sample\n",
+    "browser": "Illustrative browser snapshot: https://portal.lab.test\nheading: Sign in\ntextbox: Email\ntextbox: [password field; accessible name missing]\nbutton: Sign in\nlink: Forgot password?\n",
 }
 
-def prepare_workspace(home):
-    """Supply a tiny local PNG/ZIP challenge and real files for fixture evidence."""
-    archive = io.BytesIO()
-    with zipfile.ZipFile(archive, "w") as package:
-        package.writestr("note.txt", "HERCULES{keep_the_evidence}\n")
-    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
-    (home / "challenge.png").write_bytes(png + archive.getvalue())
+def prepare_workspace(home, scenario):
+    """Supply a real layered challenge and evidence files for the other fixtures."""
+    create_challenge(home)
+    (home / "capture-scenario.txt").write_text(scenario)
     (home / "artifacts").mkdir(exist_ok=True)
     (home / "reports").mkdir(exist_ok=True)
-    (home / "artifacts" / "scan.xml").write_text(EVIDENCE["scan"])
-    (home / "artifacts" / "challenge-analysis.txt").write_text(EVIDENCE["ctf"])
-    (home / "artifacts" / "web-findings.json").write_text(EVIDENCE["web"])
+    for scenario, case in CASES.items():
+        if scenario == "ctf":
+            continue  # Its evidence is created by extraction and verified decoding.
+        (home / "artifacts" / case["artifact"]).write_text(EVIDENCE[scenario])
+    (home / "lab-login.html").write_text('<!doctype html><html lang="en"><title>Lab login</title><h1>Sign in</h1><form><label for="email">Email</label><input id="email" type="email"><input type="password"><button>Sign in</button></form><a href="#reset">Forgot password?</a></html>')
 
 def mcp_result(name, args, scenario):
     if name == "system_start_container":
@@ -58,18 +54,44 @@ def mcp_result(name, args, scenario):
     if name == "nmap_scan":
         return {"status": "success", "target": "scanme.nmap.org", "ports": [{"port": 22, "protocol": "tcp", "state": "open", "service": "ssh"}, {"port": 80, "protocol": "tcp", "state": "open", "service": "http"}, {"port": 9929, "protocol": "tcp", "state": "open", "service": "nping"}], "stdout_artifact": "/opt/workspace/artifacts/scan.xml", "evidence_complete": True, "demonstration": True}
     if name == "ctf_binwalk":
-        return {"status": "success", "signatures": [{"offset": 0, "description": "PNG image data"}, {"offset": 8192, "description": "Zip archive data"}], "artifact": "/opt/workspace/artifacts/challenge-analysis.txt", "demonstration": True}
+        return {"status": "success", "signatures": [{"offset": 0, "description": "PNG image data, 64 x 64, grayscale"}, {"offset": archive_offset(Path("/home/capture/session/challenge.png")), "description": "Zip archive data"}], "demonstration": True}
+    if name == "shell_exec" and scenario == "ctf":
+        commands = {"strings -a challenge.png": ["strings", "-a", "challenge.png"], "python ctf_lab.py extract challenge.png artifacts/ctf": [sys.executable, "ctf_lab.py", "extract", "challenge.png", "artifacts/ctf"], "python ctf_lab.py solve challenge.png artifacts/ctf": [sys.executable, "ctf_lab.py", "solve", "challenge.png", "artifacts/ctf"]}
+        completed = subprocess.run(commands[args["command"]], cwd="/home/capture/session", capture_output=True, text=True, timeout=30, check=False)
+        return {"exit_code": completed.returncode, "stdout": completed.stdout, "stderr": completed.stderr, "output_complete": True, "evidence_complete": True, "demonstration": True}
     if name in ("web_scan", "nuclei_run"):
         return {"status": "success", "target": "http://shop.lab.test", "findings": [{"severity": "medium", "title": "Sample debug endpoint"}, {"severity": "low", "title": "Missing Content-Security-Policy"}], "stdout_artifact": "/opt/workspace/artifacts/web-findings.json", "demonstration": True}
+    if name == "recon_dns":
+        return {"status": "success", **json.loads(EVIDENCE["dns"]), "stdout_artifact": "/opt/workspace/artifacts/dns-records.json", "demonstration": True}
+    if name == "network_curl":
+        return {"status": "success", "url": "https://portal.lab.test", "http_status": 200, "stdout": EVIDENCE["headers"], "stdout_artifact": "/opt/workspace/artifacts/response-headers.txt", "demonstration": True}
+    if name == "browser_open":
+        return {"status": "success", "session": "showcase", "url": "https://portal.lab.test", "title": "Lab login", "demonstration": True}
+    if name == "browser_snapshot":
+        return {"status": "success", "session": "showcase", "snapshot": EVIDENCE["browser"], "artifact": "/opt/workspace/artifacts/login-snapshot.txt", "demonstration": True}
     if name == "workspace_read_file":
-        return {"status": "success", "content": EVIDENCE[scenario], "output_complete": True, "evidence_complete": True, "demonstration": True}
+        home = Path("/home/capture/session")
+        path = (home / args["path"]).resolve()
+        if not path.is_relative_to(home):
+            raise ValueError("Fixture evidence path outside the disposable workspace")
+        return {"status": "success", "content": path.read_text(), "output_complete": True, "evidence_complete": True, "demonstration": True}
     if name == "workspace_write_file":
-        Path("/home/capture/session/reports", scenario + ".md").write_text(REPORTS[scenario])
-        return {"status": "success", "path": "/opt/workspace/reports/" + scenario + ".md", "bytes_written": len(REPORTS[scenario]), "demonstration": True}
+        home = Path("/home/capture/session")
+        path = (home / args["path"]).resolve()
+        if not path.is_relative_to(home):
+            raise ValueError("Fixture report path outside the disposable workspace")
+        if scenario == "ctf":
+            solution = json.loads((home / "artifacts/ctf/solution.json").read_text())
+            if not solution["checksum_match"] or solution["decoy_sha256_match"]:
+                raise ValueError("CTF report requires verified evidence")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(args["content"])
+        return {"status": "success", "path": "/opt/workspace/" + args["path"], "bytes_written": len(args["content"].encode()), "demonstration": True}
     return {"status": "success", "demonstration": True, "message": "Offline illustrative fixture"}
 
 def stdio():
-    scenario = os.environ.get("CAPTURE_SCENARIO", "scan")
+    # Codex deliberately filters inherited environment variables for MCP children.
+    scenario = Path("/home/capture/session/capture-scenario.txt").read_text().strip()
     for line in sys.stdin:
         request = json.loads(line)
         if "id" not in request:
@@ -125,15 +147,14 @@ class ModelFixture(BaseHTTPRequestHandler):
         additional = [namespace for item in body.get("input", []) if item.get("type") == "additional_tools" for namespace in item.get("tools", [])]
         if cls.client == "codex" and any(t.get("type") == "custom" and t.get("name") == "exec" for namespace in additional for t in namespace.get("tools", [])):
             phase = PHASES[cls.scenario]
-            operation, arguments = {"scan": ("nmap_scan", {"mode": "port", "target": "scanme.nmap.org", "ports": "22,80,9929"}), "ctf": ("ctf_binwalk", {"filepath": "challenge.png", "extract": False}), "web": ("web_scan", {"target": "http://shop.lab.test", "tool": "nikto"})}[cls.scenario]
             def invoke(suffix, args):
                 return 'const tool = ALL_TOOLS.find(t => t.name.endsWith("__' + suffix + '")); if (!tool) throw new Error("Hercules tool unavailable"); text(await tools[tool.name](' + json.dumps(args) + '));'
             code = [
                 'text(ALL_TOOLS.filter(t => t.name.includes("hercules")).map(t => ({name: t.name, description: t.description.slice(0, 90)})));',
                 'text(await tools.update_plan(' + json.dumps({"plan": [{"step": title, "status": "pending" if i else "in_progress"} for i, title in enumerate(phase)]}) + '));',
                 invoke("system_start_container", {}),
-                invoke(operation, arguments),
-                invoke("workspace_read_file", {"path": "artifacts/" + {"scan": "scan.xml", "ctf": "challenge-analysis.txt", "web": "web-findings.json"}[cls.scenario], "encoding": "text"}),
+                *[invoke(operation["tool"], operation["arguments"]) for operation in CASES[cls.scenario]["operations"]],
+                invoke("workspace_read_file", {"path": "artifacts/" + CASES[cls.scenario]["artifact"], "encoding": "text"}),
                 invoke("workspace_write_file", {"path": "reports/" + cls.scenario + ".md", "content": REPORTS[cls.scenario]}),
                 'text(await tools.update_plan(' + json.dumps({"plan": [{"step": title, "status": "completed"} for title in phase]}) + '));',
             ]
@@ -178,9 +199,8 @@ class ModelFixture(BaseHTTPRequestHandler):
             else:
                 queue.append((plan_name, {"todos": tasks}))
         queue.append((find("system_start_container"), {}))
-        operation = {"scan": ("nmap_scan", {"mode": "port", "target": "scanme.nmap.org", "ports": "22,80,9929"}), "ctf": ("ctf_binwalk", {"filepath": "challenge.png", "extract": False}), "web": ("web_scan", {"target": "http://shop.lab.test", "tool": "nikto"})}[cls.scenario]
-        queue.append((find(operation[0]), operation[1]))
-        queue.append((find("workspace_read_file"), {"path": "artifacts/" + ("challenge-analysis.txt" if cls.scenario == "ctf" else "scan.xml" if cls.scenario == "scan" else "web-findings.json"), "file_path": "artifacts/evidence.txt", "encoding": "text"}))
+        queue.extend((find(operation["tool"]), operation["arguments"]) for operation in CASES[cls.scenario]["operations"])
+        queue.append((find("workspace_read_file"), {"path": "artifacts/" + CASES[cls.scenario]["artifact"], "file_path": "artifacts/evidence.txt", "encoding": "text"}))
         queue.append((find("workspace_write_file"), {"path": "reports/" + cls.scenario + ".md", "file_path": "reports/" + cls.scenario + ".md", "content": REPORTS[cls.scenario], "encoding": "text"}))
         if plan_name == "update_plan":
             queue.append((plan_name, {"plan": [{"step": title, "status": "completed"} for title in phase]}))

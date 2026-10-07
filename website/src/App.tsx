@@ -310,8 +310,8 @@ export default function App() {
             </div>
           </Suspense>
           <p className="section-note">
-            Choose an example, pause the recording, or enlarge a terminal for a
-            closer look. Each client keeps its own interface and animation timing.
+            Each terminal plays examples in a random order. Pause, replay, or
+            enlarge one for a closer look. Native animation timing stays intact.
           </p>
         </section>
         <section

@@ -396,7 +396,7 @@ button:focus-visible,
 }
 .terminal-viewport {
   position: relative;
-  height: 420px;
+  aspect-ratio: var(--terminal-aspect, 1.46);
   min-width: 0;
   overflow: hidden;
 }
@@ -421,35 +421,6 @@ button:focus-visible,
 .recording-state button {
   color: var(--copper);
 }
-.recording-controls {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 18px;
-  border-top: 1px solid var(--line);
-  font-size: 10px;
-  color: var(--muted);
-}
-.recording-controls select {
-  color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  padding: 5px 7px;
-  font: inherit;
-  max-width: 65%;
-}
-.recording-controls select:focus-visible {
-  outline: 2px solid var(--hover);
-}
-.recording-progress {
-  height: 2px;
-  background: var(--surface);
-}
-.recording-progress > div {
-  height: 100%;
-  opacity: 0.65;
-}
 .agent-expanded .terminal-shell {
   display: flex;
   flex-direction: column;
@@ -458,19 +429,11 @@ button:focus-visible,
   flex: 1;
   min-height: 0;
   height: auto;
-}
-@media (max-width: 1100px) {
-  .terminal-viewport {
-    height: 400px;
-  }
+  aspect-ratio: auto;
 }
 @media (max-width: 799px) {
   .terminal-viewport {
-    height: 300px;
-  }
-  .recording-controls {
-    padding: 10px;
-    font-size: 9px;
+    aspect-ratio: var(--terminal-aspect, 1.25);
   }
   .agent-name {
     gap: 7px;

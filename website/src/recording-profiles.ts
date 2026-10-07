@@ -1,10 +1,10 @@
+import cases from "../capture/cases.json";
 export type Client = "claude" | "codex" | "opencode" | "hermes";
-export type Scenario = "scan" | "ctf" | "web";
-export const scenarios: { id: Scenario; name: string }[] = [
-  { id: "scan", name: "Scan and report" },
-  { id: "ctf", name: "Solve a CTF" },
-  { id: "web", name: "Assess a website" },
-];
+export type Scenario = keyof typeof cases;
+export const scenarios = Object.entries(cases).map(([id, details]) => ({
+  id: id as Scenario,
+  name: details.name,
+}));
 export const profiles = {
   claude: {
     name: "Claude Code",

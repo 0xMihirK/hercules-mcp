@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerm } from "@xterm/xterm";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { useInView } from "motion/react";
 import { Terminal } from "./ui/terminal";
@@ -7,6 +8,7 @@ import {
   parseRecording,
   RecordingCursor,
   RecordingWriter,
+  chooseScenario,
 } from "../recording.js";
 import {
   profiles,
@@ -14,8 +16,15 @@ import {
   type Client,
   type Scenario,
 } from "../recording-profiles";
+import manifest from "../../assets/recordings/manifest.json";
 
 const cache = new Map<string, ReturnType<typeof parseRecording>>();
+const recordingIndex: {
+  file: string;
+  sha256: string;
+  displayStart?: number;
+}[] = manifest.recordings;
+const scenarioIds = scenarios.map((item) => item.id);
 export default function AgentTerminal({
   client,
   paused,
@@ -29,15 +38,16 @@ export default function AgentTerminal({
     host = useRef<HTMLDivElement>(null),
     viewport = useRef<HTMLDivElement>(null),
     openButton = useRef<HTMLButtonElement>(null);
-  const [scenario, setScenario] = useState<Scenario>("scan"),
+  const [scenario, setScenario] = useState<Scenario>(() =>
+      chooseScenario(scenarioIds),
+    ),
     [localPaused, setLocalPaused] = useState(false),
     [expanded, setExpanded] = useState(false),
     [replay, setReplay] = useState(0);
   const [motionOverride, setMotionOverride] = useState(false);
   const [mobile, setMobile] = useState(() => innerWidth < 800),
     [error, setError] = useState(""),
-    [ready, setReady] = useState(false),
-    [progress, setProgress] = useState(0);
+    [ready, setReady] = useState(false);
   const elapsed = useRef(0),
     generationRef = useRef(0),
     visible = useInView(card, { amount: 0.08 });
@@ -74,8 +84,7 @@ export default function AgentTerminal({
       frame = 0,
       cursor: RecordingCursor | undefined,
       writer: RecordingWriter | undefined,
-      last: number | null = null,
-      updateAt = 0;
+      last: number | null = null;
     const visibilityChanged = () => {
       last = null;
     };
@@ -86,7 +95,10 @@ export default function AgentTerminal({
     setError("");
     async function initialize() {
       try {
-        const url = `${import.meta.env.BASE_URL}assets/recordings/${client}-${scenario}-${mobile ? 80 : 120}.cast`;
+        const file = `${client}-${scenario}-${mobile ? 80 : 120}.cast`;
+        const metadata = recordingIndex.find((item) => item.file === file);
+        if (!metadata) throw new Error("Recording metadata unavailable");
+        const url = `${import.meta.env.BASE_URL}assets/recordings/${file}?v=${metadata.sha256.slice(0, 12)}`;
         const fontReady = document.fonts.load('12px "IBM Plex Mono"');
         let recording = cache.get(url);
         if (!recording) {
@@ -96,7 +108,6 @@ export default function AgentTerminal({
           cache.set(url, recording);
         }
         await fontReady;
-        const duration = recording.duration;
         if (!valid() || !host.current || !viewport.current) return;
         cursor = new RecordingCursor(recording);
         terminal = new XTerm({
@@ -118,6 +129,15 @@ export default function AgentTerminal({
           },
         });
         terminal.open(host.current);
+        // Rasterize block/quadrant characters on the cell grid. DOM font
+        // fallback gives these glyphs different bearings and breaks wordmarks.
+        const glyphRenderer = new WebglAddon();
+        try {
+          terminal.loadAddon(glyphRenderer);
+          glyphRenderer.onContextLoss(() => glyphRenderer.dispose());
+        } catch {
+          glyphRenderer.dispose();
+        }
         terminal.textarea?.setAttribute("tabindex", "-1");
         const size = () => {
           if (
@@ -133,6 +153,10 @@ export default function AgentTerminal({
           const width = screen.offsetWidth,
             height = screen.offsetHeight;
           if (!width || !height) return;
+          viewport.current.style.setProperty(
+            "--terminal-aspect",
+            `${width} / ${height}`,
+          );
           const scale = Math.min(
             viewport.current.clientWidth / width,
             viewport.current.clientHeight / height,
@@ -148,7 +172,7 @@ export default function AgentTerminal({
         elapsed.current = Math.min(
           flags.current.reduced && !flags.current.motionOverride
             ? recording.duration
-            : elapsed.current,
+            : Math.max(elapsed.current, metadata.displayStart ?? 0),
           recording.duration,
         );
         await new Promise<void>((resolve) =>
@@ -176,22 +200,12 @@ export default function AgentTerminal({
               writer.writeAt(elapsed.current);
               if (cursor.finished && !writer.pending) {
                 elapsed.current = 0;
-                setScenario(
-                  (current) =>
-                    scenarios[
-                      (scenarios.findIndex((item) => item.id === current) + 1) %
-                        scenarios.length
-                    ].id,
-                );
+                setScenario((current) => chooseScenario(scenarioIds, current));
                 return;
               }
             }
           }
           last = active ? timestamp : null;
-          if (timestamp - updateAt > 500) {
-            updateAt = timestamp;
-            setProgress(Math.min(100, (elapsed.current / duration) * 100));
-          }
           frame = requestAnimationFrame(tick);
         }
         frame = requestAnimationFrame(tick);
@@ -222,7 +236,7 @@ export default function AgentTerminal({
       }
       if (event.key === "Tab") {
         const controls = card.current?.querySelectorAll<HTMLElement>(
-          "button:not(:disabled),select:not(:disabled)",
+          "button:not(:disabled)",
         );
         if (!controls?.length) return;
         const first = controls[0],
@@ -246,7 +260,6 @@ export default function AgentTerminal({
   }, [expanded]);
   function restart() {
     elapsed.current = 0;
-    setProgress(0);
     setReplay((n) => n + 1);
   }
   return (
@@ -329,39 +342,10 @@ export default function AgentTerminal({
           </div>
         }
       />
-      <div className="recording-controls">
-        <label className="sr-only" htmlFor={`example-${client}`}>
-          {profile.name} example
-        </label>
-        <select
-          id={`example-${client}`}
-          value={scenario}
-          onChange={(event) => {
-            elapsed.current = 0;
-            setProgress(0);
-            setScenario(event.target.value as Scenario);
-          }}
-        >
-          {scenarios.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-        <span className="mono">
-          {still
-            ? "Still frame"
-            : paused || localPaused
-              ? "Paused"
-              : "Recorded · 1×"}
-        </span>
-      </div>
-      <div className="recording-progress" aria-hidden="true">
-        <div style={{ width: `${progress}%`, background: profile.accent }} />
-      </div>
       <p className="sr-only">
-        Native terminal interface with scripted example results. Use the example
-        selector and playback controls.
+        {scenarios.find((item) => item.id === scenario)?.name}. Native terminal
+        interface with scripted example results. Examples play in a random
+        order. Use pause, replay, or enlargement for a closer look.
       </p>
     </div>
   );
