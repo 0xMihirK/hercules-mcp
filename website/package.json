@@ -9,6 +9,7 @@
     "test": "node --test tests/*.test.js"
   },
   "dependencies": {
+    "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "6.0.0",
     "clsx": "^2.1.1",
     "motion": "14.0.0",

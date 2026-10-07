@@ -66,18 +66,29 @@ are exported from the repository and served over STDIO MCP with fixture results.
 | OpenCode | [1.18.34](https://github.com/anomalyco/opencode/tree/aec0b9a6d8898f68f923aaf08b7306d931fd9d76). |
 | Hermes | [Classic revision](https://github.com/NousResearch/hermes-agent/tree/3f524a2459efe4ab32061c418e309e5da1a931fd). |
 
-Each client cycles through a network report, a supplied local CTF, and an
-assessment of a fictional lab website. The clients render their own logos,
+Each client randomly plays six examples without immediately repeating the last:
+a network report, a layered file-forensics CTF, a fictional lab website assessment,
+DNS lookup, HTTP header review, and browser inspection. The CTF uses a real local
+PNG with an appended archive, metadata clues, an XOR/base64 payload, a decoy flag,
+and SHA-256 verification before saving a reproducible write-up.
+The clients render their own logos,
 menus, task lists, tool calls, and progress animations. Model responses, findings,
 container startup, and response delays are scripted. No external targets are
 scanned, and no personal credentials or paid model calls are used.
 
 Recordings preserve raw ANSI, CR/LF, timestamps and fixed terminal grids:
 120x36 desktop and 80x28 mobile. The presentation scales uniformly and never
-reflows the captured artwork. Fonts load before xterm initializes. Output writes
-are serialized; switching examples or replaying disposes the old terminal and
-cancels its scheduler. Pause, replay, example selection, and enlargement are
-playback controls. Hidden/offscreen panels pause; reduced motion starts with a
+reflows the captured artwork. Fonts load before xterm initializes. xterm's
+WebGL renderer joins block/quadrant glyphs correctly, with a DOM
+fallback when WebGL is unavailable. Panel proportions follow the measured native
+grid, keeping letterboxing out of the normal cards.
+Output writes are serialized; switching examples or replaying disposes the old terminal and
+cancels its scheduler. Playback opens at the first visible native frame, skipping
+the initial blank startup wait and Claude's one-time setup wizard; all later
+animation timing remains at 1×. Claude's native orange theme, mascot entrance,
+and progress frames come from truecolor captures of the pinned CLI.
+Pause, replay, and enlargement stay in the header. There is no case selector or
+footer status bar. Hidden/offscreen panels pause; reduced motion starts with a
 report still frame and offers explicit Play.
 
 [The capture harness](capture/README.md) documents configuration, isolation,
@@ -91,6 +102,6 @@ custom integration on Windows, macOS, or Linux with Docker.
 
 `npm test` checks procedural background rendering and playback regressions,
 including byte preservation, timing, serialized output and discarded sessions.
-Browser QA covers responsive layouts, pause/replay, example switching,
+Browser QA covers responsive layouts, pause/replay, random case transitions,
 enlargement, zoom, fonts, device pixel ratios and reduced motion.
 `REPO_ANALYSIS.md` records the source-grounded claims used on the page.

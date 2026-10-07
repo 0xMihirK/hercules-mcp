@@ -25,6 +25,10 @@ def configure(client, scenario, home):
             env.pop(key)
     command = ["python", "/capture/fixtures.py"]
     if client == "claude":
+        # Declare the capture terminal's truecolor support explicitly; an
+        # inherited CI flag otherwise makes Claude emit monochrome output.
+        env.pop("CI", None)
+        env["FORCE_COLOR"] = "3"
         env.update(CLAUDE_CONFIG_DIR=str(home / ".claude"), CLAUDE_CODE_USE_FOUNDRY="1", ANTHROPIC_FOUNDRY_BASE_URL="http://127.0.0.1:8765/anthropic", CLAUDE_CODE_SKIP_FOUNDRY_AUTH="1", CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1", CLAUDE_CODE_ENABLE_TASKS="1")
         (home / ".claude").mkdir()
         (home / ".claude" / "settings.json").write_text(json.dumps({"permissions": {"allow": ["mcp__hercules__*", "TaskCreate", "TaskGet", "TaskList", "TaskUpdate"]}, "skipDangerousModePermissionPrompt": False}))
@@ -96,7 +100,7 @@ def main():
     args = parser.parse_args()
     home = Path("/home/capture/session")
     command, env = configure(args.client, args.scenario, home)
-    prepare_workspace(home)
+    prepare_workspace(home, args.scenario)
     server = start(args.scenario, args.client)
     pid, master = pty.fork()
     if pid == 0:
@@ -112,12 +116,14 @@ def main():
     stream = pyte.Stream(screen)
     prompt_sent = False
     tour_started = False
+    tour_at = None
+    claude_ready_at = None
     inputs = []
     finished_at = None
     approval_at = None
     onboarding = set()
     # Codex keeps its composer disabled until MCP startup has completed.
-    boot_wait = 20 if args.client in ("hermes", "codex") else 10
+    boot_wait = 5 if args.client == "claude" else 20
     def send(data):
         events.append([round(time.monotonic() - started, 6), "i", data])
         os.write(master, data.encode())
@@ -159,7 +165,14 @@ def main():
                     send("\r"); plain = ""; time.sleep(.2)
                 elif "trust" not in onboarding and ("Yes,Itrustthisfolder" in compact or "Yes,Itrustthisdirectory" in compact):
                     onboarding.add("trust")
-                    send("\x1b[B"); schedule(.4, "\r"); plain = ""; time.sleep(.2)
+                    # The first painted menu can precede its input handler.
+                    # Send the arrow atomically after mount; confirm only once
+                    # the selected native row shows the disposable folder.
+                    inputs.append((time.monotonic() + .6, "\x1b[B"))
+                    plain = ""
+                elif "trust" in onboarding and "trust-confirmed" not in onboarding and ("❯Yes,Itrustthisfolder" in compact or "❯Yes,Itrustthisdirectory" in compact):
+                    onboarding.add("trust-confirmed")
+                    schedule(.2, "\r")
                 elif "notes" not in onboarding and "PressEntertocontinue" in compact:
                     onboarding.add("notes")
                     send("\r"); plain = ""; time.sleep(.2)
@@ -174,13 +187,18 @@ def main():
                     approval_at = time.monotonic() + 1.8
                 elif time.monotonic() >= approval_at:
                     send("\r"); plain = ""; approval_at = None
-            if not tour_started and elapsed > boot_wait:
-                tour_started = True; chapters["mcp"] = elapsed
+            hermes_ready = "WelcometoHermesAgent!" in compact and "❯" in recent
+            client_ready = hermes_ready if args.client == "hermes" else "ctrl+pcommands" in compact if args.client == "opencode" else "ClaudeCodev" in compact and "manualmodeon" in compact if args.client == "claude" else True
+            if args.client == "claude" and client_ready and claude_ready_at is None:
+                claude_ready_at = elapsed
+            intro_ready = args.client != "claude" or claude_ready_at is not None and elapsed > claude_ready_at + 2
+            if not tour_started and elapsed > boot_wait and client_ready and intro_ready:
+                tour_started = True; tour_at = elapsed; chapters["mcp"] = elapsed
                 if args.client != "hermes":
                     schedule(0, "/mcps\r" if args.client == "opencode" else "/mcp\r")
                 else:
                     schedule(0, "/tools list\r")
-            if tour_started and not prompt_sent and elapsed > boot_wait + 8:
+            if tour_started and not prompt_sent and elapsed > tour_at + 8:
                 if args.client != "hermes": send("\x1b")
                 prompt_sent = True; chapters["query"] = elapsed + .8
                 if not args.smoke:

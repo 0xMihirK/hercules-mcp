@@ -4,12 +4,37 @@ import {
   parseRecording,
   RecordingCursor,
   RecordingWriter,
+  chooseScenario,
 } from "../src/recording.js";
 const cast = (...events) =>
   [
     JSON.stringify({ version: 2, width: 120, height: 36, duration: 8 }),
     ...events.map((event) => JSON.stringify(event)),
   ].join("\n");
+
+test("random playback can select every case and never immediately repeats", () => {
+  const ids = ["scan", "ctf", "web", "dns", "headers", "browser"];
+  const original = [...ids];
+  assert.deepEqual(
+    ids.map((_, index) =>
+      chooseScenario(ids, null, () => (index + 0.5) / ids.length),
+    ),
+    ids,
+  );
+  for (const previous of ids) {
+    const selected = ids
+      .slice(1)
+      .map((_, index) =>
+        chooseScenario(ids, previous, () => (index + 0.5) / (ids.length - 1)),
+      );
+    assert.equal(selected.includes(previous), false);
+    assert.deepEqual(
+      new Set(selected),
+      new Set(ids.filter((id) => id !== previous)),
+    );
+  }
+  assert.deepEqual(ids, original);
+});
 test("raw ANSI and CR/LF survive timed playback without normalization", () => {
   const bytes = "\x1b[2J\x1b[Hlogo\r\n\x1b[31mtool\x1b[0m";
   const recording = parseRecording(cast([0.2, "o", bytes], [3, "o", "done"]));

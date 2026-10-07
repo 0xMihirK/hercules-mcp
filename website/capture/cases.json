@@ -1,0 +1,151 @@
+{
+  "scan": {
+    "name": "Scan and report",
+    "prompt": "Scan scanme.nmap.org for me and prepare a report. Use Hercules MCP.",
+    "phases": ["Discover services", "Review the evidence", "Write the report"],
+    "operations": [
+      {
+        "tool": "nmap_scan",
+        "arguments": {
+          "mode": "port",
+          "target": "scanme.nmap.org",
+          "ports": "22,80,9929"
+        }
+      }
+    ],
+    "artifact": "scan.xml"
+  },
+  "ctf": {
+    "name": "Solve a CTF",
+    "prompt": "Solve the layered file-forensics CTF in challenge.png. Recover the real flag, reject the decoy, verify its checksum, and save a reproducible write-up. Use Hercules MCP.",
+    "phases": [
+      "Inspect the file and metadata",
+      "Extract and verify the encoded payload",
+      "Write the evidence-backed solution"
+    ],
+    "operations": [
+      {
+        "tool": "ctf_binwalk",
+        "arguments": {
+          "filepath": "challenge.png",
+          "extract": false
+        }
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "strings -a challenge.png",
+          "timeout": 30
+        }
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "python ctf_lab.py extract challenge.png artifacts/ctf",
+          "timeout": 30
+        }
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/ctf/README.md",
+          "encoding": "text"
+        }
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "python ctf_lab.py solve challenge.png artifacts/ctf",
+          "timeout": 30
+        }
+      }
+    ],
+    "artifact": "ctf/solution.json"
+  },
+  "web": {
+    "name": "Assess a website",
+    "prompt": "Scan http://shop.lab.test for vulnerabilities and prepare a report. Use Hercules MCP.",
+    "phases": [
+      "Inspect the website",
+      "Check sample findings",
+      "Write the report"
+    ],
+    "operations": [
+      {
+        "tool": "web_scan",
+        "arguments": {
+          "target": "http://shop.lab.test",
+          "tool": "nikto"
+        }
+      }
+    ],
+    "artifact": "web-findings.json"
+  },
+  "dns": {
+    "name": "Inspect DNS records",
+    "prompt": "Find the A records for shop.lab.test and save a DNS report with the evidence. Use Hercules MCP.",
+    "phases": [
+      "Query the DNS records",
+      "Review the answers",
+      "Save the DNS report"
+    ],
+    "operations": [
+      {
+        "tool": "recon_dns",
+        "arguments": {
+          "tool": "dig",
+          "target": "shop.lab.test",
+          "record_type": "A"
+        }
+      }
+    ],
+    "artifact": "dns-records.json"
+  },
+  "headers": {
+    "name": "Review HTTP headers",
+    "prompt": "Review the response headers on https://portal.lab.test and save a short security report. Use Hercules MCP.",
+    "phases": [
+      "Read the response headers",
+      "Check the sample policies",
+      "Save the header report"
+    ],
+    "operations": [
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "https://portal.lab.test",
+          "method": "GET",
+          "include_headers": true
+        }
+      }
+    ],
+    "artifact": "response-headers.txt"
+  },
+  "browser": {
+    "name": "Inspect a page in the browser",
+    "prompt": "Inspect the login page at https://portal.lab.test with Hercules browser tools and save an accessibility review. Use Hercules MCP.",
+    "phases": [
+      "Open the lab page",
+      "Inspect the page snapshot",
+      "Save the accessibility review"
+    ],
+    "operations": [
+      {
+        "tool": "browser_open",
+        "arguments": {
+          "url": "https://portal.lab.test",
+          "session": "showcase"
+        }
+      },
+      {
+        "tool": "browser_snapshot",
+        "arguments": {
+          "session": "showcase",
+          "interactive": true,
+          "include_urls": true
+        }
+      }
+    ],
+    "artifact": "login-snapshot.txt"
+  }
+}
