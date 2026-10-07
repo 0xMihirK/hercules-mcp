@@ -1,0 +1,8 @@
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Wed, 07 Oct 2026 17:37:22 GMT
+Content-Type: application/json
+Content-Length: 91
+X-Hercules-Lab: disposable
+
+{"build": "lab-2026.10", "debug": true, "environment": "disposable", "credentials": "none"}

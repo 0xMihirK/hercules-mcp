@@ -1,0 +1,4 @@
+# Nmap 7.99 scan initiated Wed Oct  7 16:34:24 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV --version-light -p 8000 -oA /opt/workspace/artifacts/assessment 172.30.50.10
+Host: 172.30.50.10 (hercules-capture-ce598382f8d4-fixture.hercules-capture-ce598382f8d4-net)	Status: Up
+Host: 172.30.50.10 (hercules-capture-ce598382f8d4-fixture.hercules-capture-ce598382f8d4-net)	Ports: 8000/open/tcp//http-alt?///
+# Nmap done at Wed Oct  7 16:34:42 2026 -- 1 IP address (1 host up) scanned in 17.55 seconds

@@ -1,0 +1,1 @@
+Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.

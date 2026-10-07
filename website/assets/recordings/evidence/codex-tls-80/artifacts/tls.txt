@@ -1,0 +1,54 @@
+Connecting to 172.30.65.10
+Can't use SSL_get_servername
+depth=0 CN=lab
+verify return:1
+CONNECTED(00000003)
+---
+Certificate chain
+ 0 s:CN=lab
+   i:CN=lab
+   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
+   v:NotBefore: Oct  7 17:18:34 2026 GMT; NotAfter: Nov  6 17:18:34 2026 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIDEzCCAfugAwIBAgIUFu2ptXzsyalmHSAIlMcLftdRfeswDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAwNzE3MTgzNFoXDTI2MTEwNjE3MTgz
+NFowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAuD7k0GbSWWJzii9ZeX1qYWRuMLE05O21FrnVy67WTUS0DZNXiyPSc/auVpbt
+E633ikWdqh/OIJvDniAGw/MXYLJHW4HS2h8Aqh70zlOSu5NvAJ6FqvAVkbs+NF2j
+2BoePZypG5ho2h/8DUXkctYw2rrEi/ASAst7Q/a7jbdIE+4nP+fbHyKRo6N7L6mv
+/A0DMRDEmDzrmtRIoBE15omjlqP9yi//hiQQpYJXQ+voqSZpcwStWbEhUPAFN4U3
+wS0DDpzJn2EGS4/ieZFaOlJFovAOV2z04JnBjldvjxMRZHxb+IhOUFYBmnM76nwe
+0wiRSN2ujeGHNC32N5cqmSFLkwIDAQABo2kwZzAdBgNVHQ4EFgQUM0Jdo9DYwWla
+G4XTQNqBrwSyliwwHwYDVR0jBBgwFoAUM0Jdo9DYwWlaG4XTQNqBrwSyliwwDwYD
+VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweQQowDQYJKoZIhvcNAQEL
+BQADggEBAJJeZPI27EICTZgW6b052BJ56rXqG17kGhCCjpzolxprsp4z+I0O1F6A
+Dc1FC9CWtUW2fySx9kXw7pzvHF+he9khx9XJgE0RuZ5N9SrlOqdCWp4n948xGXkA
+B9EViBnpWt85n3rgLAFY+P5TvPrcy+BSFOW5WrxH8ytQOz3cKs3DrXrsEksuyFyD
+tTRS8r9ymcnUVkLiOHIgRbQuKSTM1EosMigNDLVXhuktK+e6YzZ91ahSdI66K/8H
+wwS6tZcZfuODel9Bl//3Uzy0PAZ9xKg6InGl2HMx3xS6TFraHokoMT7KAW5clK9W
+SUnk+/Ajwe0CwmeJ7U77sN3MZdfp/6g=
+-----END CERTIFICATE-----
+subject=CN=lab
+issuer=CN=lab
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: rsa_pss_rsae_sha256
+Peer Temp Key: X25519, 253 bits
+---
+SSL handshake has read 1347 bytes and written 1738 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Protocol: TLSv1.3
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+DONE

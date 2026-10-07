@@ -16,10 +16,13 @@ const frames = await Promise.all(
       for (const [time, , output] of recording.events) {
         await new Promise((resolve) => terminal.write(output, resolve));
         const buffer = terminal.buffer.active;
-        // Claude's first-run theme/trust wizard is configuration, not the
-        // demonstration. Begin at the native app so its mascot entrance plays.
-        if (recording.header.title.startsWith("claude /") && buffer.type !== "alternate")
-          continue;
+        const rows = Array.from({ length: terminal.rows }, (_, y) =>
+          buffer.getLine(buffer.viewportY + y)?.translateToString(true) || "",
+        );
+        // Standard Claude conversation rendering uses the normal buffer.
+        // Detect the native app header instead of requiring alternate-screen.
+        if (recording.header.title.startsWith("claude /") &&
+            !rows.some((row) => row.includes("Claude Code v") && !row.includes("Welcome to"))) continue;
         if (
           Array.from({ length: terminal.rows }, (_, y) =>
             buffer

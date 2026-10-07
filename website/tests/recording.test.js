@@ -5,6 +5,9 @@ import {
   RecordingCursor,
   RecordingWriter,
   chooseScenario,
+  ShuffleBag,
+  recordingGeometry,
+  mapMilestoneTime,
 } from "../src/recording.js";
 const cast = (...events) =>
   [
@@ -125,4 +128,46 @@ test("capture input, markers and terminal responses are never typed into replay"
     ),
   );
   assert.equal(new RecordingCursor(recording).drain(8), "native menu\r\n");
+});
+
+test("shuffle cycles cover each case once and avoid a boundary repeat",()=>{
+  const ids=["network","web","ctf","report"];
+  const bag=new ShuffleBag(ids,()=>.25);
+  let last;
+  for(let cycle=0;cycle<6;cycle++){
+    const next=ids.map(()=>bag.next());
+    assert.deepEqual(new Set(next),new Set(ids));
+    assert.notEqual(next[0],last);last=next.at(-1);
+  }
+  const singleton=new ShuffleBag(["network"]);
+  assert.equal(singleton.next(),"network");assert.equal(singleton.next(),"network");
+});
+
+test("available player width selects fixed captured geometry",()=>{
+  assert.equal(recordingGeometry(279),48);
+  assert.equal(recordingGeometry(509),48);
+  assert.equal(recordingGeometry(510),80);
+  assert.equal(recordingGeometry(759),80);
+  assert.equal(recordingGeometry(760),120);
+});
+
+test("geometry changes map investigation and completion hold without jumping",()=>{
+  const from={mcp:10,query:20,investigation:50,report:100};
+  const to={mcp:12,query:24,investigation:60,report:160};
+  assert.equal(mapMilestoneTime(75,from,to,166,106),110);
+  assert.equal(mapMilestoneTime(103,from,to,166,106),163);
+  assert.equal(mapMilestoneTime(106,from,to,166,106),166);
+});
+
+test("first frame waits for write completion and cancellation settles loading",async()=>{
+  const cursor=new RecordingCursor(parseRecording(cast([1,"o","native logo"])));
+  let finish;
+  const writer=new RecordingWriter(cursor,(_bytes,done)=>{finish=done;});
+  let settled=false;
+  const loading=writer.seekTo(1).then(value=>{settled=true;return value;});
+  await Promise.resolve();assert.equal(settled,false);
+  writer.cancel();assert.equal(await loading,false);
+  finish();assert.equal(writer.alive,false);
+  const fresh=new RecordingWriter(new RecordingCursor(cursor.recording),(_bytes,done)=>done());
+  assert.equal(await fresh.seekTo(1),true);
 });

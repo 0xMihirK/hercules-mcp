@@ -1,0 +1,67 @@
+[
+  {
+    "path": "artifacts/admin-denied.html",
+    "bytes": 238,
+    "sha256": "cc3c1570c3e7bfa3cd0f45e1ac505e2d325d80b4a8d28e249875bd6dfdb3dc10"
+  },
+  {
+    "path": "artifacts/assessment.gnmap",
+    "bytes": 489,
+    "sha256": "a2b06c23066c961e3829a997957d2fe3e8e6505847adaffe45373a56b6b5b9ac"
+  },
+  {
+    "path": "artifacts/assessment.nmap",
+    "bytes": 3517,
+    "sha256": "a658d7d89785c36deebdf7b2aa01e8486191b5a3f3b4eba356ab55fd71113d77"
+  },
+  {
+    "path": "artifacts/assessment.xml",
+    "bytes": 4528,
+    "sha256": "b722b26502b7b3a5b6610db1c4ac36f0bdf1ad452760b36acdf7809cac3011c6"
+  },
+  {
+    "path": "artifacts/headers.txt",
+    "bytes": 168,
+    "sha256": "41f9de1e33e39ba5a31b54e8b707cc43232e4a97c5b6427a57eabc29a45f60ee"
+  },
+  {
+    "path": "artifacts/home.html",
+    "bytes": 733,
+    "sha256": "e29d393d272c83cef866a7002ff8af6eb3007c017ca45fd7d02bd6416d524913"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "a331d1188cc2e84ddb89b6b9d7beec260fff3d67a2eea311d8fb1d548ac9f841"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/exec_d076009f8b7d4778aa490c5e531a6489_stdout.bin",
+    "bytes": 13227834,
+    "sha256": "84f5d8d19fa3b38cb03821479ee8590a4ee4805b6e1ba314dc9316f31c298e24"
+  },
+  {
+    "path": "logs/exec_raw_20261007_171421_685562.txt",
+    "bytes": 1699,
+    "sha256": "5d510a613180e4649b1c8dcf0b472f3c66857dc048d13d21e6f6d1306c531626"
+  },
+  {
+    "path": "logs/exec_raw_20261007_171516_557681.txt",
+    "bytes": 876242,
+    "sha256": "ca64e57fb2e27787212d9a4e22d70511a6041cbf72a0416a4693c40d4bd8b778"
+  },
+  {
+    "path": "logs/exec_stdout_20261007_171519_594669.txt",
+    "bytes": 876185,
+    "sha256": "44a723b77eb426b1dedfda5f47e945c56323be4ca3d826a067f047332a6e7705"
+  },
+  {
+    "path": "reports/services.md",
+    "bytes": 7117,
+    "sha256": "df2771e699dc1127f254a429ede70070e64e0d2515821c38e67887191f3e600f"
+  }
+]

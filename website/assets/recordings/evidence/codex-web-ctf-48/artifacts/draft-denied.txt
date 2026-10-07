@@ -1,0 +1,8 @@
+HTTP/1.0 401 Unauthorized
+Server: AtlasLab/1.0 
+Date: Wed, 07 Oct 2026 17:34:41 GMT
+Content-Type: application/json
+Content-Length: 34
+X-Hercules-Lab: disposable
+
+{"error": "draft session missing"}

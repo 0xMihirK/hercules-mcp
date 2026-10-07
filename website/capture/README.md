@@ -1,83 +1,97 @@
 # Native capture harness
 
-The Docker image installs Claude Code 2.1.291, Codex 0.147.0, OpenCode 1.18.34,
-and Hermes classic revision `3f524a2459efe4ab32061c418e309e5da1a931fd`.
-`record.py` records their unmodified interactive interfaces through a real PTY.
-Claude's capture declares `FORCE_COLOR=3` and removes the inherited CI flag so
-its native dark theme and orange mascot are recorded, rather than monochrome UI.
-The driver waits for the selected trust row before confirming the disposable
-folder, and waits for the native composer before opening MCP inspection.
-It records output bytes and monotonic timestamps; it does not draw terminal UI.
-The PTY driver uses a VT screen reader to wait through native onboarding. Codex
-and Hermes get an additional startup wait before their MCP inspection command.
-Codex uses `/mcp`; Hermes uses `/tools list` to show its loaded Hercules tools.
-Hermes's driver waits for the native composer before typing, so a slow startup
-cannot turn the inspection command and example into an unsubmitted paste.
+The harness records unmodified Claude Code **2.1.292**, Codex **0.160.1**,
+OpenCode **1.18.35** and Hermes **0.21.5** (modern `--tui`, source revision
+`f97608f178d1ffeca59860195ab7da295f7c8e5f`). Claude uses the documented standard
+conversation renderer, truecolor and a credential-free loopback Foundry gateway.
+The other clients use their supported local providers. No personal configuration,
+account credentials or paid model calls are used.
 
-Export the current Hercules tool/resource schemas using a Python environment
-with the repository dependencies installed, then build the capture image:
+`record.py` drives real PTYs, native menus/MCP inspection, prompts and approval
+cards. It records the clients' output bytes and monotonic timestamps; it draws
+no terminal interface. Native animations run normally; input and model response
+delays are authored. Model reasoning, usage counters and example prompts are
+scripted and explicitly labeled. Tool responses are real Hercules responses.
+
+## Execution and isolation
+
+`labs/run.py` owns a fresh internal Docker network, lab fixture, capture
+container, host-side Hercules process and private relay. Agents receive fresh
+allowlisted configuration, a read-only harness and their capture output mount.
+They receive no host Docker socket or personal configuration. Providers bind
+container loopback. A STDIO bridge connects each client to Hercules through the
+private transaction-owned relay; tool arguments/results are passed unchanged.
+
+Hercules starts a real client-owned Kali runtime with selected capabilities and
+`HERCULES_DOCKER_NETWORK`. Fixture services supply DNS, HTTP, TLS, login workflows,
+CTFs and remediation state on the internal network. No public target is contacted.
+Browser/scanner/shell operations, file writes and Markdown/HTML reports execute
+through Hercules. Cleanup verifies and removes only exact transaction-owned
+resources. These protections do not imply that all Docker deployments are a
+complete security boundary; operator networking and privileges matter.
+
+`labs/program.py` advances authored model responses only after observed tool
+results satisfy the expected branch. It derives job IDs, evidence references
+and CTF keys from those results. Unexpected or missing evidence stops validation.
+The forensic CTF follows PCAP fragments through an appended archive, PBKDF2/AES
+and compressed hidden data, rejects a decoy and verifies a checksum. There is
+no prewritten solver available to the agent.
+
+## Reproduce
+
+Use the repository's Python environment and working Docker. Build the capture
+image and fixture image, then run the ten-case matrix:
 
 ```sh
-python website/capture/export_surface.py
-docker build -t hercules-showcase-capture:20261007 website/capture
-python website/capture/run.py --smoke --cols 120
-python website/capture/run.py
-python website/capture/publish.py
+docker build -t hercules-showcase-capture:20261007-v2 website/capture
+docker build -t hercules-showcase-lab:20261007 -f website/capture/labs/Dockerfile website/capture/labs
+uv run python -m website.capture.labs.batch --workers 3
+uv run python -m unittest website.capture.labs.test_program
 ```
 
-`run.py` accepts `--client`, `--scenario`, and `--cols` for individual recordings.
-Multiple cases can be passed together, such as `--scenario dns headers browser`.
-The shared `cases.json` catalog supplies prompts, planning steps, and ordered
-Hercules calls for the six cases and the website's random playback pool.
-Each run creates a fresh home directory inside a disposable container. It mounts
-only the read-only harness and an output directory. No host agent configuration,
-credentials, Docker socket, or workspace is mounted. Capture containers use
-`--network none`, drop Linux capabilities, and prohibit privilege escalation.
-Network access is needed to build the image, then only loopback is available.
+The matrix is four clients × ten cases × three geometries (120×36, 80×28,
+48×28): **120 recordings**. Individual arguments and image configuration are
+available through `uv run python -m website.capture.labs.run --help`. Selected Kali
+capabilities are shell, session, workspace, DNS, Nmap, curl, ncat, WhatWeb,
+fuzzing, Nuclei, SearchSploit, binwalk, steghide and browser.
 
-`fixtures.py` serves the actual exported Hercules schemas over STDIO MCP and
-scripted model responses over a local HTTP endpoint. Model/tool delays and
-findings are authored examples. The native clients produce their own progress
-indicators, task lists, tool cards, menus, and animation frames at normal speed.
-The scan example never contacts `scanme.nmap.org`; the web example uses the
-fictional `shop.lab.test`. Container startup is also a scripted tool result.
-DNS, header review, and browser inspection use fictional lab fixtures.
-The CTF is a real, deterministic local file built by `ctf_lab.py`: a valid PNG,
-appended ZIP, zero-based alphabet clue, XOR/base64 payload, decoy, and checksum.
-Only the three specified local CTF commands can execute through the fixture.
-Extraction and decoding results come from actual local processes, and the report
-requires verified evidence. This remains a scripted model demonstration.
-An isolated workspace marker supplies the active case to MCP children because
-Codex filters inherited environment variables.
+```sh
+# A separate partial development preview; never publishes approximations:
+uv run python -m website.capture.labs.publish --development
+cd website
+npm run dev
+```
 
-Claude uses its documented credential-free Foundry gateway configuration:
-`CLAUDE_CODE_USE_FOUNDRY`, `ANTHROPIC_FOUNDRY_BASE_URL`, and
-`CLAUDE_CODE_SKIP_FOUNDRY_AUTH`. Codex uses a Responses provider with
-`requires_openai_auth = false`. OpenCode uses an OpenAI-compatible provider;
-Hermes uses its custom provider. All provider URLs point to loopback.
-Codex's native code-mode executor receives scripted JavaScript that calls the
-actual discovered MCP tools and its built-in planning tool.
+Use development-only `frame-review.html` to render each recording's actual
+first native frame. Browser screenshots and SHA/time/geometry proofs go under
+`test-results/labs/browser-stills/`. `first-frame.mjs` finds the first application
+frame, excluding blank startup waits and one-time onboarding. It does not
+change raw casts or later animation timing.
 
-References: [Claude Foundry](https://code.claude.com/docs/en/microsoft-foundry),
-[Codex provider source](https://github.com/openai/codex/blob/be6e8eac029b183056b7e4402879f15d2c85f61b/codex-rs/model-provider-info/src/lib.rs),
-[OpenCode providers](https://opencode.ai/docs/providers/#ollama),
-[Hermes custom providers](https://hermes-agent.nousresearch.com/docs/integrations/providers#custom--self-hosted-llm-providers).
+```sh
+# Requires all 120 validated captures and matching actual browser stills:
+uv run python -m website.capture.labs.publish
+cd website
+npm test
+npm run build
+```
 
-Raw casts, diagnostic text, and model requests stay under ignored
-`website/test-results/`. `publish.py` requires all 48 sessions to complete their
-Hercules lifecycle, operation, evidence read, and report write. It copies only
-validated `.cast` files and a provenance manifest into `assets/recordings/`.
-Startup/login failures are diagnostic captures, never substitute demonstrations.
-Docker is needed only to capture; visitors receive static files.
-`first-frame.mjs` interprets raw output through xterm to find the first visible
-frame, including split ANSI sequences. The manifest's `displayStart` skips only
-the blank startup wait and Claude's one-time configuration wizard. Claude starts
-at its native application frame so the mascot entrance still plays.
-Cast bytes and original timestamps remain unchanged.
-Playback continues at 1× from there; reduced motion uses the completed report.
+The publisher verifies versions, meaningful tool sequence, lifecycle, report
+contents, CTF evidence, every evidence-index checksum and owned cleanup. It
+archives prior staging directories recoverably before staging a fresh matrix.
+Failed captures remain diagnostic data and are never substitute demonstrations.
+Visitors receive static casts, stills, transcripts and artifacts.
 
-The manifest's `reproductionImage` identifies the reproducible image using the
-actual Docker image ID. No client source is modified. Per-recording hashes cover
-every raw cast.
-Hermes's native banner says `vunknown` because the pinned shallow checkout has
-no release tags; the manifest records its exact Git revision.
+## Provenance
+
+The manifest separates real tools from scripted models, preserves cast bytes,
+records capture image/source/profile, native geometry, milestones, input timing,
+MCP schema hash and artifact links/hashes. Actual result excerpts and report
+availability follow observed completion. Character measurements include the
+whole structured response; approximate tokens use `ceil(characters / 4)` and
+are not tokenizer counts. Output completeness and evidence completeness are
+separate. A bounded response is not automatically a semantically filtered one.
+Catalog provenance uses consistent LF; casts retain original ANSI/CR/LF.
+
+See [website capture documentation](../CAPTURE.md) for client references and
+the public provenance contract.

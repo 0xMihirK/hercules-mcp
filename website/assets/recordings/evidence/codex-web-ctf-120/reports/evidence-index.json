@@ -1,0 +1,47 @@
+[
+  {
+    "path": "artifacts/draft-denied.txt",
+    "bytes": 203,
+    "sha256": "689e11512b5f33fba43eb0743c45f0a616e3db7082425d87055bc519f05b3137"
+  },
+  {
+    "path": "artifacts/draft-flag.txt",
+    "bytes": 293,
+    "sha256": "9b2f4b344dffac2e0b1bd4dde84590f56b8d8f41fef184b5e79cbfb610dff249"
+  },
+  {
+    "path": "artifacts/robots.txt",
+    "bytes": 205,
+    "sha256": "98169d8a8815e3b4f571ead9664ffeabf7b96b0b70d06924667e334ed90b9bc6"
+  },
+  {
+    "path": "artifacts/web-ctf-verification.json",
+    "bytes": 139,
+    "sha256": "e2603745d2d820a1db3b143d8143d9dac184e51eda9a4c980a53deb6c7daa5d2"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "2db43dbbb3525d8ced0a27af9e5b457d7a45bc48d61190cd23a6d31b8bd82b45"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/agent-browser_raw_20261007_173116_258294.txt",
+    "bytes": 107410,
+    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+  },
+  {
+    "path": "logs/agent-browser_stdout_20261007_173119_303903.txt",
+    "bytes": 107350,
+    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+  },
+  {
+    "path": "reports/web-ctf.md",
+    "bytes": 7741,
+    "sha256": "af22ad42ee846eb59e265086d7a4d7e2de9dd6780786589ec4f1d83dfeaa83d7"
+  }
+]

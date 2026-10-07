@@ -1,0 +1,7 @@
+$ nuclei -jsonl -nc -or -ot -silent -target http://172.30.80.10:8000 -rate-limit 10 -t /opt/workspace/nuclei-templates/lab-debug.yaml -duc -ni
+
+[stdout]
+{"template-id":"hercules-lab-debug","template-path":"/opt/workspace/nuclei-templates/lab-debug.yaml","info":{"name":"Disposable Atlas debug endpoint","author":["hercules-showcase"],"tags":null,"severity":"info"},"type":"http","host":"172.30.80.10","port":"8000","scheme":"http","url":"http://172.30.80.10:8000","matched-at":"http://172.30.80.10:8000/debug","ip":"172.30.80.10","timestamp":"2026-10-07T09:39:45.586244845Z","curl-command":"curl -X 'GET' -d '' -H 'Accept: */*' -H 'Accept-Language: en' -H 'User-Agent: Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36' 'http://172.30.80.10:8000/debug'","matcher-status":true}
+
+
+[stderr]

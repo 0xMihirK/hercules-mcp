@@ -78,6 +78,7 @@ export class RecordingWriter {
     this.write = write;
     this.pending = false;
     this.alive = true;
+    this.settle = null;
   }
   writeAt(time) {
     if (!this.alive || this.pending) return;
@@ -90,5 +91,60 @@ export class RecordingWriter {
   }
   cancel() {
     this.alive = false;
+    this.settle?.(false);
+    this.settle = null;
   }
+  /** Reconstruct a fresh renderer, resolving only after its write completes. */
+  seekTo(time) {
+    if (!this.alive || this.pending) return Promise.resolve(false);
+    const output = this.cursor.drain(time);
+    if (!output) return Promise.resolve(true);
+    this.pending = true;
+    return new Promise((resolve) => {
+      this.settle = resolve;
+      this.write(output, () => {
+        if (!this.alive) return;
+        this.pending = false;
+        this.settle = null;
+        resolve(true);
+      });
+    });
+  }
+}
+
+/** @template {string} T */
+export class ShuffleBag {
+  /** @param {T[]} ids @param {() => number} [random] */
+  constructor(ids, random = Math.random) {
+    if (!ids.length) throw new Error("A case bag needs at least one recording");
+    this.ids = [...new Set(ids)]; this.random = random; this.bag = []; this.last = null;
+  }
+  /** @returns {T} */
+  next() {
+    if (!this.bag.length) {
+      this.bag = [...this.ids];
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(this.random() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+      if (this.bag.length > 1 && this.bag[this.bag.length - 1] === this.last)
+        [this.bag[0], this.bag[this.bag.length - 1]] = [this.bag[this.bag.length - 1], this.bag[0]];
+    }
+    this.last = this.bag.pop(); return this.last;
+  }
+}
+
+/** Fixed recording geometry, based on the actual presentation width. */
+export function recordingGeometry(width) { return width >= 760 ? 120 : width >= 510 ? 80 : 48; }
+
+/** Preserve the relative position within corresponding native milestones. */
+export function mapMilestoneTime(time, from, to, duration, fromDuration = duration) {
+  const names = Object.keys(from).filter(key => Number.isFinite(to[key])).sort((a,b) => from[a]-from[b]);
+  const current = names.filter(key => from[key] <= time).pop();
+  if (!current) return Math.min(duration, to[names[0]] || 0);
+  const next = names[names.indexOf(current)+1];
+  const span = next ? from[next]-from[current] : fromDuration-from[current];
+  const nextTime = next ? to[next] : duration;
+  const progress = span > 0 ? Math.max(0,Math.min(1,(time-from[current])/span)) : 0;
+  return Math.min(duration,to[current]+progress*(nextTime-to[current]));
 }

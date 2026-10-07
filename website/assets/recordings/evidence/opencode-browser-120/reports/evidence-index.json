@@ -1,0 +1,32 @@
+[
+  {
+    "path": "artifacts/login-rejected.txt",
+    "bytes": 197,
+    "sha256": "e3312fee2568c040d9dac52c889f33c7be51b2aef95427945c8f6d64bcebba6d"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "c930a996370b83636e63508065e29e7f3623b422ca932b4b4d9f5a965523f305"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/agent-browser_raw_20261007_094859_676055.txt",
+    "bytes": 107410,
+    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+  },
+  {
+    "path": "logs/agent-browser_stdout_20261007_094902_720071.txt",
+    "bytes": 107350,
+    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+  },
+  {
+    "path": "reports/browser.md",
+    "bytes": 9493,
+    "sha256": "5b8475aca41c2ff074b8bc6a69ed14770e995fbd6592860965324c363a4f16c0"
+  }
+]

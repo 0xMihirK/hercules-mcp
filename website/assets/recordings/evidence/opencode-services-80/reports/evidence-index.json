@@ -1,0 +1,67 @@
+[
+  {
+    "path": "artifacts/admin-denied.html",
+    "bytes": 238,
+    "sha256": "270409069cdf0b4d5ce663d6719d938ab764e8892075281a12716d42ec3d285b"
+  },
+  {
+    "path": "artifacts/assessment.gnmap",
+    "bytes": 489,
+    "sha256": "a2cbca2efc6e659ecc6e91b55e6ffcb6887383122d2ed4b621d6a854c6f32a60"
+  },
+  {
+    "path": "artifacts/assessment.nmap",
+    "bytes": 3517,
+    "sha256": "ad5d572a83a3c0f25bca97e7527e439b4c9ab28d20b7a357aec904c82acb49d3"
+  },
+  {
+    "path": "artifacts/assessment.xml",
+    "bytes": 4528,
+    "sha256": "becea2ae99d6509fba8e86e6e95ff20a699ea01b96ef9c6cb8f800eb34d7765e"
+  },
+  {
+    "path": "artifacts/headers.txt",
+    "bytes": 168,
+    "sha256": "d8d07b059c5db046eb1ff169a594664aea5c5f5075d71f83a352624a53c1e284"
+  },
+  {
+    "path": "artifacts/home.html",
+    "bytes": 733,
+    "sha256": "c15f76cbc5b9d26cb766aab113d0f8aaa3491ae00f6d5c83c29d24f025149e50"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "1b3c8690b30c0b42f14c7ba871fb18bc5cf8aa14f5cb6ee9bbbe758ca1ca7ab5"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/exec_7dec57be96444559a854410134d17584_stdout.bin",
+    "bytes": 13227834,
+    "sha256": "84f5d8d19fa3b38cb03821479ee8590a4ee4805b6e1ba314dc9316f31c298e24"
+  },
+  {
+    "path": "logs/exec_raw_20261007_093537_277394.txt",
+    "bytes": 1699,
+    "sha256": "4b3180287cdd9542954c41c1b124801ca9c3f23a86b39e7b2cc48211ef0bca0b"
+  },
+  {
+    "path": "logs/exec_raw_20261007_093631_347020.txt",
+    "bytes": 876242,
+    "sha256": "ca64e57fb2e27787212d9a4e22d70511a6041cbf72a0416a4693c40d4bd8b778"
+  },
+  {
+    "path": "logs/exec_stdout_20261007_093634_386416.txt",
+    "bytes": 876185,
+    "sha256": "44a723b77eb426b1dedfda5f47e945c56323be4ca3d826a067f047332a6e7705"
+  },
+  {
+    "path": "reports/services.md",
+    "bytes": 7117,
+    "sha256": "fceffa3d13fbe49a2e463197cf246562383822f4cabe3709e0ca9f14396245b4"
+  }
+]

@@ -28,7 +28,7 @@ export default function Background({
       });
       renderer?.resize();
     };
-    if ("transferControlToOffscreen" in canvas) {
+    if ("transferControlToOffscreen" in canvas && typeof Worker === "function") {
       const surface = canvas.transferControlToOffscreen(),
         rect = parent.getBoundingClientRect();
       worker = new Worker(new URL("../render.worker.ts", import.meta.url), {

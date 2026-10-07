@@ -1,0 +1,67 @@
+[
+  {
+    "path": "artifacts/admin-denied.html",
+    "bytes": 238,
+    "sha256": "ef7d5fc1a5343e4f9bd36d8838c9b0f07b7386b465856db6b46afa2d0db8568f"
+  },
+  {
+    "path": "artifacts/assessment.gnmap",
+    "bytes": 489,
+    "sha256": "fce7692c3543ba205d4c0110280cc9fc6fac8a4dafdfb784779c29ad84dc02f3"
+  },
+  {
+    "path": "artifacts/assessment.nmap",
+    "bytes": 3518,
+    "sha256": "b5be07fe1cf87a019f88e31d8f631bfdb9675454ed942e1f5fa228b7a7373a1b"
+  },
+  {
+    "path": "artifacts/assessment.xml",
+    "bytes": 4527,
+    "sha256": "7d66751cc474bb04756dc13a4f6fd532d7b84f4a1c7debcae4ca7b88711f4f91"
+  },
+  {
+    "path": "artifacts/headers.txt",
+    "bytes": 168,
+    "sha256": "09d32f46673bc8a5463a0ba1e488f76a83107aca60aac6e8f72040469bc3ba81"
+  },
+  {
+    "path": "artifacts/home.html",
+    "bytes": 733,
+    "sha256": "8f15c9157c6316a217eb318af80c5f98b51ff1f5d04eca196bd33c997c9f9116"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "75a44672c67b44feee59024ead547f3c97a1e30096471f617d11e85074ba361a"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/exec_eb8c68ecf71d4dee95343961ccf09aad_stdout.bin",
+    "bytes": 13227834,
+    "sha256": "84f5d8d19fa3b38cb03821479ee8590a4ee4805b6e1ba314dc9316f31c298e24"
+  },
+  {
+    "path": "logs/exec_raw_20261007_163839_803376.txt",
+    "bytes": 1699,
+    "sha256": "b8db01597bd8650b84ebb9aaa4c9a441f17772d0f37cc759e2a3fd4bec1a676a"
+  },
+  {
+    "path": "logs/exec_raw_20261007_163934_687756.txt",
+    "bytes": 876242,
+    "sha256": "ca64e57fb2e27787212d9a4e22d70511a6041cbf72a0416a4693c40d4bd8b778"
+  },
+  {
+    "path": "logs/exec_stdout_20261007_163937_746535.txt",
+    "bytes": 876185,
+    "sha256": "44a723b77eb426b1dedfda5f47e945c56323be4ca3d826a067f047332a6e7705"
+  },
+  {
+    "path": "reports/services.md",
+    "bytes": 7117,
+    "sha256": "642431a2c53e042294c397248ac0e093000f74ab9b5e3b32d1cbefc8c9d0ccc8"
+  }
+]

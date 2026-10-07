@@ -1,0 +1,28 @@
+$ nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.80.10
+
+[stdout]
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.99 scan initiated Wed Oct  7 17:19:30 2026 as: /usr/lib/nmap/nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.80.10 -->
+<nmaprun scanner="nmap" args="/usr/lib/nmap/nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.80.10" start="1791393570" startstr="Wed Oct  7 17:19:30 2026" version="7.99" xmloutputversion="1.05">
+<scaninfo type="connect" protocol="tcp" numservices="3" services="8000,8080,8443"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1791393570" endtime="1791393570"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="172.30.80.10" addrtype="ipv4"/>
+<hostnames>
+<hostname name="hercules-capture-a6ddd767d1db-fixture.hercules-capture-a6ddd767d1db-net" type="PTR"/>
+</hostnames>
+<ports><port protocol="tcp" portid="8000"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http-alt" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8080"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="http-proxy" method="table" conf="3"/></port>
+<port protocol="tcp" portid="8443"><state state="open" reason="syn-ack" reason_ttl="0"/><service name="https-alt" method="table" conf="3"/></port>
+</ports>
+<times srtt="521" rttvar="3015" to="100000"/>
+</host>
+<runstats><finished time="1791393570" timestr="Wed Oct  7 17:19:30 2026" summary="Nmap done at Wed Oct  7 17:19:30 2026; 1 IP address (1 host up) scanned in 0.13 seconds" elapsed="0.13" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>
+
+
+[stderr]
