@@ -1,0 +1,324 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hercules local lab report</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:24px;background:#171b1e;color:#e9e5de}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}</style><h1>Hercules local lab report</h1><pre># Website assessment
+
+Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+
+## Verified observations
+
+### 3. fuzz_dirs
+I will discover only the fixture&#x27;s small route list, with bounded concurrency and a retained tool result.
+
+Actual response excerpt:
+```text
+tool: fuzz_dirs
+target: http://172.30.81.10:8000
+fuzzer: ffuf
+exit_code: 0
+stderr: 
+duration_seconds: 0.72
+command: ffuf -u http://172.30.81.10:8000/FUZZ -w /opt/workspace/paths.txt -t 2 -ic -s -json -mc all -fc 404 -rate 15
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 1706
+stderr_chars: 30
+stdout_bytes: 1706
+stderr_bytes: 30
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 427
+raw_artifact: /opt/workspace/logs/exec_raw_20261007_093959_522957.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261007_093959_522957.txt
+filter_notes: output transformed; see output_transform statistics
+raw output preserved in artifact
+output_transform: stream: stderr
+type: terminal_render
+semantic: False
+removed_lines: 7
+removed_chars: 30
+filter_version: 1
+results: input: FFUFHASH: MWZlNjAx
+FUZZ: cm9ib3RzLnR4dA==
+position: 1
+status: 200
+length: 52
+words: 4
+lines: 4
+content-type: text/plain
+redirectlocation: 
+url: http://172.30.81.10:8000/ro
+```
+
+### 4. web_scan
+Directory discovery found a lead. I will fingerprint the actual application before selecting a verification check.
+
+Actual response excerpt:
+```text
+tool: web_scan
+selected_tool: whatweb
+target: http://172.30.81.10:8000
+exit_code: 0
+stdout: http://172.30.81.10:8000 [200 OK] Country[RESERVED][ZZ], HTML5, HTTPServer[AtlasLab/1.0], IP[172.30.81.10], PasswordField[password], Title[Atlas lab — sign in], UncommonHeaders[x-hercules-lab]
+
+stderr: 
+duration_seconds: 3.5
+command: whatweb -a 1 --color=NEVER  http://172.30.81.10:8000
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 193
+stderr_chars: 0
+stdout_bytes: 195
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 193
+inline_stderr_chars: 0
+estimated_inline_tokens: 49
+```
+
+### 5. nuclei_write_template
+I will author a local Nuclei check requiring both HTTP 200 and the explicit disposable debug marker.
+
+Actual response excerpt:
+```text
+tool: nuclei_write_template
+path: /opt/workspace/nuclei-templates/lab-debug.yaml
+message: Template written to /opt/workspace/nuclei-templates/lab-debug.yaml
+```
+
+### 6. nuclei_run
+I will run only this local template. Built-in online template updates and interactsh are disabled.
+
+Actual response excerpt:
+```text
+tool: nuclei_run
+targets: http://172.30.81.10:8000
+exit_code: 0
+stderr: 
+duration_seconds: 0.56
+command: nuclei -jsonl -nc -or -ot -silent -target http://172.30.81.10:8000 -rate-limit 10 -t /opt/workspace/nuclei-templates/lab-debug.yaml -duc -ni
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 655
+stderr_chars: 0
+stdout_bytes: 655
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 164
+raw_artifact: /opt/workspace/logs/nuclei_raw_20261007_094030_903567.txt
+raw_artifacts: combined: /opt/workspace/logs/nuclei_raw_20261007_094030_903567.txt
+filter_notes: raw output preserved in artifact
+matches: template-id: hercules-lab-debug
+template-path: /opt/workspace/nuclei-templates/lab-debug.yaml
+info: name: Disposable Atlas debug endpoint
+author: hercules-showcase
+tags: None
+severity: info
+type: http
+host: 172.30.81.10
+port: 8000
+scheme: http
+url: http://172.30.81.10:8000
+matched-at: http://172.30.81.10:8000/debug
+ip: 172.30.81.10
+```
+
+### 7. network_curl
+I will test the suspected backup route independently. Its normal 404 must be rejected rather than counted as an exposure.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.81.10:8000/backup
+redirects_followed: False
+redirect_note: Redirect following is disabled while target scopes are configured.
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.2
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/backup-404.html http://172.30.81.10:8000/backup
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+```
+
+### 8. browser_skill
+Before browser operations, I will read Hercules&#x27;s actual browser guidance and use fresh snapshots for targeting.
+
+Actual response excerpt:
+```text
+tool: browser_skill
+skill: core
+exit_code: 0
+stdout: ---
+name: core
+description: Core agent-browser usage guide. Read this before running any agent-browser commands. Covers the snapshot-and-ref workflow, navigating pages, interacting with elements (click, fill, type, select), extracting text and data, taking screenshots, managing tabs, handling forms and auth, waiting for content, running multiple browser sessions in parallel, and troubleshooting common failures. Use when the user asks to interact with a website, fill a form, click something, extract data, take a screenshot, log into a site, test a web app, or automate any browser task.
+allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
+---
+
+# agent-browser core
+
+Fast browser automation CLI for AI agents. Chrome/Chromium via CDP, no Playwright or Puppeteer dependency. Accessibility-tree snapshots with compact `@eN` refs let agents interact with pages in ~200-400 tokens instead of parsing raw HTML.
+
+Most normal web tasks (navigate, read, click, fill, extract, screenshot) are covered here. Load a specialized skill when the
+```
+
+### 9. browser_open
+I will confirm the debug response in the browser before accepting the scanner lead.
+
+Actual response excerpt:
+```text
+tool: browser_open
+url: http://172.30.81.10:8000/debug
+session: review
+stealth: cloak stealth Chromium
+proxy_enabled: False
+proxy_host: 
+timezone: 
+locale: 
+session_relaunched: False
+next_step: Call browser_snapshot to see the page and obtain @refs.
+exit_code: 0
+stderr: 
+duration_seconds: 1.05
+command: agent-browser --json --session review open http://172.30.81.10:8000/debug
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 344
+stderr_chars: 0
+stdout_bytes: 344
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 86
+browser_result: success: True
+data: lifecycle: effectiveLaunch: browserLaunched: True
+engine: chrome
+launchHash: 2445630243232661243
+launched: False
+relaunchedBrowser: False
+restartedBackground: False
+restoreStatus: not_configured
+reused: True
+saveStatus: not_attempted
+title: 
+url: http://172.30.81.10:8000/debug
+error: None
+structured_output: True
+stdout_replaced_by: browser_result
+```
+
+### 10. browser_read
+The browser confirms the disposable debug data. I will document this limited exposure without inventing credentials or exploitability.
+
+Actual response excerpt:
+```text
+tool: browser_read
+session: review
+exit_code: 0
+stderr: 
+duration_seconds: 1.61
+command: agent-browser --json --session review get text body
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 451
+stderr_chars: 0
+stdout_bytes: 451
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 113
+browser_result: success: True
+data: lifecycle: effectiveLaunch: browserLaunched: True
+engine: chrome
+launchHash: 2445630243232661243
+launched: False
+relaunchedBrowser: False
+restartedBackground: False
+restoreStatus: not_configured
+reused: True
+saveStatus: not_attempted
+origin: http://172.30.81.10:8000/debug
+text: {&quot;build&quot;: &quot;lab-2026.10&quot;, &quot;debug&quot;: true, &quot;environment&quot;: &quot;disposable&quot;, &quot;credentials&quot;: &quot;none&quot;}
+error: None
+structured_output: True
+stdout_replaced_by: browser_result
+```
+
+### 11. browser_screenshot
+I will save visual evidence alongside the raw HTTP and scanner artifacts.
+
+Actual response excerpt:
+```text
+tool: browser_screenshot
+session: review
+path: /opt/workspace/browser/review/artifacts/debug.png
+mime_type: image/png
+annotated: False
+exit_code: 0
+stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/debug.png
+
+stderr: 
+duration_seconds: 0.28
+command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/debug.png
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 72
+stderr_chars: 0
+stdout_bytes: 74
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 72
+inline_stderr_chars: 0
+estimated_inline_tokens: 18
+bytes: 10025
+width: 1280
+height: 599
+```
+
+## Scope and limitations
+
+Only the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.
+This is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.
+Raw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.
+
+## Evidence
+See evidence-index.json for artifact paths, byte counts and SHA-256 hashes.
+</pre></html>

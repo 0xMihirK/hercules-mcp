@@ -1,0 +1,47 @@
+[
+  {
+    "path": "artifacts/draft-denied.txt",
+    "bytes": 203,
+    "sha256": "3442e85c3c77d9180ba415726752bbce8dea09390557806e1089361951dd198d"
+  },
+  {
+    "path": "artifacts/draft-flag.txt",
+    "bytes": 293,
+    "sha256": "af477329ed2101da479c7ba8cc5d366ede60597f0ad94f0e136e7372a9cd3a14"
+  },
+  {
+    "path": "artifacts/robots.txt",
+    "bytes": 205,
+    "sha256": "93fe2c2d2170671909697dd4c31a1060808ae97702080ecf0d0f7d14f15625fa"
+  },
+  {
+    "path": "artifacts/web-ctf-verification.json",
+    "bytes": 139,
+    "sha256": "e2603745d2d820a1db3b143d8143d9dac184e51eda9a4c980a53deb6c7daa5d2"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "665800589d80d156da248c30929785f1647666d31600ea45952944b694587ca8"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/agent-browser_raw_20261007_163734_067055.txt",
+    "bytes": 107410,
+    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+  },
+  {
+    "path": "logs/agent-browser_stdout_20261007_163737_121412.txt",
+    "bytes": 107350,
+    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+  },
+  {
+    "path": "reports/web-ctf.md",
+    "bytes": 7742,
+    "sha256": "ad7e0203334bd837a23bc86076cd1980fbbe4fdb219918519dc6cae63b781583"
+  }
+]

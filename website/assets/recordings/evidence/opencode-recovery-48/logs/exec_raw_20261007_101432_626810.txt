@@ -1,0 +1,7 @@
+$ rm -f -- /opt/workspace/jobs/lab-recovery.exit /opt/workspace/jobs/lab-recovery.finished; nohup setsid bash /opt/workspace/jobs/lab-recovery.wrapper.sh > /opt/workspace/jobs/lab-recovery.log 2>&1 < /dev/null & pid=$!; printf '%s\n' "$pid" > /opt/workspace/jobs/lab-recovery.pid; ps -o pgid= -p "$pid" | tr -d ' ' > /opt/workspace/jobs/lab-recovery.pgid; awk '{print $22}' /proc/"$pid"/stat > /opt/workspace/jobs/lab-recovery.start_ticks; printf '%s\n' "$pid"
+
+[stdout]
+31
+
+
+[stderr]

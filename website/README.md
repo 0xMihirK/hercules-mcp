@@ -1,107 +1,79 @@
 # Hercules showcase
 
-A React single-page showcase, published through GitHub Pages. Counts, capabilities
-and the complete installation prompt are generated from the Hercules source.
-Docker is unnecessary to build or view the site.
+A React single-page showcase published through the existing GitHub Pages
+workflow. Product counts, the tool catalog and the installation prompt come
+from Hercules source. Docker is required for capturing demonstrations, not for
+building the website or viewing it.
 
 ```sh
 cd website
 npm ci
 npm run dev
-# Production:
+# Verify the complete public recording matrix before publishing:
 npm test
 npm run build
-npm run preview
 ```
 
-Requires Node 22.16+ and Python 3.11+. Development/preview use port 4173.
-`scripts/prepare_site.py` imports only the standard-library tool catalog, removes
-unmeasured token estimates, and copies the public asset directory. Generated
-`public/`, `dist/`, dependencies and private QA captures are ignored by Git.
-Relative URLs support the `/hercules-mcp/` Pages path.
+Requires Node 22.16+ and Python 3.11+. Development uses port 4173.
+`scripts/prepare_site.py` generates source facts and a recording bootstrap.
+Development recordings stay in a separate preview asset directory; production
+preparation rebuilds copied assets without retaining that directory.
+Generated public/dist directories, dependencies and private capture diagnostics
+are ignored. Relative URLs support the `/hercules-mcp/` Pages path.
 
-## Design and background
+## Design
 
-Graphite `#101317`, silver `#EDF1F5`, muted silver `#A6AFBA`, copper `#D87950`.
-Self-hosted Archivo, IBM Plex Sans and Mono carry their OFL notices in
-`assets/fonts/`. The existing lion remains the project mark. The clients retain
-their own terminal palettes.
+Graphite, silver and copper; Archivo with IBM Plex Sans and Mono; the existing
+lion wordmark. Native terminal palettes and geometry remain native. The page
+order is hero, agent player, tool chains, architecture, evidence and setup.
+Architecture and evidence use separate scoped GSAP timelines. Mobile and
+reduced-motion layouts present complete information without scroll pinning.
+Generated supporting illustrations are labeled and have embedded prompts.
+`../DESIGN.md` and `../PRODUCT.md` document the design and product facts.
 
-`recipe.json` preserves every supplied parameter. References:
-[Thread Light](https://21st.dev/@tempforall9/components/thread-light) and
-[its ASCII editor preset](https://21st.dev/community/ascii/editor?from=7001ac36-260f-4f13-b9b4-8f5f6b02e546).
-This is an independent Canvas2D recreation, not the unpublished original shader
-or baked video. It samples no photo or video.
+`recipe.json` preserves the supplied procedural background parameters. The
+independent Canvas2D recreation renders seeded domain-warped smoke, samples
+average cell colors and applies hatch, shimmer and halftone. No photograph or
+video is sampled. `renderer.js` supports the 25 specified primitive modes and
+ordered adjustments/effects. The supplied smoke source is supported; arbitrary
+shader code and other source presets are not. OffscreenCanvas uses a worker
+with a main-thread fallback. Hidden documents, pause and reduced motion stop
+continuous rendering. See the [source effect](https://21st.dev/community/ascii).
 
-`renderer.js` produces domain-warped, seeded fBm smoke with the source palette,
-upscales the low-frequency field, and averages pixels over the cell grid. It
-implements all 25 primitives. Brightness, contrast, saturation, grayscale, tone
-curve, tint and blur precede nine post-effects, then lights and reveal masks.
-Masks reveal the plain procedural source. The page uses the supplied eight-pixel
-hatch, shimmer, monochrome and halftone-30 preset. Disabled stages do no work.
+## Native sessions
 
-The monochrome hatch path caches 32 raster tiles and folds color adjustments
-into their palette; other modes use Canvas2D primitives. A fixed viewport canvas
-runs in an OffscreenCanvas worker, with a main-thread fallback. Hidden documents
-and pause controls stop animation. Reduced motion uses a deterministic still
-and removes scroll pinning. FPS adapts from 24 to 15 above 40ms measured cost.
+One player has four agent tabs and ten randomly cycled cases. Switching agents
+keeps the case; replay restarts it. There is no case dropdown or keyboard
+takeover. The browser replays untouched ANSI/CR/LF and timestamps at 1× with
+xterm 6's DOM renderer and Unicode 11. Fonts load before reconstruction. The
+120×36, 80×28 and 48×28 grids scale uniformly without terminal reflow.
 
-The raster factory exposes `renderAt`, `resize`, `ready`, `getStats`, `destroy`.
-`createThreadLight` also exposes `update`, `pause`, `resume`, `setPointer`.
-Source generation supports the supplied smoke recipe, excluding custom shader
-code and other source presets.
+Each recording comes from an unmodified pinned client in a disposable Docker
+container. Model responses and usage counters are scripted. Hercules tools,
+runtime startup, evidence and reports execute in isolated local labs. No public
+target, personal account or paid provider is used. The publisher requires the
+complete 120-session matrix and verifies each report, evidence index and owned
+cleanup. The public manifest records versions, capture configuration, hashes,
+milestones, transcripts, actual browser-rendered stills and artifact availability.
 
-## Native terminal recordings
+Playback reconstructs a new terminal before replacing the visible frame,
+serializes writes and cancels discarded sessions. Captured stills support
+loading, reduced motion and rendering failures. Hidden/offscreen playback
+pauses, independently of explicit pause. Controls include pause, replay,
+transcript and accessible enlargement. Findings, files and report previews are
+synchronized with actual tool completion, rather than authored observations.
 
-The four panels play asciicast v2 recordings in xterm.js. The supplied React
-Terminal component provides their header/body slots. Native client applications
-run in disposable Docker containers, each with fresh configuration and a local
-scripted model provider. Hercules's actual 46 tool and seven resource schemas
-are exported from the repository and served over STDIO MCP with fixture results.
-
-| Client | Version / source |
-| --- | --- |
-| Claude Code | 2.1.291; credential-free Microsoft Foundry gateway configuration. |
-| Codex CLI | [0.147.0](https://github.com/openai/codex/tree/be6e8eac029b183056b7e4402879f15d2c85f61b). |
-| OpenCode | [1.18.34](https://github.com/anomalyco/opencode/tree/aec0b9a6d8898f68f923aaf08b7306d931fd9d76). |
-| Hermes | [Classic revision](https://github.com/NousResearch/hermes-agent/tree/3f524a2459efe4ab32061c418e309e5da1a931fd). |
-
-Each client randomly plays six examples without immediately repeating the last:
-a network report, a layered file-forensics CTF, a fictional lab website assessment,
-DNS lookup, HTTP header review, and browser inspection. The CTF uses a real local
-PNG with an appended archive, metadata clues, an XOR/base64 payload, a decoy flag,
-and SHA-256 verification before saving a reproducible write-up.
-The clients render their own logos,
-menus, task lists, tool calls, and progress animations. Model responses, findings,
-container startup, and response delays are scripted. No external targets are
-scanned, and no personal credentials or paid model calls are used.
-
-Recordings preserve raw ANSI, CR/LF, timestamps and fixed terminal grids:
-120x36 desktop and 80x28 mobile. The presentation scales uniformly and never
-reflows the captured artwork. Fonts load before xterm initializes. xterm's
-WebGL renderer joins block/quadrant glyphs correctly, with a DOM
-fallback when WebGL is unavailable. Panel proportions follow the measured native
-grid, keeping letterboxing out of the normal cards.
-Output writes are serialized; switching examples or replaying disposes the old terminal and
-cancels its scheduler. Playback opens at the first visible native frame, skipping
-the initial blank startup wait and Claude's one-time setup wizard; all later
-animation timing remains at 1×. Claude's native orange theme, mascot entrance,
-and progress frames come from truecolor captures of the pinned CLI.
-Pause, replay, and enlargement stay in the header. There is no case selector or
-footer status bar. Hidden/offscreen panels pause; reduced motion starts with a
-report still frame and offers explicit Play.
-
-[The capture harness](capture/README.md) documents configuration, isolation,
-protocol fixtures, and validation. Public `assets/recordings/manifest.json`
-contains per-recording hashes, geometry, timing, versions, and source provenance.
-Docker is needed only to create recordings; visitors receive static assets.
-The four clients illustrate compatibility with any STDIO MCP agent, worker, or
-custom integration on Windows, macOS, or Linux with Docker.
+[Capture provenance](CAPTURE.md) explains execution, estimates and completeness.
+[The harness](capture/README.md) documents reproducible capture commands.
+Docker is not needed by visitors. These four clients illustrate compatibility
+with any agent, worker or custom integration supporting STDIO MCP on Windows,
+macOS or Linux with Docker.
 
 ## Verification
 
-`npm test` checks procedural background rendering and playback regressions,
-including byte preservation, timing, serialized output and discarded sessions.
-Browser QA covers responsive layouts, pause/replay, random case transitions,
-enlargement, zoom, fonts, device pixel ratios and reduced motion.
-`REPO_ANALYSIS.md` records the source-grounded claims used on the page.
+`npm test` covers procedural rendering, playback timing and cancellation,
+fixed geometry, shuffle cycling, source provenance, all published artifact
+hashes, CTF checksums and native VT frame equivalence. The capture program has
+additional Python regressions for evidence-gated advancement and recovery.
+Browser review covers desktop/mobile, controls, resizing, fonts, DPR, reduced
+motion and failure states. `REPO_ANALYSIS.md` records source-grounded claims.

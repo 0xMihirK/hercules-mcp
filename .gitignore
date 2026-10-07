@@ -76,3 +76,15 @@ website/public/
 website/dist/
 website/test-results/
 website/capture/hercules-surface.json
+website/src/bootstrap.json
+website/src/site-facts.json
+
+# Local Impeccable receipts, render comparisons and browser QA remain on disk.
+.impeccable/build/
+.impeccable/questions/
+.impeccable/regions.json
+.impeccable/review/*
+!.impeccable/review/browser-review.md
+!.impeccable/review/direction-contract.md
+!.impeccable/review/finish-review.md
+!.impeccable/review/finish-verdict.md

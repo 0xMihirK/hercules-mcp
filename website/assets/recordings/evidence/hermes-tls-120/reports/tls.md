@@ -1,0 +1,324 @@
+# TLS and redirect review
+
+Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+
+## Verified observations
+
+### 3. recon_dns
+I will query the lab DNS server directly. The result will establish the local address before service discovery.
+
+Actual response excerpt:
+```text
+tool: recon_dns
+selected_tool: dig
+target: 172.30.80.10
+command: dig @172.30.80.10 172.30.80.10 A
+exit_code: 0
+stdout: 
+; <<>> DiG 9.20.27-2-Debian <<>> @172.30.80.10 172.30.80.10 A
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 12709
+;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;172.30.80.10.			IN	A
+
+;; ANSWER SECTION:
+172.30.80.10.		60	IN	A	172.30.80.10
+
+;; Query time: 0 msec
+;; SERVER: 172.30.80.10#53(172.30.80.10) (UDP)
+;; WHEN: Wed Oct 07 10:33:05 UTC 2026
+;; MSG SIZE  rcvd: 46
+
+
+stderr: 
+duration_seconds: 0.22
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 479
+stderr_chars: 0
+stdout_bytes: 479
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 479
+inline_stderr_chars: 0
+estimated_inline_tokens: 120
+```
+
+### 4. network_curl
+I will inspect the first redirect without following it, so each hop remains explicit.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.80.10:8080
+redirects_followed: False
+redirect_note: 
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.2
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/redirect.txt http://172.30.80.10:8080
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+```
+
+### 5. workspace_read_file
+The first hop redirects to the local TLS endpoint. I will verify the certificate before requesting that destination.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/redirect.txt
+encoding: text
+bytes: 246
+total_bytes: 246
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 302 Found
+Server: AtlasLab/1.0 
+Date: Wed, 07 Oct 2026 10:33:13 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 33
+X-Hercules-Lab: disposable
+Location: https://172.30.80.10:8443/login
+
+Redirect to the lab TLS endpoint.
+```
+
+### 6. shell_exec
+I will validate the actual chain with the supplied lab CA, preserving OpenSSL diagnostics.
+
+Actual response excerpt:
+```text
+tool: shell_exec
+exit_code: 0
+stdout: Connecting to 172.30.80.10
+Can't use SSL_get_servername
+depth=0 CN=lab
+verify return:1
+CONNECTED(00000003)
+---
+Certificate chain
+ 0 s:CN=lab
+   i:CN=lab
+   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
+   v:NotBefore: Oct  7 10:30:35 2026 GMT; NotAfter: Nov  6 10:30:35 2026 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIDEzCCAfugAwIBAgIUAcxdeDqt0CDI71K2LOTppLWZWgcwDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAwNzEwMzAzNVoXDTI2MTEwNjEwMzAz
+NVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEA62fz+uLVdjrEbZmTDtNeLGW+sC7zQCBxEuIjsnufAXQf2zthxQ9If36+/N+7
+YOKo2y6MktM+mv9s6V86VHu3RznGmUcSbyz60jghzTEoypyaqQCDgNqjc0B/PuVt
+kjEOGuG6Rrl/yzn6S3bM4dNZdDsS0ioJjyfX+q0SVc/nHmzRVIwpKb/kxFcFTBKf
+l6NEajKtfmkW4ok6A5GM+GPNhTYlKqxlLKonvib+xKhy/NvTx33itA8LYxpKuNzw
+y2bMaZ4/fYBQueNfiTrqsUCCl2U2RJSz22KQ5fQU+oLc0AE+g7ECYcBw5JUSTs2G
+TarXArgEmcw3IOagM7Rem78P0wIDAQABo2kwZzAdBgNVHQ4EFgQUWFpQxRJCaoMu
+Ajb5i44DxWJl3sIwHwYDVR0jBBgwFoAUWFpQxRJCaoMuAjb5i44DxWJl3sIwDwYD
+VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweUAowDQYJKoZIhvcNAQEL
+BQADgg
+```
+
+### 7. network_curl
+The lab chain verifies. I will request the TLS page with certificate validation enabled and retain the response.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: https://172.30.80.10:8443/login
+redirects_followed: False
+redirect_note: Redirect following is disabled while target scopes are configured.
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.2
+command: curl -s -X GET --proto =http,https -i --cacert /opt/workspace/lab-cert.pem --max-time 5 -o /opt/workspace/artifacts/tls-login.html https://172.30.80.10:8443/login
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+```
+
+### 8. browser_skill
+Before browser operations, I will read Hercules's actual browser guidance and use fresh snapshots for targeting.
+
+Actual response excerpt:
+```text
+tool: browser_skill
+skill: core
+exit_code: 0
+stdout: ---
+name: core
+description: Core agent-browser usage guide. Read this before running any agent-browser commands. Covers the snapshot-and-ref workflow, navigating pages, interacting with elements (click, fill, type, select), extracting text and data, taking screenshots, managing tabs, handling forms and auth, waiting for content, running multiple browser sessions in parallel, and troubleshooting common failures. Use when the user asks to interact with a website, fill a form, click something, extract data, take a screenshot, log into a site, test a web app, or automate any browser task.
+allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*)
+---
+
+# agent-browser core
+
+Fast browser automation CLI for AI agents. Chrome/Chromium via CDP, no Playwright or Puppeteer dependency. Accessibility-tree snapshots with compact `@eN` refs let agents interact with pages in ~200-400 tokens instead of parsing raw HTML.
+
+Most normal web tasks (navigate, read, click, fill, extract, screenshot) are covered here. Load a specialized skill when the
+```
+
+### 9. browser_open
+I will observe how the browser handles the redirect. A supplied curl CA does not automatically establish browser trust.
+
+Actual response excerpt:
+```text
+tool: browser_open
+url: http://172.30.80.10:8080
+session: review
+stealth: cloak stealth Chromium
+proxy_enabled: False
+proxy_host: 
+timezone: 
+locale: 
+session_relaunched: False
+next_step: Call browser_snapshot to see the page and obtain @refs.
+exit_code: 1
+stdout: {"success":false,"data":null,"error":"Navigation failed: net::ERR_CERT_AUTHORITY_INVALID"}
+
+stderr: 
+duration_seconds: 1.0
+command: agent-browser --json --session review open http://172.30.80.10:8080
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 91
+stderr_chars: 0
+stdout_bytes: 91
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 91
+inline_stderr_chars: 0
+estimated_inline_tokens: 23
+```
+
+### 10. browser_open
+I will check the live local page in the native browser backend rather than infer behavior from headers.
+
+Actual response excerpt:
+```text
+tool: browser_open
+url: http://172.30.80.10:8000/login
+session: review
+stealth: cloak stealth Chromium
+proxy_enabled: False
+proxy_host: 
+timezone: 
+locale: 
+session_relaunched: False
+next_step: Call browser_snapshot to see the page and obtain @refs.
+exit_code: 0
+stderr: 
+duration_seconds: 0.22
+command: agent-browser --json --session review open http://172.30.80.10:8000/login
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 364
+stderr_chars: 0
+stdout_bytes: 366
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 91
+browser_result: success: True
+data: lifecycle: effectiveLaunch: browserLaunched: True
+engine: chrome
+launchHash: 14020672945813849277
+launched: False
+relaunchedBrowser: False
+restartedBackground: False
+restoreStatus: not_configured
+reused: True
+saveStatus: not_attempted
+title: Atlas lab — sign in
+url: http://172.30.80.10:8000/login
+error: None
+structured_output: True
+stdout_replaced_by: browser_result
+```
+
+### 11. browser_screenshot
+I will retain the reachable HTTP page for comparison and report any browser trust limitation separately from TLS chain validation.
+
+Actual response excerpt:
+```text
+tool: browser_screenshot
+session: review
+path: /opt/workspace/browser/review/artifacts/http-login.png
+mime_type: image/png
+annotated: False
+exit_code: 0
+stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/http-login.png
+
+stderr: 
+duration_seconds: 0.22
+command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/http-login.png
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 77
+stderr_chars: 0
+stdout_bytes: 79
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 77
+inline_stderr_chars: 0
+estimated_inline_tokens: 20
+bytes: 18089
+width: 1280
+height: 599
+```
+
+## Scope and limitations
+
+Only the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.
+This is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.
+Raw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.
+
+## Evidence
+See evidence-index.json for artifact paths, byte counts and SHA-256 hashes.

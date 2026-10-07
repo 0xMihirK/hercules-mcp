@@ -1,0 +1,6 @@
+{
+  "flag": "HERCULES{packet_to_carrier_to_verified_evidence}",
+  "sha256": "857ac4783c125b64d0201818c5b1709812c211f8892343241222e8cbeae0a909",
+  "checksum_match": true,
+  "decoy_match": false
+}

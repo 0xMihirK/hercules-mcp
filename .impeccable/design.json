@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-07T21:44:43.491Z",
+  "title": "Design System: Hercules",
+  "extensions": {
+    "colorMeta": {
+      "copper": {
+        "role": "primary",
+        "displayName": "Copper",
+        "tonalRamp": [
+          "oklch(0.150 0.1310 43.4)",
+          "oklch(0.264 0.1310 43.4)",
+          "oklch(0.379 0.1310 43.4)",
+          "oklch(0.493 0.1310 43.4)",
+          "oklch(0.607 0.1310 43.4)",
+          "oklch(0.721 0.1310 43.4)",
+          "oklch(0.836 0.1310 43.4)",
+          "oklch(0.950 0.1310 43.4)"
+        ]
+      },
+      "copper-hover": {
+        "role": "primary",
+        "displayName": "Copper Hover",
+        "tonalRamp": [
+          "oklch(0.150 0.1190 45.0)",
+          "oklch(0.264 0.1190 45.0)",
+          "oklch(0.379 0.1190 45.0)",
+          "oklch(0.493 0.1190 45.0)",
+          "oklch(0.607 0.1190 45.0)",
+          "oklch(0.721 0.1190 45.0)",
+          "oklch(0.836 0.1190 45.0)",
+          "oklch(0.950 0.1190 45.0)"
+        ]
+      },
+      "copper-code": {
+        "role": "primary",
+        "displayName": "Copper Code",
+        "tonalRamp": [
+          "oklch(0.150 0.0971 44.5)",
+          "oklch(0.264 0.0971 44.5)",
+          "oklch(0.379 0.0971 44.5)",
+          "oklch(0.493 0.0971 44.5)",
+          "oklch(0.607 0.0971 44.5)",
+          "oklch(0.721 0.0971 44.5)",
+          "oklch(0.836 0.0971 44.5)",
+          "oklch(0.950 0.0971 44.5)"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "tonalRamp": [
+          "oklch(0.150 0.0095 255.6)",
+          "oklch(0.264 0.0095 255.6)",
+          "oklch(0.379 0.0095 255.6)",
+          "oklch(0.493 0.0095 255.6)",
+          "oklch(0.607 0.0095 255.6)",
+          "oklch(0.721 0.0095 255.6)",
+          "oklch(0.836 0.0095 255.6)",
+          "oklch(0.950 0.0095 255.6)"
+        ]
+      },
+      "raised-graphite": {
+        "role": "neutral",
+        "displayName": "Raised Graphite",
+        "tonalRamp": [
+          "oklch(0.150 0.0137 253.1)",
+          "oklch(0.264 0.0137 253.1)",
+          "oklch(0.379 0.0137 253.1)",
+          "oklch(0.493 0.0137 253.1)",
+          "oklch(0.607 0.0137 253.1)",
+          "oklch(0.721 0.0137 253.1)",
+          "oklch(0.836 0.0137 253.1)",
+          "oklch(0.950 0.0137 253.1)"
+        ]
+      },
+      "silver": {
+        "role": "neutral",
+        "displayName": "Silver",
+        "tonalRamp": [
+          "oklch(0.150 0.0069 247.9)",
+          "oklch(0.264 0.0069 247.9)",
+          "oklch(0.379 0.0069 247.9)",
+          "oklch(0.493 0.0069 247.9)",
+          "oklch(0.607 0.0069 247.9)",
+          "oklch(0.721 0.0069 247.9)",
+          "oklch(0.836 0.0069 247.9)",
+          "oklch(0.950 0.0069 247.9)"
+        ]
+      },
+      "muted-silver": {
+        "role": "neutral",
+        "displayName": "Muted Silver",
+        "tonalRamp": [
+          "oklch(0.150 0.0188 253.4)",
+          "oklch(0.264 0.0188 253.4)",
+          "oklch(0.379 0.0188 253.4)",
+          "oklch(0.493 0.0188 253.4)",
+          "oklch(0.607 0.0188 253.4)",
+          "oklch(0.721 0.0188 253.4)",
+          "oklch(0.836 0.0188 253.4)",
+          "oklch(0.950 0.0188 253.4)"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "tonalRamp": [
+          "oklch(0.150 0.0069 247.9 / 0.16)",
+          "oklch(0.264 0.0069 247.9 / 0.16)",
+          "oklch(0.379 0.0069 247.9 / 0.16)",
+          "oklch(0.493 0.0069 247.9 / 0.16)",
+          "oklch(0.607 0.0069 247.9 / 0.16)",
+          "oklch(0.721 0.0069 247.9 / 0.16)",
+          "oklch(0.836 0.0069 247.9 / 0.16)",
+          "oklch(0.950 0.0069 247.9 / 0.16)"
+        ]
+      },
+      "action-ink": {
+        "role": "neutral",
+        "displayName": "Action Ink",
+        "tonalRamp": [
+          "oklch(0.150 0.0026 248.0)",
+          "oklch(0.264 0.0026 248.0)",
+          "oklch(0.379 0.0026 248.0)",
+          "oklch(0.493 0.0026 248.0)",
+          "oklch(0.607 0.0026 248.0)",
+          "oklch(0.721 0.0026 248.0)",
+          "oklch(0.836 0.0026 248.0)",
+          "oklch(0.950 0.0026 248.0)"
+        ]
+      },
+      "evidence-surface": {
+        "role": "neutral",
+        "displayName": "Evidence Surface",
+        "tonalRamp": [
+          "oklch(0.150 0.0112 242.4 / 0.97)",
+          "oklch(0.264 0.0112 242.4 / 0.97)",
+          "oklch(0.379 0.0112 242.4 / 0.97)",
+          "oklch(0.493 0.0112 242.4 / 0.97)",
+          "oklch(0.607 0.0112 242.4 / 0.97)",
+          "oklch(0.721 0.0112 242.4 / 0.97)",
+          "oklch(0.836 0.0112 242.4 / 0.97)",
+          "oklch(0.950 0.0112 242.4 / 0.97)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Large opening statements in self-hosted condensed Archivo."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Balanced chapter headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Subsection hierarchy and explanatory story titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Readable IBM Plex Sans explanations."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Shared navigation and control labels; capture-specific micro-detail is outside this scale."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Tool names, lifecycle code, artifacts and measured detail."
+      }
+    },
+    "shadows": [
+      {
+        "name": "recording-overlay",
+        "value": "0 24px 80px rgba(0,0,0,.75)",
+        "purpose": "Diffuse separation for the enlarged recording only."
+      },
+      {
+        "name": "selected-evidence-underline",
+        "value": "inset 0 -2px var(--copper)",
+        "purpose": "Selected rail tab marker, not lifted elevation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "0.2s",
+        "purpose": "Observed button colors and agent tab background transition."
+      },
+      {
+        "name": "chain-chevron",
+        "value": "0.3s",
+        "purpose": "Expandable chain chevron rotation."
+      },
+      {
+        "name": "scroll-scrub",
+        "value": "0.7",
+        "purpose": "GSAP runtime ownership and evidence sequences; native replay has an independent original 1× clock."
+      },
+      {
+        "name": "reduced-transition",
+        "value": "0.01ms",
+        "purpose": "Reduced-motion CSS transitions and animations."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-max",
+        "value": "760px"
+      },
+      {
+        "name": "static-architecture-max",
+        "value": "999px"
+      },
+      {
+        "name": "scroll-sequence-min",
+        "value": "1000px"
+      },
+      {
+        "name": "intermediate-max",
+        "value": "1100px"
+      },
+      {
+        "name": "wide-min",
+        "value": "1450px"
+      },
+      {
+        "name": "runtime-pin-min-height",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Filled copper installation action with a sharp silhouette.",
+      "html": "<a class=\"ds-primary\" href=\"#install\">Install with your agent <svg width=\"18\" height=\"18\" viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M64 192 192 64M64 64h128v128\"/></svg></a>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:12px 18px;font:500 14px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);border-radius:0;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background-color .2s,color .2s;background:var(--copper,#d87950);color:#141516;border:0}.ds-primary:hover{background:var(--hover,#f29a72);color:#141516}.ds-primary:focus-visible,.ds-secondary:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Secondary Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet bordered source action.",
+      "html": "<a class=\"ds-secondary\" href=\"#source\">Explore the source <svg width=\"18\" height=\"18\" viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M64 192 192 64M64 64h128v128\"/></svg></a>",
+      "css": ".ds-secondary{display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:48px;padding:12px 18px;font:500 14px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);border-radius:0;cursor:pointer;white-space:nowrap;text-decoration:none;transition:background-color .2s,color .2s;background:transparent;color:var(--ink,#edf1f5);border:1px solid var(--line,rgba(237,241,245,.16))}.ds-secondary:hover{border-color:var(--copper,#d87950);color:var(--hover,#f29a72)}.ds-primary:focus-visible,.ds-secondary:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Catalog Search",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Transparent tool search with enclosure-level focus.",
+      "html": "<label class=\"ds-search\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"112\" cy=\"112\" r=\"72\"/><path d=\"m168 168 56 56\"/></svg><input class=\"ds-search-input\" type=\"search\" aria-label=\"Search MCP tools\" placeholder=\"Search by tool name\"></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--line,rgba(237,241,245,.16));max-width:510px;min-height:52px;color:var(--muted,#a6afba);background:transparent;border-radius:0}.ds-search-input{width:100%;min-width:0;border:0;outline:0;background:transparent;color:var(--ink,#edf1f5);caret-color:var(--hover,#f29a72);font:400 16px/1.55 var(--body,\"IBM Plex Sans\",sans-serif)}.ds-search-input::placeholder{color:var(--muted,#a6afba)}.ds-search:focus-within{border-color:var(--hover,#f29a72);outline:2px solid var(--hover,#f29a72);outline-offset:3px}"
+    },
+    {
+      "name": "Section Navigation",
+      "kind": "nav",
+      "description": "Sans links in a compact ruled header region.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main\"><a class=\"ds-nav-link\" href=\"#agents\">Agents</a><a class=\"ds-nav-link\" href=\"#tools\">Tool chains</a><a class=\"ds-nav-link\" href=\"#architecture\">Architecture</a><a class=\"ds-nav-link\" href=\"#install\">Setup</a></nav>",
+      "css": ".ds-nav{display:flex;gap:30px;flex-wrap:wrap;color:var(--muted,#a6afba);font:400 14px/1.55 var(--body,\"IBM Plex Sans\",sans-serif)}.ds-nav-link{display:flex;align-items:center;min-height:44px;color:inherit;text-decoration:none}.ds-nav-link:hover{color:var(--hover,#f29a72)}.ds-nav-link:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Agent Tabs",
+      "kind": "custom",
+      "refersTo": "agent-tab",
+      "description": "Copper selected agent, muted alternatives and sharp surfaces.",
+      "html": "<div class=\"ds-agent-tabs\" role=\"tablist\" aria-label=\"Example agent\"><button class=\"ds-agent-tab\" role=\"tab\" aria-selected=\"true\">Claude Code</button><button class=\"ds-agent-tab\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">Codex</button></div>",
+      "css": ".ds-agent-tabs{display:flex;gap:6px;flex-wrap:wrap}.ds-agent-tab{display:flex;align-items:center;gap:14px;min-height:48px;padding:10px 18px;border:0;border-radius:0;background:transparent;color:var(--muted,#a6afba);font:400 15px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);cursor:pointer;transition:background-color .2s}.ds-agent-tab[aria-selected=true]{background:var(--copper,#d87950);color:#151719}.ds-agent-tab:hover:not([aria-selected=true]){background:var(--surface,#1b2026);color:var(--ink,#edf1f5)}.ds-agent-tab:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Evidence Tabs",
+      "kind": "custom",
+      "refersTo": "evidence-tab",
+      "description": "Quiet rail navigation marked by a selected copper underline.",
+      "html": "<div class=\"ds-evidence-tabs\" role=\"tablist\" aria-label=\"Session evidence\"><button class=\"ds-evidence-tab\" role=\"tab\" aria-selected=\"true\">Findings</button><button class=\"ds-evidence-tab\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">Files</button><button class=\"ds-evidence-tab\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">Report</button></div>",
+      "css": ".ds-evidence-tabs{display:flex;gap:4px;padding-inline:12px;border-bottom:1px solid var(--line,rgba(237,241,245,.16))}.ds-evidence-tab{padding:10px 14px;min-height:48px;border:0;background:transparent;color:var(--muted,#a6afba);font:400 14px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);cursor:pointer;text-transform:capitalize}.ds-evidence-tab[aria-selected=true]{color:var(--hover,#f29a72);box-shadow:inset 0 -2px var(--copper,#d87950)}.ds-evidence-tab:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Evidence Rail",
+      "kind": "card",
+      "refersTo": "evidence-rail",
+      "description": "Solid reading surface for synchronized native artifacts.",
+      "html": "<aside class=\"ds-rail\"><div class=\"ds-rail-content\"><h3 class=\"ds-rail-title\">Evidence files</h3><p class=\"ds-rail-copy\">Actual workspace artifacts from this capture.</p><p class=\"ds-rail-copy ds-rail-pending\">Files appear as their tool calls complete and their presence is verified.</p></div><div class=\"ds-rail-summary\"><p class=\"ds-rail-copy\">Real tools · disposable local lab<br>Scripted model decisions</p></div></aside>",
+      "css": ".ds-rail{display:flex;flex-direction:column;min-width:0;max-width:380px;border:1px solid var(--line,rgba(237,241,245,.16));border-radius:0;background:rgba(16,21,25,.97);color:var(--ink,#edf1f5);font-family:var(--body,\"IBM Plex Sans\",sans-serif)}.ds-rail-content{padding:22px;max-height:440px;overflow:auto}.ds-rail-title{font:500 19px/1.35 var(--body,\"IBM Plex Sans\",sans-serif);letter-spacing:0;margin:0 0 12px}.ds-rail-copy{font:400 14px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);color:var(--muted,#a6afba);margin:0}.ds-rail-pending{margin-top:18px}.ds-rail-summary{padding:15px 22px;border-top:1px solid var(--line,rgba(237,241,245,.16))}.ds-rail-summary .ds-rail-copy{font-size:12px;line-height:1.5}"
+    },
+    {
+      "name": "Architecture Stage",
+      "kind": "chip",
+      "refersTo": "phase-button",
+      "description": "A compact bordered stage control with a warm selected state.",
+      "html": "<button class=\"ds-phase\" aria-pressed=\"true\">Start work explicitly.</button><button class=\"ds-phase\" aria-pressed=\"false\">Keep the evidence.</button>",
+      "css": ".ds-phase{min-height:44px;padding:8px 12px;margin:0 8px 8px 0;border:1px solid var(--line,rgba(237,241,245,.16));border-radius:0;background:transparent;color:var(--muted,#a6afba);font:400 12px/1.55 var(--body,\"IBM Plex Sans\",sans-serif);cursor:pointer}.ds-phase[aria-pressed=true]{border-color:var(--copper,#d87950);background:#2b2522;color:#f2a989}.ds-phase:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}"
+    },
+    {
+      "name": "Expandable Tool Chain",
+      "kind": "custom",
+      "description": "Ruled disclosure with a display title and explanation.",
+      "html": "<details class=\"ds-chain\"><summary class=\"ds-chain-summary\"><span class=\"ds-chain-title\">Network</span><span class=\"ds-chain-brief\">Turn reachable services into a verified inventory.</span><svg width=\"22\" height=\"22\" viewBox=\"0 0 256 256\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"16\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m48 96 80 80 80-80\"/></svg></summary><div class=\"ds-chain-body\"><code class=\"ds-chain-code\">recon_dns</code><p class=\"ds-chain-copy\">DNS answers</p></div></details>",
+      "css": ".ds-chain{border-block:1px solid var(--line,rgba(237,241,245,.16));color:var(--ink,#edf1f5)}.ds-chain-summary{display:grid;grid-template-columns:minmax(120px,.65fr) 1.7fr 24px;align-items:center;gap:24px;padding:28px 0;cursor:pointer;list-style:none}.ds-chain-summary::-webkit-details-marker{display:none}.ds-chain-title{font:560 clamp(26px,3vw,42px)/1.1 var(--display,Archivo,sans-serif);font-stretch:87.5%;letter-spacing:-.03em}.ds-chain-brief{font:400 16px/1.5 var(--body,\"IBM Plex Sans\",sans-serif);color:var(--muted,#a6afba)}.ds-chain-summary svg{color:var(--copper,#d87950);transition:transform .3s}.ds-chain[open] .ds-chain-title{color:var(--hover,#f29a72)}.ds-chain[open] .ds-chain-summary svg{transform:rotate(180deg)}.ds-chain-summary:focus-visible{outline:2px solid var(--hover,#f29a72);outline-offset:4px}.ds-chain-body{padding:28px;background:#1b2228}.ds-chain-code{font:400 13px/1.55 var(--mono,\"IBM Plex Mono\",monospace);color:#f2a989}.ds-chain-copy{margin:12px 0 0;color:#c8d0d8;font:400 15px/1.55 var(--body,\"IBM Plex Sans\",sans-serif)}@media(max-width:760px){.ds-chain-summary{grid-template-columns:1fr 22px;gap:12px;padding-block:23px}.ds-chain-brief{grid-row:2;grid-column:1/-1;font-size:14px}.ds-chain-summary svg{grid-row:1;grid-column:2}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Graphite/Copper Editorial World",
+    "overview": "Hercules pairs a dark technical workspace with clear editorial typography. Graphite reading surfaces, copper actions and thin rules make dense evidence understandable without disguising its provenance. The lion and Hercules wordmark remain the identity anchor.\n\nThe procedural Canvas smoke, hatch sampling, shimmer and halftone recipe is a binding material of this world. Keep the source renderer, adaptive frame rates, worker fallback, visibility pauses and reduced-motion still rendering. Dimensional graphite/copper illustrations support explanations; they are identified as illustrations. Actual native client interfaces retain their recorded geometry and ANSI colors.",
+    "keyCharacteristics": [
+      "Graphite surfaces, silver reading text and purposeful copper emphasis.",
+      "Self-hosted Archivo display type with IBM Plex Sans and IBM Plex Mono.",
+      "Sharp framing, restrained rules and generous separation around dense content.",
+      "Native evidence, procedural atmosphere and clearly labeled supporting illustrations.",
+      "Keyboard access, readable transcripts and complete static or reduced-motion presentations."
+    ],
+    "rules": [
+      {
+        "name": "The Copper Has a Job Rule",
+        "body": "Copper identifies an action, selected state, tool or explanatory connection; do not distribute it as unrelated decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Native Color Rule",
+        "body": "Recorded client colors belong to their capture. Surrounding controls use the house palette without recoloring terminal evidence.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wide Heading Rule",
+        "body": "Keep headings balanced with deliberate breaks and clear line-height; display tracking must remain at or above the incumbent lower bound (-0.04em).",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono Means Evidence Rule",
+        "body": "Use Mono for code or measured detail, with Sans carrying explanations and Archivo carrying hierarchy.",
+        "section": "typography"
+      },
+      {
+        "name": "The Group Before Gap Rule",
+        "body": "Keep related controls and facts close, then give the next section room. Do not flatten the chapter rhythm into equally spaced small cards.",
+        "section": "layout"
+      },
+      {
+        "name": "The Fixed Grid Rule",
+        "body": "Native terminal artwork scales as a whole; do not reflow its captured cells to fit a layout.",
+        "section": "layout"
+      },
+      {
+        "name": "The Quiet Surface Rule",
+        "body": "Use graphite tone and thin rules for ordinary grouping. Reserve the observed diffuse shadow for the enlarged recording overlay.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** preserve graphite/copper, the lion wordmark and the self-hosted Archivo / IBM Plex pairing.",
+      "**Do** preserve the source Canvas smoke, hatch and halftone material, including worker fallback and reduced-motion still rendering.",
+      "**Do** use thin rules and solid graphite reading surfaces to make evidence and controls legible.",
+      "**Do** keep native recordings at original timing and fixed geometry, with captured stills and readable transcripts.",
+      "**Do** provide at least 44px interactive targets and visible focus.",
+      "**Do** retain every explanatory fact on phones and under reduced motion.",
+      "**Do** label supporting illustrations and scripted model decisions explicitly."
+    ],
+    "donts": [
+      "**Don't** replace the procedural background with generated raster artwork.",
+      "**Don't** recolor, fabricate or reflow the native client interface.",
+      "**Don't** add decorative status dots, generic glass cards or invented metrics.",
+      "**Don't** use ornamental kickers to manufacture hierarchy.",
+      "**Don't** apply the overlay shadow to ordinary reading surfaces.",
+      "**Don't** tighten display tracking beyond the confirmed lower bound (-0.04em)."
+    ]
+  }
+}

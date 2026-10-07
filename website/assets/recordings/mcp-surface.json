@@ -1,0 +1,1432 @@
+{
+  "tools": {
+    "tools": [
+      {
+        "name": "nmap_scan",
+        "description": "Purpose: Run Nmap using mode=quick|aggressive|port|script|custom for host discovery, service enumeration, NSE execution\u2026\nConstraints: quick/aggressive/port/script require target. port requires ports. script requires scripts. extra_args is preserved for quick, aggressive, port, and script modes.\u2026\nExample: nmap_scan(mode='quick', target='scanme.nmap.org')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "quick",
+                "aggressive",
+                "port",
+                "script",
+                "custom"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "ports": {
+              "default": "",
+              "type": "string"
+            },
+            "scripts": {
+              "default": "",
+              "type": "string"
+            },
+            "raw_args": {
+              "default": "",
+              "type": "string"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "nmap_write_nse_script",
+        "description": "Purpose: Write a custom NSE script into the container and update the Nmap script database.\nConstraints: Pass name without path separators; Hercules sanitizes it and writes /opt/workspace/nmap-scripts/<name>.nse. Use nmap_run_nse_script to execute that managed artifact.\u2026\nExample: nmap_write_nse_script(name='http-custom-check', content='description = [[...]]\\nauthor = ...')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "content"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "nmap_run_nse_script",
+        "description": "Purpose: Run a previously written custom NSE script against a validated target.\nConstraints: Requires target and script_name. extra_args can pass -p, -sV, --script-args, --script-trace, -d, or -v. XML output is parsed when possible, preserving script output fields.\nExample: nmap_run_nse_script(target='host', script_name='http-custom-check', extra_args='-p80 --script-trace')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "target": {
+              "type": "string"
+            },
+            "script_name": {
+              "type": "string"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "target",
+            "script_name"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "nuclei_run",
+        "description": "Purpose: Run Nuclei templates against one or more targets with JSONL output.\nConstraints: targets is comma-separated. templates can point to a workspace template from nuclei_write_template or installed template paths. severity, tags, rate_limit, and extra_args tune execution.\u2026\nExample: nuclei_run(targets='http://host', templates='/opt/workspace/nuclei-templates/check.yaml', rate_limit=5)",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "targets": {
+              "type": "string"
+            },
+            "templates": {
+              "default": "",
+              "type": "string"
+            },
+            "severity": {
+              "default": "",
+              "type": "string"
+            },
+            "tags": {
+              "default": "",
+              "type": "string"
+            },
+            "rate_limit": {
+              "default": 150,
+              "type": "integer"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            },
+            "include_raw": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "targets"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "nuclei_write_template",
+        "description": "Purpose: Write a custom Nuclei YAML template into /opt/workspace/nuclei-templates.\nConstraints: Path traversal is rejected. Use relative paths such as custom/check.yaml. Validate with nuclei -validate via shell_exec or run with nuclei_run using the returned path.\nExample: nuclei_write_template(path='custom/basic-detect.yaml', content='id: basic-detect\\ninfo: ...')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "searchsploit",
+        "description": "Purpose: Search or mirror Exploit-DB entries with action=search|get.\nConstraints: Search returns JSON when available and may degrade overly specific queries to broader terms. include_raw=True avoids result capping.\u2026\nExample: searchsploit(action='search', query_or_id='apache 2.4')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "search",
+                "get"
+              ],
+              "type": "string"
+            },
+            "query_or_id": {
+              "type": "string"
+            },
+            "include_raw": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "action",
+            "query_or_id"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "shell_exec",
+        "description": "Purpose: Execute a non-interactive shell command inside the Kali container.\nConstraints: raw=True disables semantic compaction but retains safety bounds and artifacts. This is non-interactive; use shell_exec_background or ncat/listeners for long-running jobs.\nExample: shell_exec(command='id && pwd')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "timeout": {
+              "default": 60,
+              "type": "integer"
+            },
+            "raw": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "shell_exec_background",
+        "description": "Purpose: Start a long-running shell command as a background job.\nConstraints: Requires job_id. Use shell_check_job to read output and shell_kill_job to stop the process. Background jobs share the current container session.\nExample: shell_exec_background(command='python3 -m http.server 8000', job_id='http8000')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "job_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "command",
+            "job_id"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "shell_check_job",
+        "description": "Purpose: Read status and tail output from a background shell job.\nConstraints: Requires job_id. tail_lines controls how much recent output is returned. If output is too short, increase tail_lines or inspect artifacts with workspace_read_file/shell_exec.\nExample: shell_check_job(job_id='http8000', tail_lines=100)",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "job_id": {
+              "type": "string"
+            },
+            "tail_lines": {
+              "default": 50,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "job_id"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "shell_kill_job",
+        "description": "Purpose: Stop a background shell job by job_id.\nConstraints: Requires job_id. Use shell_check_job first if you need final output. The response says whether a process was killed.\nExample: shell_kill_job(job_id='http8000')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "job_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "job_id"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "workspace_read_file",
+        "description": "Purpose: Read a bounded file chunk inside the owned container workspace.\nConstraints: Relative paths resolve under /opt/workspace. Paths outside it and symlink/reparse escapes are rejected. encoding='base64' reads binary data. For large files\u2026\nExample: workspace_read_file(path='nuclei-templates/custom/check.yaml')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "encoding": {
+              "default": "text",
+              "enum": [
+                "text",
+                "base64"
+              ],
+              "type": "string"
+            },
+            "offset": {
+              "default": 0,
+              "type": "integer"
+            },
+            "max_bytes": {
+              "default": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "workspace_write_file",
+        "description": "Purpose: Atomically write content to a file in the owned container workspace.\nConstraints: Relative paths resolve under /opt/workspace; paths outside it and symlink/reparse escapes are rejected. Supply either content or content_base64, never both. mode defaults to 0644.\u2026\nExample: workspace_write_file(path='targets.txt', content='http://host\\n')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "content": {
+              "default": "",
+              "type": "string"
+            },
+            "mode": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "default": 420
+            },
+            "content_base64": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "system_start_container",
+        "description": "Purpose: Explicitly start or reattach the current Hercules session's Kali container.\nConstraints: No arguments. Repeated and concurrent calls reuse the same session/container. It does not create a new workspace; use system_start_new_session when a clean workspace is required.\nExample: system_start_container()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "system_start_new_session",
+        "description": "Purpose: Create a fresh stopped Hercules session with a clean mounted workspace.\nConstraints: Creates a new workspace and stops the current container without starting another. Previous host workspace data is preserved. Call system_start_container before Docker-backed work.\nExample: system_start_new_session()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "system_list_sessions",
+        "description": "Purpose: List Hercules session workspaces on the host.\nConstraints: Returns active_session, total_sessions, and per-session metadata where available. Does not modify the container.\nExample: system_list_sessions()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "system_stop_container",
+        "description": "Purpose: Stop and remove the current Hercules container while preserving workspace files.\nConstraints: After this tool succeeds, Docker-backed tools return runtime_not_started until system_start_container is called. It stops background jobs and container-side processes.\nExample: system_stop_container()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "system_network_info",
+        "description": "Purpose: Inspect host/container networking, browser host access, and callback routes.\nConstraints: Returns effective RPC/listener/stream ports, LHOST guidance, localhost scope, and the Docker-host alias. Concurrent IDE clients may receive different ports.\nExample: system_network_info()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "recon_dns",
+        "description": "Purpose: Run DNS lookups with tool=dig|dnsx for single-record queries or bulk resolution.\nConstraints: dig uses target, record_type, server, short, axfr, and extra_args. dnsx uses domains or target and silent/extra_args.\u2026\nExample: recon_dns(tool='dig', target='example.com', record_type='MX', short=True)",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "tool": {
+              "enum": [
+                "dig",
+                "dnsx"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "domains": {
+              "default": "",
+              "type": "string"
+            },
+            "record_type": {
+              "default": "A",
+              "type": "string"
+            },
+            "server": {
+              "default": "",
+              "type": "string"
+            },
+            "short": {
+              "default": false,
+              "type": "boolean"
+            },
+            "axfr": {
+              "default": false,
+              "type": "boolean"
+            },
+            "silent": {
+              "default": true,
+              "type": "boolean"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "web_scan",
+        "description": "Purpose: Run one web fingerprinting scanner selected by tool=httpx|whatweb|wafw00f|nikto|wpscan|arjun.\nConstraints: httpx accepts urls or target and supports threads. whatweb uses agg_level. nikto supports tuning. wpscan supports enumerate and api_token. arjun supports method and threads.\u2026\nExample: web_scan(tool='httpx', urls='http://a,http://b', threads=20)",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "tool": {
+              "enum": [
+                "httpx",
+                "whatweb",
+                "wafw00f",
+                "nikto",
+                "wpscan",
+                "arjun"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "urls": {
+              "default": "",
+              "type": "string"
+            },
+            "title": {
+              "default": true,
+              "type": "boolean"
+            },
+            "tech_detect": {
+              "default": true,
+              "type": "boolean"
+            },
+            "status_code": {
+              "default": true,
+              "type": "boolean"
+            },
+            "threads": {
+              "default": 0,
+              "type": "integer"
+            },
+            "agg_level": {
+              "default": 1,
+              "type": "integer"
+            },
+            "tuning": {
+              "default": "",
+              "type": "string"
+            },
+            "enumerate": {
+              "default": "vp,vt,tt,cb,dbe,u,m",
+              "type": "string"
+            },
+            "api_token": {
+              "default": "",
+              "type": "string"
+            },
+            "method": {
+              "default": "GET",
+              "type": "string"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            },
+            "include_raw": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "tool"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "fuzz_dirs",
+        "description": "Purpose: Discover web paths with gobuster or ffuf while preserving thread control.\nConstraints: Requires target_url. tool defaults to gobuster; ffuf is selected with tool='ffuf'. threads controls native fuzzer concurrency. Missing wordlists return repair guidance and example paths.\u2026\nExample: fuzz_dirs(target_url='http://host', wordlist='/usr/share/wordlists/dirbuster/directory-list-2.3-medium.tx\u2026",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "target_url": {
+              "type": "string"
+            },
+            "wordlist": {
+              "default": "",
+              "type": "string"
+            },
+            "tool": {
+              "default": "gobuster",
+              "enum": [
+                "gobuster",
+                "ffuf"
+              ],
+              "type": "string"
+            },
+            "extensions": {
+              "default": "",
+              "type": "string"
+            },
+            "threads": {
+              "default": 50,
+              "type": "integer"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            },
+            "include_raw": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "target_url"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "network_curl",
+        "description": "Purpose: Make HTTP requests with curl using methods, headers, cookies, data, redirects, and extra curl arguments.\nConstraints: The URL is target-validated. Output is mostly raw aside from terminal cleanup and truncation. Use headers as comma-separated Header: value strings.\u2026\nExample: network_curl(url='http://host/path', method='POST', data='a=1', cookie='sid=1')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "method": {
+              "default": "GET",
+              "type": "string"
+            },
+            "headers": {
+              "default": "",
+              "type": "string"
+            },
+            "data": {
+              "default": "",
+              "type": "string"
+            },
+            "cookie": {
+              "default": "",
+              "type": "string"
+            },
+            "include_headers": {
+              "default": true,
+              "type": "boolean"
+            },
+            "follow_redirects": {
+              "default": true,
+              "type": "boolean"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "ncat",
+        "description": "Purpose: Use ncat with action=connect|listen|interact for TCP/UDP connections and background listeners.\nConstraints: connect requires target and port and runs foreground. listen can run foreground or background; background=True creates a job_id and pipe.\u2026\nExample: ncat(action='listen', port=4444, job_id='listener1')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "connect",
+                "listen",
+                "interact"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "port": {
+              "default": 0,
+              "type": "integer"
+            },
+            "listen_port": {
+              "default": 4444,
+              "type": "integer"
+            },
+            "job_id": {
+              "default": "",
+              "type": "string"
+            },
+            "command": {
+              "default": "",
+              "type": "string"
+            },
+            "tail_lines": {
+              "default": 50,
+              "type": "integer"
+            },
+            "execute": {
+              "default": "",
+              "type": "string"
+            },
+            "udp": {
+              "default": false,
+              "type": "boolean"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            },
+            "background": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "ctf_binwalk",
+        "description": "Purpose: Analyze and optionally extract firmware, archives, and embedded files with binwalk.\nConstraints: extract=True adds extraction flags and --run-as=root unless extra_args already specifies --run-as. Absolute paths extract from their containing directory to avoid duplicate paths.\nExample: ctf_binwalk(filepath='/opt/workspace/sample.bin', extract=True)",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "filepath": {
+              "type": "string"
+            },
+            "extract": {
+              "default": true,
+              "type": "boolean"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filepath"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "ctf_steghide",
+        "description": "Purpose: Inspect or extract steghide payloads with action=info|extract.\nConstraints: Pass filepath and optional passphrase. Without a passphrase Hercules passes an empty one to avoid an interactive prompt. extra_args can tune steghide behavior.\nExample: ctf_steghide(action='info', filepath='/opt/workspace/image.jpg')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "info",
+                "extract"
+              ],
+              "type": "string"
+            },
+            "filepath": {
+              "type": "string"
+            },
+            "passphrase": {
+              "default": "",
+              "type": "string"
+            },
+            "extra_args": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "action",
+            "filepath"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_open",
+        "description": "Purpose: Open a URL in cloakbrowser Chromium and start an interactive browsing session.\u2026\nConstraints: url is scope-validated and redirects are revalidated. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct\u2026\nExample: browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York'\u2026",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            },
+            "fingerprint": {
+              "default": "",
+              "type": "string"
+            },
+            "timezone": {
+              "default": "",
+              "type": "string"
+            },
+            "locale": {
+              "default": "",
+              "type": "string"
+            },
+            "proxy": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_snapshot",
+        "description": "Purpose: Capture the page's accessibility tree as compact text with stable element references (@e1, @e2, ...).\u2026\nConstraints: compact is default; detailed requests an uncompacted unlimited-depth tree. Use interactive, include_urls, depth, or selector to narrow/expand it. Iframes auto-inline\u2026\nExample: browser_snapshot(session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "session": {
+              "default": "default",
+              "type": "string"
+            },
+            "inline_iframes": {
+              "default": false,
+              "type": "boolean"
+            },
+            "compact": {
+              "default": true,
+              "type": "boolean"
+            },
+            "detailed": {
+              "default": false,
+              "type": "boolean"
+            },
+            "interactive": {
+              "default": false,
+              "type": "boolean"
+            },
+            "include_urls": {
+              "default": false,
+              "type": "boolean"
+            },
+            "depth": {
+              "default": 0,
+              "type": "integer"
+            },
+            "selector": {
+              "default": "",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_act",
+        "description": "Purpose: Interact with a page element: click, fill, type, press a key, hover, select an option, or (un)check.\u2026\nConstraints: Use browser_snapshot refs when available. ref/CSS supports all actions. Semantic role/text/label supports click, fill, check, and hover only; use name/exact for accessible matching.\nExample: browser_act(action='fill', target='e3', value='admin', session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "click",
+                "fill",
+                "type",
+                "press",
+                "hover",
+                "select",
+                "check",
+                "uncheck"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "target_type": {
+              "default": "ref",
+              "enum": [
+                "ref",
+                "css",
+                "role",
+                "text",
+                "label"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "default": "",
+              "type": "string"
+            },
+            "exact": {
+              "default": false,
+              "type": "boolean"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_read",
+        "description": "Purpose: Read data from the page: visible text, inner HTML, an input value, or the page-level URL/title.\u2026\nConstraints: url/title are page-level. ref/CSS supports text/html/value; semantic role/text/label supports text only with optional name/exact. Use snapshot/ref or CSS for unsupported combinations.\nExample: browser_read(what='url', session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "what": {
+              "enum": [
+                "text",
+                "html",
+                "value",
+                "url",
+                "title"
+              ],
+              "type": "string"
+            },
+            "target": {
+              "default": "",
+              "type": "string"
+            },
+            "target_type": {
+              "default": "ref",
+              "enum": [
+                "ref",
+                "css",
+                "role",
+                "text",
+                "label"
+              ],
+              "type": "string"
+            },
+            "name": {
+              "default": "",
+              "type": "string"
+            },
+            "exact": {
+              "default": false,
+              "type": "boolean"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            }
+          },
+          "required": [
+            "what"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_screenshot",
+        "description": "Purpose: Capture a validated PNG screenshot of the current page as native inline MCP image content and save it into the container work\u2026\nConstraints: Shots save to /opt/workspace/browser/<session>/ by default. A relative path resolves under that per-session directory and rejects '..'. full=True captures the scrollable page.\u2026\nExample: browser_screenshot(session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "default": "",
+              "type": "string"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            },
+            "full": {
+              "default": false,
+              "type": "boolean"
+            },
+            "return_base64": {
+              "default": false,
+              "type": "boolean"
+            },
+            "annotate": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_eval",
+        "description": "Purpose: Run arbitrary JavaScript in the page context and return the result. Use for custom DOM extraction, probing JS state\u2026\nConstraints: The JS is written to a workspace temp file and evaluated to avoid quoting issues. Return a JSON-serializable value (wrap objects in JSON.stringify) for clean output.\u2026\nExample: browser_eval(js=\"JSON.stringify({wd: navigator.webdriver, plugins: navigator.plugins.length})\"\u2026",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "js": {
+              "type": "string"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            }
+          },
+          "required": [
+            "js"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_wait",
+        "description": "Purpose: Wait for a condition before continuing: an element/selector to appear, a fixed number of milliseconds, specific text\u2026\nConstraints: condition selects the mode: selector (CSS/@ref in value), ms (milliseconds in value), text (value is the text to await), url (value is a URL glob like '**/dashboard')\u2026\nExample: browser_wait(condition='load', value='networkidle', session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "condition": {
+              "enum": [
+                "selector",
+                "ms",
+                "text",
+                "url",
+                "load"
+              ],
+              "type": "string"
+            },
+            "value": {
+              "default": "",
+              "type": "string"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            }
+          },
+          "required": [
+            "condition"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_session",
+        "description": "Purpose: Manage isolated stealth browser identities and the optional loopback-only live-view stream. Each session has its own cookies\u2026\nConstraints: action selects current, list, close, close_all, or stream. Stream discovers the selected session's loopback WebSocket and safely relays it to the configured host port.\u2026\nExample: browser_session(action='list')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "action": {
+              "enum": [
+                "current",
+                "list",
+                "close",
+                "close_all",
+                "stream"
+              ],
+              "type": "string"
+            },
+            "session": {
+              "default": "",
+              "type": "string"
+            },
+            "stream_port": {
+              "default": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_skill",
+        "description": "Purpose: Load agent-browser's own built-in skill documentation \u2014 the authoritative\u2026\nConstraints: With no name it lists available skills; name='core' (default) with full=True returns the complete command reference.\u2026\nExample: browser_skill()",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "default": "core",
+              "type": "string"
+            },
+            "full": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "browser_cmd",
+        "description": "Purpose: Escape hatch that runs ANY agent-browser command against the current stealth session \u2014 giving access to the COMPLETE browser\u2026\nConstraints: Call browser_skill(name='core', full=True) first. args is raw administrator input for controller features absent from structured tools\u2026\nExample: browser_cmd(args='cookies list', session='recon')",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "args": {
+              "type": "string"
+            },
+            "session": {
+              "default": "default",
+              "type": "string"
+            },
+            "timeout": {
+              "default": 60,
+              "type": "integer"
+            },
+            "json": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "args"
+          ],
+          "type": "object"
+        },
+        "outputSchema": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      }
+    ]
+  },
+  "resources": {
+    "resources": [
+      {
+        "name": "get_nse_skills",
+        "uri": "resource://agent_skills/nse",
+        "description": "Detailed AI-agent handbook for authoring complex Nmap NSE scripts and running them with Hercules nmap_write_nse_script/nmap_run_nse_script.",
+        "mimeType": "text/markdown",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_nuclei_skills",
+        "uri": "resource://agent_skills/nuclei",
+        "description": "Detailed AI-agent handbook for authoring complex Nuclei templates and running them with Hercules nuclei_write_template/nuclei_run.",
+        "mimeType": "text/markdown",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_linpeas",
+        "uri": "resource://post_exploitation/linpeas",
+        "description": "Linux privilege escalation enumeration script (linpeas-lite). Checks: sysinfo, sudo, SUID/SGID, capabilities, cron, network, processes, sensitive files, containers, NFS, kernel exploits. Use after obtaining a Linux shell to collect local privesc evidence.",
+        "mimeType": "text/x-shellscript",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_winpeas",
+        "uri": "resource://post_exploitation/winpeas",
+        "description": "Windows privilege escalation enumeration script (winpeas-lite). Checks: sysinfo, users/privileges, services, unquoted paths, scheduled tasks, network, registry, interesting files, AV status. Use after obtaining Windows command execution to triage local privesc.",
+        "mimeType": "application/x-bat",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_powerup",
+        "uri": "resource://post_exploitation/powerup",
+        "description": "PowerShell privilege escalation checks (powerup-lite). Checks: service misconfigs, unquoted paths, writable binaries, AlwaysInstallElevated, autologon, DLL hijacking, autorun entries. Use when PowerShell is available or winPEAS points to service/registry leads.",
+        "mimeType": "application/x-powershell",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_gtfobins",
+        "uri": "resource://post_exploitation/gtfobins",
+        "description": "GTFOBins API \u2014 JSON database of Unix binaries exploitable for privilege escalation via sudo, SUID, capabilities, and more. Use after Linux enumeration finds sudo rights, SUID files, capabilities, or writable binary paths that need escalation technique lookup.",
+        "mimeType": "application/json",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      },
+      {
+        "name": "get_lolbas",
+        "uri": "resource://post_exploitation/lolbas",
+        "description": "LOLBAS API \u2014 JSON database of Windows Living Off The Land Binaries, Scripts, and Libraries that can be used for execution, lateral movement, persistence, and privilege escalation. Use after Windows enumeration finds usable signed binaries, scripts, DLLs, or constrained execution paths.",
+        "mimeType": "application/json",
+        "_meta": {
+          "fastmcp": {
+            "tags": []
+          }
+        }
+      }
+    ]
+  }
+}

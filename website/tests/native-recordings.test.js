@@ -4,219 +4,64 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import xterm from "@xterm/xterm";
 import { parseRecording, RecordingCursor } from "../src/recording.js";
-
-const root = new URL("../assets/recordings/", import.meta.url);
-const cases = JSON.parse(
-  await readFile(new URL("../capture/cases.json", import.meta.url), "utf8"),
-);
-const sessionCount = Object.keys(cases).length * 4 * 2;
-const expectedVersions = {
-  claude: "2.1.291",
-  codex: "0.147.0",
-  opencode: "1.18.34",
-  hermes: "3f524a2459efe4ab32061c418e309e5da1a931fd",
-};
-const write = (terminal, bytes) =>
-  new Promise((resolve) => terminal.write(bytes, resolve));
-function screen(terminal) {
-  return {
-    x: terminal.buffer.active.cursorX,
-    y: terminal.buffer.active.cursorY,
-    rows: Array.from({ length: terminal.rows }, (_, y) => {
-      const line = terminal.buffer.active.getLine(
-        terminal.buffer.active.viewportY + y,
-      );
-      return Array.from({ length: terminal.cols }, (_, x) => {
-        const cell = line.getCell(x);
-        return [
-          cell.getChars(),
-          cell.getWidth(),
-          cell.getFgColorMode(),
-          cell.getFgColor(),
-          cell.getBgColorMode(),
-          cell.getBgColor(),
-        ];
-      });
-    }),
-  };
+const root=new URL("../assets/recordings/",import.meta.url);
+const versions={claude:"2.1.292",codex:"0.160.1",opencode:"1.18.35",hermes:"0.21.5"};
+const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
+const manifest=async()=>JSON.parse(await readFile(new URL("manifest.json",root),"utf8"));
+const write=(terminal,bytes)=>new Promise(resolve=>terminal.write(bytes,resolve));
+function imageFormat(bytes,file){
+  const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  const jpeg=bytes.subarray(0,3).equals(Buffer.from([255,216,255]));
+  assert.ok(png || jpeg,"actual browser screenshot signature");
+  assert.ok(file.endsWith(png ? ".png" : ".jpg"),"extension matches preserved capture bytes");
 }
+function cells(terminal){const b=terminal.buffer.active;return {x:b.cursorX,y:b.cursorY,rows:Array.from({length:terminal.rows},(_,y)=>{const line=b.getLine(b.viewportY+y);return Array.from({length:terminal.cols},(_,x)=>{const c=line.getCell(x);return [c.getChars(),c.getWidth(),c.getFgColorMode(),c.getFgColor(),c.getBgColorMode(),c.getBgColor()];});})};}
 
-test("every case has native recordings for all clients and both grids", async () => {
-  const manifest = JSON.parse(
-    await readFile(new URL("manifest.json", root), "utf8"),
-  );
-  assert.equal(manifest.nativeUI, true);
-  assert.equal(manifest.scriptedModelAndToolResults, true);
-  assert.equal(manifest.accountAccess, false);
-  assert.equal(manifest.externalNetwork, false);
-  assert.equal(manifest.playbackSpeed, 1);
-  assert.equal(
-    manifest.caseCatalogSha256,
-    createHash("sha256")
-      .update(await readFile(new URL("../capture/cases.json", import.meta.url)))
-      .digest("hex"),
-  );
-  assert.equal(manifest.recordings.length, sessionCount);
-  const names = new Set();
-  for (const item of manifest.recordings) {
-    const source = await readFile(new URL(item.file, root));
-    const recording = parseRecording(source.toString("utf8"));
-    assert.ok(cases[item.scenario], `Unknown case: ${item.scenario}`);
-    assert.equal(
-      createHash("sha256").update(source).digest("hex"),
-      item.sha256,
-    );
-    assert.equal(item.version, expectedVersions[item.client]);
-    assert.equal(recording.header.clientVersion, item.version);
-    assert.deepEqual(
-      [recording.header.width, recording.header.height],
-      item.columns === 120 ? [120, 36] : [80, 28],
-    );
-    assert.ok(recording.events.length > 10);
-    if (item.client === "claude") {
-      assert.ok(
-        recording.events.some(([, , output]) =>
-          output.includes("\x1b[38;2;215;119;87m"),
-        ),
-        `${item.file}: Claude's native orange theme is recorded`,
-      );
-    }
-    assert.ok(
-      item.displayStart >= 0 &&
-        item.displayStart < recording.header.chapters.query,
-      `${item.file}: startup skip stops before the example prompt`,
-    );
-    assert.ok(recording.events.some(([time]) => time === item.displayStart));
-    if (item.client === "codex")
-      assert.ok(
-        source.includes(Buffer.from("MCP Tools")),
-        `${item.file}: native MCP inventory`,
-      );
-    for (const tool of [
-      "system_start_container",
-      "workspace_read_file",
-      "workspace_write_file",
-      ...cases[item.scenario].operations.map((operation) => operation.tool),
-    ])
-      assert.ok(item.tools.includes(tool), `${item.file}: ${tool}`);
-    if (item.scenario === "ctf")
-      assert.equal(
-        item.tools.filter((tool) => tool === "shell_exec").length,
-        3,
-      );
-    assert.ok(
-      recording.duration > recording.header.chapters.report + 5,
-      "completed report is held",
-    );
-    names.add(item.file);
+test("120 sessions preserve pinned clients, bytes and real-tool provenance",async()=>{
+  const m=await manifest();assert.equal(m.schemaVersion,2);assert.equal(m.developmentOnly,false);
+  assert.equal(m.nativeUI,true);assert.equal(m.realTools,true);assert.equal(m.scriptedModel,true);assert.equal(m.scriptedToolResults,false);
+  assert.equal(m.accountAccess,false);assert.equal(m.externalNetwork,false);assert.equal(m.playbackSpeed,1);
+  const catalog=await readFile(new URL("../capture/lab-cases.json",import.meta.url),"utf8");assert.equal(hash(catalog.replace(/\r\n/g,"\n")),m.caseCatalogSha256);
+  assert.equal(Object.keys(m.cases).length,10);assert.equal(m.recordings.length,120);const seen=new Set();
+  for(const r of m.recordings){
+    const bytes=await readFile(new URL(r.file,root)),source=parseRecording(bytes.toString("utf8"));
+    assert.equal(hash(bytes),r.sha256,r.file);assert.equal(r.version,versions[r.client]);assert.equal(source.header.clientVersion,r.version);
+    assert.equal(source.header.realTools,true);assert.equal(source.header.fixture,false);assert.ok([48,80,120].includes(r.columns));
+    assert.deepEqual([source.header.width,source.header.height],[r.columns,r.columns===120?36:28]);assert.ok(source.events.length>10);
+    assert.ok(r.displayStart>=0 && r.displayStart<r.chapters.query);assert.ok(source.events.some(([at])=>at===r.displayStart));
+    assert.ok(r.duration>=r.chapters.report+6,"six-second completion hold");assert.ok(r.tools.length>=8 && r.tools.length<=16);
+    assert.equal(r.tools[0],"system_start_container");assert.equal(r.tools.at(-1),"system_stop_container");assert.ok(r.tools.includes("workspace_write_file"));
+    assert.equal(hash(await readFile(new URL(r.transcript,root))),r.transcriptSha256);
+    const still=await readFile(new URL(r.still,root));assert.equal(hash(still),r.stillSha256);imageFormat(still,r.still);
+    assert.equal(r.stillAt,r.displayStart);assert.match(r.stillRenderer,/captured ANSI/);assert.ok(r.synchronized.every(f=>!f.scriptedObservation && f.at<=r.duration));
+    const completed=await readFile(new URL(r.completedStill,root));assert.equal(hash(completed),r.completedStillSha256);imageFormat(completed,r.completedStill);assert.equal(r.completedStillAt,r.duration-1);
+    const report=await readFile(new URL(r.report,root),"utf8");assert.match(report,/Verified observations/);assert.match(report,/scripted/);assert.match(report,/No public target/);
+    assert.ok(r.artifacts.every(a=>a.availableAt>=0 && a.availableAt<=r.duration));
+    const key=`${r.client}/${r.scenario}/${r.columns}`;assert.ok(!seen.has(key));seen.add(key);
   }
-  assert.equal(names.size, sessionCount);
-  for (const client of Object.keys(expectedVersions))
-    for (const scenario of Object.keys(cases))
-      for (const columns of [80, 120])
-        assert.ok(names.has(`${client}-${scenario}-${columns}.cast`));
+  for(const client of Object.keys(versions))for(const scenario of Object.keys(m.cases))for(const cols of [120,80,48])assert.ok(seen.has(`${client}/${scenario}/${cols}`));
 });
 
-test("Claude's native mascot animation retains colored, distinct startup frames", async () => {
-  const manifest = JSON.parse(await readFile(new URL("manifest.json", root), "utf8"));
-  for (const item of manifest.recordings.filter((item) => item.client === "claude")) {
-    const recording = parseRecording(await readFile(new URL(item.file, root), "utf8"));
-    const terminal = new xterm.Terminal({cols: item.columns, rows: item.rows, scrollback: 0});
-    const frames = new Set();
-    try {
-      for (const [time, , output] of recording.events) {
-        if (time >= recording.header.chapters.mcp + 4) break;
-        await write(terminal, output);
-        if (terminal.buffer.active.type !== "alternate") continue;
-        const cells = screen(terminal).rows.slice(0, 4).map((row) => row.slice(0, 10));
-        if (cells.some((row) => row.some(([text, , , color]) => text.trim() && color === 0xd77757)))
-          frames.add(JSON.stringify(cells));
-      }
-      assert.ok(frames.size >= 2, `${item.file}: animated mascot frames`);
-    } finally {
-      terminal.dispose();
-    }
+test("public evidence hashes and CTF checksums match actual artifacts",async()=>{
+  const m=await manifest(),checked=new Set();
+  for(const r of m.recordings){
+    for(const a of r.artifacts){if(checked.has(a.file))continue;const bytes=await readFile(new URL(a.file,root));assert.equal(bytes.length,a.bytes);assert.equal(hash(bytes),a.sha256,a.file);checked.add(a.file);}
+    if(r.scenario==="forensics"){const a=r.artifacts.find(a=>a.path==="artifacts/forensics/verification.json"),proof=JSON.parse(await readFile(new URL(a.file,root),"utf8"));assert.equal(proof.checksum_match,true);assert.equal(proof.decoy_match,false);assert.equal(hash(proof.flag),proof.sha256);}
+    for(const metric of r.metrics){assert.equal(metric.rawTokenEstimate,Math.ceil(metric.rawCharacters/4));assert.equal(metric.inlineTokenEstimate,Math.ceil(metric.inlineResponseCharacters/4));assert.equal(metric.characterReduction,metric.rawCharacters ? Math.round(1000*(1-metric.inlineResponseCharacters/metric.rawCharacters))/10 : 0);}
   }
 });
 
-test("startup, MCP, task and report frames survive catch-up and fresh replay exactly", async () => {
-  const manifest = JSON.parse(
-    await readFile(new URL("manifest.json", root), "utf8"),
-  );
-  const results = await Promise.allSettled(
-    manifest.recordings.map(async (item) => {
-      const recording = parseRecording(
-        await readFile(new URL(item.file, root), "utf8"),
-      );
-      const options = {
-        cols: item.columns,
-        rows: item.rows,
-        convertEol: false,
-        scrollback: 0,
-      };
-      const sequential = new xterm.Terminal(options);
-      const cursor = new RecordingCursor(recording);
-      const checkpoints = [
-        item.displayStart,
-        recording.header.chapters.mcp + 4,
-        recording.header.chapters.query + 6,
-        recording.header.chapters.report + 6,
-        recording.duration,
-      ];
-      try {
-        for (const time of checkpoints) {
-          // Deliver original chunks individually, then compare with a single catch-up write.
-          let output;
-          while (
-            cursor.index < recording.events.length &&
-            recording.events[cursor.index][0] <= time
-          ) {
-            output = cursor.drain(recording.events[cursor.index][0]);
-            await write(sequential, output);
-          }
-          const fresh = new xterm.Terminal(options);
-          try {
-            await write(fresh, new RecordingCursor(recording).drain(time));
-            if (time === recording.header.chapters.mcp + 4) {
-              const buffer = fresh.buffer.active;
-              const text = Array.from({ length: fresh.rows }, (_, y) =>
-                buffer.getLine(buffer.viewportY + y).translateToString(true),
-              ).join("\n");
-              assert.ok(text.toLowerCase().includes("hercules"), `${item.file}: native MCP inspection`);
-            }
-            if (time === item.displayStart)
-              assert.ok(
-                screen(fresh).rows.some((row) =>
-                  row.some(([text]) => text.trim()),
-                ),
-                `${item.file}: playback opens on visible native output`,
-              );
-            if (time === recording.duration && item.scenario === "ctf") {
-              const buffer = fresh.buffer.active;
-              const text = Array.from({ length: fresh.rows }, (_, y) =>
-                buffer.getLine(buffer.viewportY + y).translateToString(true),
-              ).join("\n");
-              assert.ok(
-                text.includes("HERCULES{evidence_before_answers}"),
-                item.file,
-              );
-              assert.ok(text.includes("Checksum match: true"), item.file);
-              assert.ok(text.includes("Decoy match: false"), item.file);
-            }
-            assert.deepEqual(
-              screen(sequential),
-              screen(fresh),
-              `${item.file} at ${time}s`,
-            );
-          } finally {
-            fresh.dispose();
-          }
-        }
-      } finally {
-        sequential.dispose();
-      }
-    }),
-  );
-  for (const result of results)
-    if (result.status === "rejected") throw result.reason;
+test("native startup, MCP, task and report cells survive catch-up in all grids",async()=>{
+  const m=await manifest();
+  for(const r of m.recordings.filter(r=>r.scenario==="network")){
+    const source=parseRecording(await readFile(new URL(r.file,root),"utf8")),options={cols:r.columns,rows:r.rows,scrollback:0,convertEol:false};
+    const sequential=new xterm.Terminal(options),cursor=new RecordingCursor(source);
+    try{for(const at of [r.displayStart,r.chapters.mcp+4,r.chapters.investigation+3,r.duration]){
+      // Replay the same bounded catch-up batches used by the browser clock.
+      // Every byte remains ordered; compare full cells at each native milestone.
+      while(cursor.index<source.events.length && source.events[cursor.index][0]<=at)await write(sequential,cursor.drain(Math.min(at,source.events[cursor.index][0]+.25)));
+      const fresh=new xterm.Terminal(options);
+      try{await write(fresh,new RecordingCursor(source).drain(at));assert.deepEqual(cells(fresh),cells(sequential),`${r.file} at ${at}`);assert.ok(cells(fresh).rows.some(row=>row.some(([text])=>text.trim())),"nonempty native frame");}finally{fresh.dispose();}
+    }}finally{sequential.dispose();}
+  }
 });

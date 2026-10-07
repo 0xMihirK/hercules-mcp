@@ -1,0 +1,11 @@
+{
+  "title": "Hercules showcase compositions",
+  "question": "Which composition should carry forward? All preserve the existing graphite/copper identity and the agreed page order.",
+  "options": [
+    {"id":"editorial","label":"Editorial demonstration","kicker":"THE ROLL","thesis":"One generous native player with an evidence rail makes the investigation easy to follow.","palette":["#101317","#1b2026","#edf1f5","#d87950"],"materials":["procedural hatch","graphite","copper"],"viewport":"Wide hero, single player and evidence rail, then expandable chains and an architectural cutaway.","risk":"The rail must remain concise so the native interface stays dominant.","comp":".impeccable/mocks/editorial.png"},
+    {"id":"stage","label":"Terminal stage","thesis":"The native interface takes the full stage, followed by a large container cutaway.","palette":["#101317","#1b2026","#edf1f5","#d87950"],"materials":["procedural hatch","graphite","copper"],"viewport":"Wide hero, oversized player with a findings strip, then chains and architecture.","risk":"An oversized terminal can push useful context too far below the fold.","comp":".impeccable/mocks/stage.png"},
+    {"id":"timeline","label":"Investigation timeline","thesis":"A connected evidence trail links each tool call to the next decision.","palette":["#101317","#1b2026","#edf1f5","#d87950"],"materials":["procedural hatch","graphite","copper"],"viewport":"Wide hero, player beside a case timeline, then tool chains and a continuous evidence path.","risk":"Connections need restraint to keep the page from becoming a dashboard.","comp":".impeccable/mocks/timeline.png"}
+  ],
+  "steer": true,
+  "buildPath": {"value":"comp","toggle":false}
+}

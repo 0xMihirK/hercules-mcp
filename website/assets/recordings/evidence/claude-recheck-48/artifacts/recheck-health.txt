@@ -1,0 +1,10 @@
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Wed, 07 Oct 2026 09:29:17 GMT
+Content-Type: application/json
+Content-Length: 36
+X-Hercules-Lab: disposable
+Content-Security-Policy: default-src 'self'; frame-ancestors 'none'
+X-Content-Type-Options: nosniff
+
+{"status": "ok", "remediated": true}

@@ -1,0 +1,8 @@
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Wed, 07 Oct 2026 16:48:58 GMT
+Content-Type: application/json
+Content-Length: 37
+X-Hercules-Lab: disposable
+
+{"status": "ok", "remediated": false}

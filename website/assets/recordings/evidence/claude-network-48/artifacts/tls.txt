@@ -1,0 +1,88 @@
+Connecting to 172.30.80.10
+Can't use SSL_get_servername
+depth=0 CN=lab
+verify return:1
+CONNECTED(00000003)
+---
+Certificate chain
+ 0 s:CN=lab
+   i:CN=lab
+   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
+   v:NotBefore: Oct  7 17:08:50 2026 GMT; NotAfter: Nov  6 17:08:50 2026 GMT
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIDEzCCAfugAwIBAgIULtsA50LRlH0akZ7c0oMY3aYiLQAwDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAwNzE3MDg1MFoXDTI2MTEwNjE3MDg1
+MFowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAs+IkvVGwIvQTrmGqqWoCBhUOUprE7odpeWKhRSqpNvlen/OKUn2x2AQ7+3z9
+6pI6x9bS858gnJm2Pg15owg/3ZSMUz120qlUNz0WgcUdCaE05DTzmckU6H0srVgO
+sTjKX4Dopp5GH2z/FMaj5OGlSivXE9ucoReY7uBHuJ47KKJcHmwPkswrzL1hSAQ9
+Q7IzLK0LdbtVUYzckSQE87TCAwH9QGw4UkyQUTOW9+iD2SIPXdAVjRc6NVKZECxO
+DXnZUdd7F9qWl0rCy/cIErJCokJ6NX55HnyM1UK4G+hHWh9iGx50HAtiW7sQqMbP
+kFUjwPGOIkC1A155yEBcXUY3KQIDAQABo2kwZzAdBgNVHQ4EFgQU7llvaKpcmC00
+cql3RGP8iMicz4AwHwYDVR0jBBgwFoAU7llvaKpcmC00cql3RGP8iMicz4AwDwYD
+VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweUAowDQYJKoZIhvcNAQEL
+BQADggEBAC7k197+dA0UobpHgjdh9IcyhfNh+kjcYtn+BZJspcGkmqpYHDPUQ59R
+fJi8gMnRzMhW3n74p0Qw+qXFJuh4eoNeRaipuS2rkRITdDLyjgdWAC0rDtTAyia3
+wc3V5FzTzhDMgfLVB76SayLvnqzUoeQhwLDewElpy8XsYor00kfi1btBwKr8BP3u
+72lCVzf6Sdeb4LznoDsK/uYTek4k/VgpqHCdlB2iTMHDM1CLdIaEVDFXmBExVu3H
+MIsYuL6wzwVWWpp7rW5sKEVz0xSuANbAfiJbAqhHnBDmpoObTfk1LYVyqtzJ/Eww
+yszbpAQtHnzSQ6co+U49JHw6SconW1Y=
+-----END CERTIFICATE-----
+subject=CN=lab
+issuer=CN=lab
+---
+No client certificate CA names sent
+Peer signing digest: SHA256
+Peer signature type: rsa_pss_rsae_sha256
+Peer Temp Key: X25519, 253 bits
+---
+SSL handshake has read 1347 bytes and written 1738 bytes
+Verification: OK
+---
+New, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384
+Protocol: TLSv1.3
+Server public key is 2048 bit
+This TLS version forbids renegotiation.
+Compression: NONE
+Expansion: NONE
+No ALPN negotiated
+Early data was not sent
+Verify return code: 0 (ok)
+---
+DONE
+---
+Post-Handshake New Session Ticket arrived:
+SSL-Session:
+    Protocol  : TLSv1.3
+    Cipher    : TLS_AES_256_GCM_SHA384
+    Session-ID: 1BFC502E18E49E49A7D97E015A96CBD0EDDADC6E7B9CE03A0EF309E6CD2CC9F3
+    Session-ID-ctx: 
+    Resumption PSK: F245D3275A9165804954F21C0B2B7051D95261F9A8DEF44C612CEF64520DEAC12F0C7F0253DEBE98C92C7F47392F2DF5
+    PSK identity: None
+    PSK identity hint: None
+    SRP username: None
+    TLS session ticket lifetime hint: 7200 (seconds)
+    TLS session ticket:
+    0000 - 59 33 ac e0 c8 a2 13 58-30 cb 73 dc ae 63 bd 7e   Y3.....X0.s..c.~
+    0010 - 91 70 6f 1e 9d 4c a2 67-16 5f 18 54 01 5a 67 e4   .po..L.g._.T.Zg.
+    0020 - 96 d5 73 e0 ef c2 3b 76-99 51 6b 67 02 cc ba 22   ..s...;v.Qkg..."
+    0030 - 92 a8 fa 69 f6 58 8b e3-de cc 3d 82 f5 4a 73 f5   ...i.X....=..Js.
+    0040 - ed e2 b6 f7 e3 05 41 53-10 9f a0 66 e7 a3 40 66   ......AS...f..@f
+    0050 - 61 7b 39 39 cd 41 41 5d-b8 95 15 75 48 00 2c 82   a{99.AA]...uH.,.
+    0060 - 18 eb f4 15 d7 37 1b 3a-d2 27 3e 6c 1e cd bf d2   .....7.:.'>l....
+    0070 - 36 34 cd ce 3d 89 ad 10-35 de 01 95 46 c3 1f c3   64..=...5...F...
+    0080 - 7e 25 a6 5a 07 0f f1 7f-6c 8b 50 33 c1 f7 11 da   ~%.Z....l.P3....
+    0090 - 63 3e 5f e6 b4 48 2b ee-ea 62 77 1d 27 f9 55 17   c>_..H+..bw.'.U.
+    00a0 - 14 f4 c5 6c e0 e8 e5 7e-88 1e 69 98 43 01 98 ce   ...l...~..i.C...
+    00b0 - 2f 54 34 bb 01 c3 3b 75-09 5e 0f ad 31 61 8d 2e   /T4...;u.^..1a..
+    00c0 - 66 5d 1a f3 86 af bb f0-c4 ac 20 b7 f8 f9 e0 57   f]........ ....W
+
+    Start Time: 1791393105
+    Timeout   : 7200 (sec)
+    Verify return code: 0 (ok)
+    Extended master secret: no
+    Max Early Data: 0
+---
+read R BLOCK
