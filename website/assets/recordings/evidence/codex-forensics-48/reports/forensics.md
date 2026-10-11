@@ -11,13 +11,13 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: beb138dcb57f50060a9cd2c66629b7283adec6eeca71c5a7e506e21e8eb6f091  /opt/workspace/challenge/carrier.png
+stdout: f66450807564c9d9c5daabda00d000c345f13297f570a0bf383f4e01e4b5651e  /opt/workspace/challenge/carrier.png
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_dff7f91ade654fd29f0b2781a7dad431.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_4f57ac02529f44f7872b008a6125b2fa.sh: line 1: file: command not found
 
-duration_seconds: 0.3
-command: bash /opt/workspace/tmp/shell_dff7f91ade654fd29f0b2781a7dad431.sh
+duration_seconds: 0.25
+command: bash /opt/workspace/tmp/shell_4f57ac02529f44f7872b008a6125b2fa.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -63,8 +63,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.7
-command: bash /opt/workspace/tmp/shell_beb3387c29584827abf21467e9c0b5bb.sh
+duration_seconds: 0.27
+command: bash /opt/workspace/tmp/shell_c4c9a687d0524f229f07619d074883a7.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -101,7 +101,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 3.05
+duration_seconds: 1.2
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -111,7 +111,7 @@ stderr_truncated: False
 stdout_chars: 757
 stderr_chars: 0
 stdout_bytes: 757
-s
+st
 ```
 
 ### 6. shell_exec
@@ -126,37 +126,39 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-G]mk
+{K]mk
 manifest.json%
 NB-Y
 \H!u
 F!F);
 Apk"
+{K]k6=<U
 payload.enc
-Salted__:
+Salted__
 decoy.txt
-G]mk
+{K]mk
 manifest.jsonPK
+{K]k6=<U
 payload.encPK
 decoy.txtPK
 
 stderr: 
-duration_seconds: 0.52
-command: bash /opt/workspace/tmp/shell_240cfee7174f43eea3fdb00bdadae30f.sh
+duration_seconds: 0.36
+command: bash /opt/workspace/tmp/shell_1ec70c9d97b5499cb42d003180d212fd.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 229
+stdout_chars: 248
 stderr_chars: 0
-stdout_bytes: 229
+stdout_bytes: 248
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 229
+inline_stdout_chars: 248
 inline_stderr_chars: 0
-estimated_inline_tokens: 58
+estimated_inline_tokens: 62
 ```
 
 ### 7. shell_exec
@@ -169,8 +171,8 @@ exit_code: 0
 stdout: ['manifest.json', 'payload.enc', 'decoy.txt']
 
 stderr: 
-duration_seconds: 0.45
-command: bash /opt/workspace/tmp/shell_039d7a1c8ff34712906f3af4717fde1c.sh
+duration_seconds: 0.3
+command: bash /opt/workspace/tmp/shell_d9170f482cad48f081e280cdfd74f507.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -219,10 +221,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-40A75892077E0000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+40B7476C5D740000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
 
-duration_seconds: 3.42
-command: bash /opt/workspace/tmp/shell_bb221541f0324a8bb4c12a081b9f3e75.sh
+duration_seconds: 0.2
+command: bash /opt/workspace/tmp/shell_b0a6295e48fa42c9b3ea77cc3a9e48cb.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -248,8 +250,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.27
-command: bash /opt/workspace/tmp/shell_d05d87cee9fe4cf6abf6854f9f7014c1.sh
+duration_seconds: 0.19
+command: bash /opt/workspace/tmp/shell_626ee217e24e4e8b99f8b4d2c912f786.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -281,8 +283,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.34
-command: bash /opt/workspace/tmp/shell_706b6066481b45cd846fe6cd9e919871.sh
+duration_seconds: 0.23
+command: bash /opt/workspace/tmp/shell_a0d66da77c1848c99f8940b7c2943c20.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

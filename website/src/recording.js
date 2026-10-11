@@ -30,21 +30,23 @@ export function parseRecording(source) {
     (!Number.isFinite(header.duration) || header.duration < 0)
   )
     throw new Error("Invalid recording duration");
-  let previous = 0;
+  const previous = new Map();
+  let maximum = 0;
   const events = lines.filter((event) => {
     if (
       !Array.isArray(event) ||
       event.length !== 3 ||
       !Number.isFinite(event[0]) ||
-      event[0] < previous ||
+      event[0] < 0 || event[0] < (previous.get(event[1]) ?? 0) ||
       !["o", "i", "r", "m"].includes(event[1]) ||
       typeof event[2] !== "string"
     )
       throw new Error("Invalid recording event");
-    previous = event[0];
+    previous.set(event[1], event[0]);
+    maximum = Math.max(maximum, event[0]);
     return event[1] === "o";
   });
-  return { header, events, duration: Math.max(header.duration || 0, previous) };
+  return { header, events, duration: Math.max(header.duration || 0, maximum) };
 }
 export class RecordingCursor {
   constructor(recording) {

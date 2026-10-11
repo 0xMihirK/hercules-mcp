@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUpRight, Pause, Play } from "@phosphor-icons/react";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
@@ -15,15 +16,25 @@ const github="https://github.com/0xMihirK/hercules-mcp";
 const asset=(name:string)=>`${import.meta.env.BASE_URL}assets/${name}`;
 export default function App(){
   const reduced=useReducedMotion(),[paused,setPaused]=useState(false);
-  const [manifest,setManifest]=useState<NativeManifest|null>(bootstrap.schemaVersion===2 ? bootstrap as unknown as NativeManifest : null);
+  const [manifest,setManifest]=useState<NativeManifest|null>(bootstrap.schemaVersion===3 ? bootstrap as unknown as NativeManifest : null);
   const recordingBase=asset(`${bootstrap.assetDirectory}/`);
   const measuredRecording=manifest?.recordings.find(r=>r.scenario==="services" && r.client==="claude" && r.columns===120);
   const measured=measuredRecording?.metrics.find(m=>m.tool==="searchsploit" && m.rawCharacters>0);
   const measurement=measured ? {...measured,caseTitle:manifest?.cases.services.title,file:measuredRecording?.artifacts.find(a=>a.path===measured.rawArtifact)?.file} : null;
   useEffect(()=>{
+    let frame=0,live=true;
+    const refresh=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{if(live)ScrollTrigger.refresh();});};
+    // Native geometries and expanded chains change the sections preceding
+    // the pinned scene. Refresh its measured positions after those changes.
+    const observer=new ResizeObserver(refresh);
+    for(const element of document.querySelectorAll("#agents,#tools"))observer.observe(element);
+    document.fonts.ready.then(()=>{if(live)refresh();});
+    return()=>{live=false;observer.disconnect();cancelAnimationFrame(frame);};
+  },[]);
+  useEffect(()=>{
     if(typeof fetch!=="function")return;
     const controller=new AbortController();
-    fetch(recordingBase+"manifest.json",{signal:controller.signal}).then(r=>{if(!r.ok)throw Error("Native manifest unavailable");return r.json();}).then(data=>{if(data.schemaVersion===2 && data.realTools && !data.scriptedToolResults)setManifest(data);}).catch(()=>{});
+    fetch(recordingBase+"manifest.json",{signal:controller.signal,cache:"no-store"}).then(r=>{if(!r.ok)throw Error("Native manifest unavailable");return r.json();}).then(data=>{if(data.schemaVersion===3 && data.realTools && !data.scriptedToolResults)setManifest(data);}).catch(()=>{});
     return()=>controller.abort();
   },[recordingBase]);
   return <div className={`site${paused || reduced?" motion-off":""}`}>

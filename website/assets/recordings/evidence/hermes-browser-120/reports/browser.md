@@ -31,7 +31,7 @@ I will check the live local page in the native browser backend rather than infer
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.80.10:8000/login
+url: http://172.30.200.10:8000/login
 session: review
 stealth: cloak stealth Chromium
 proxy_enabled: False
@@ -42,26 +42,26 @@ session_relaunched: False
 next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
-duration_seconds: 1.86
-command: agent-browser --json --session review open http://172.30.80.10:8000/login
+duration_seconds: 1.02
+command: agent-browser --json --session review open http://172.30.200.10:8000/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 364
+stdout_chars: 365
 stderr_chars: 0
-stdout_bytes: 366
+stdout_bytes: 367
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 91
+estimated_inline_tokens: 92
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 14020672945813849277
+launchHash: 15884220051995745035
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -69,7 +69,7 @@ restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
 title: Atlas lab — sign in
-url: http://172.30.80.10:8000/login
+url: http://172.30.200.10:8000/login
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
@@ -89,7 +89,7 @@ stdout: - heading "Atlas operations" [level=1, ref=e1]
 - button "Sign in" [ref=e4]
 
 stderr: 
-duration_seconds: 0.33
+duration_seconds: 0.2
 command: agent-browser --session review snapshot -i -c
 output_filtered: False
 output_complete: True
@@ -117,7 +117,7 @@ tool: browser_act
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.27
+duration_seconds: 0.22
 command: agent-browser --json --session review find label Email fill ***
 output_filtered: False
 output_complete: True
@@ -137,7 +137,7 @@ browser_result: success: True
 data: filled: [data-agent-browser-located='true']
 lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 14020672945813849277
+launchHash: 15884220051995745035
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -178,7 +178,7 @@ browser_result: success: True
 data: filled: [data-agent-browser-located='true']
 lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 14020672945813849277
+launchHash: 15884220051995745035
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -199,7 +199,7 @@ tool: browser_act
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.28
+duration_seconds: 0.22
 command: agent-browser --json --session review find role button click --name 'Sign in'
 output_filtered: False
 output_complete: True
@@ -219,7 +219,7 @@ browser_result: success: True
 data: clicked: @e5
 lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 14020672945813849277
+launchHash: 15884220051995745035
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -242,7 +242,7 @@ exit_code: 0
 stdout: - heading "Dashboard" [level=1, ref=e1]
 
 stderr: 
-duration_seconds: 0.31
+duration_seconds: 0.23
 command: agent-browser --session review snapshot -c
 output_filtered: False
 output_complete: True
@@ -267,14 +267,14 @@ I will independently confirm that an incorrect fixture password is rejected; the
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/login
+url: http://172.30.200.10:8000/login
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.34
-command: curl -s -X POST --proto =http,https -i -d 'email=reviewer%40lab.test&password=*** --max-time 5 -o /opt/workspace/artifacts/login-rejected.txt http://172.30.80.10:8000/login
+duration_seconds: 0.2
+command: curl -s -X POST --proto =http,https -i -d 'email=reviewer%40lab.test&password=*** --max-time 5 -o /opt/workspace/artifacts/login-rejected.txt http://172.30.200.10:8000/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -305,7 +305,7 @@ exit_code: 0
 stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/dashboard.png
 
 stderr: 
-duration_seconds: 0.27
+duration_seconds: 0.22
 command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/dashboard.png
 output_filtered: False
 output_complete: True

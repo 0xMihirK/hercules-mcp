@@ -21,15 +21,15 @@ Actual response excerpt:
 ```text
 tool: shell_check_job
 job_id: lab-recovery
-pid: 31
-pgid: 31
+pid: 32
+pgid: 32
 is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-07T10:14:24.369841+00:00
-updated_at: 2026-10-07T10:15:14.554023+00:00
-finished_at: 2026-10-07T10:14:34Z
+created_at: 2026-10-11T18:07:33.509597+00:00
+updated_at: 2026-10-11T18:08:21.502030+00:00
+finished_at: 2026-10-11T18:07:41Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -53,7 +53,7 @@ total_bytes: 77
 offset: 0
 truncated: False
 next_offset: None
-content: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received
+content: curl: (28) Operation timed out after 1001 milliseconds with 0 bytes received
 
 ```
 
@@ -63,14 +63,14 @@ I will confirm that the discovered HTTP service responds, retaining the response
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.82.10:8000/health
+url: http://172.30.200.10:8000/health
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.16
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.82.10:8000/health
+duration_seconds: 0.19
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -102,7 +102,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 10:15:43 GMT
+Date: Sun, 11 Oct 2026 18:08:53 GMT
 Content-Type: application/json
 Content-Length: 37
 X-Hercules-Lab: disposable
@@ -117,15 +117,15 @@ Actual response excerpt:
 ```text
 tool: shell_check_job
 job_id: lab-recovery
-pid: 31
-pgid: 31
+pid: 32
+pgid: 32
 is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-07T10:14:24.369841+00:00
-updated_at: 2026-10-07T10:16:07.218547+00:00
-finished_at: 2026-10-07T10:14:34Z
+created_at: 2026-10-11T18:07:33.509597+00:00
+updated_at: 2026-10-11T18:09:16.569758+00:00
+finished_at: 2026-10-11T18:07:41Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -146,8 +146,8 @@ exit_code: 0
 stdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.
 
 stderr: 
-duration_seconds: 0.25
-command: bash /opt/workspace/tmp/shell_65b4b56296114314b7e78137322fd5c3.sh
+duration_seconds: 0.17
+command: bash /opt/workspace/tmp/shell_b3e4e7c382bc4128a25b1e8fafbc5d6c.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

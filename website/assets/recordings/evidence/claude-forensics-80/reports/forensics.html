@@ -11,13 +11,13 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: ac6adb20bf50a2404bba754216837c3335a1fd44bd8bd7c7b9a55c6f488019d0  /opt/workspace/challenge/carrier.png
+stdout: 7406b661f0d3b77064cbfff179fec8070cc82ed767b21357ece2bab887de9bb0  /opt/workspace/challenge/carrier.png
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_8a83e5563a024465ad1c295ffd1948f9.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_91be78181c854a59b56fda3815c13891.sh: line 1: file: command not found
 
-duration_seconds: 0.14
-command: bash /opt/workspace/tmp/shell_8a83e5563a024465ad1c295ffd1948f9.sh
+duration_seconds: 0.23
+command: bash /opt/workspace/tmp/shell_91be78181c854a59b56fda3815c13891.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -63,8 +63,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.16
-command: bash /opt/workspace/tmp/shell_ad85e3c6d1b2483d8490de0a0f258082.sh
+duration_seconds: 0.25
+command: bash /opt/workspace/tmp/shell_65c7100dc0db48d38c941289e7181e95.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -101,7 +101,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 0.67
+duration_seconds: 0.78
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -126,39 +126,39 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-&amp;IG]mk
+]jK]mk
 manifest.json%
 NB-Y
 \H!u
 F!F);
 Apk&quot;
-&amp;IG]
+]jK]
 payload.enc
-Salted__#	
-&amp;IG]
+Salted__
+[_c$9Z
+]jK]
 decoy.txt
-&amp;IG]mk
+]jK]mk
 manifest.jsonPK
-&amp;IG]
-payload.encPK
+]jK]
 
 stderr: 
 duration_seconds: 0.16
-command: bash /opt/workspace/tmp/shell_fcee6b2ad02e483b96204d44343c3565.sh
+command: bash /opt/workspace/tmp/shell_bb5edd2302f6446183bed02c9226380e.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 237
+stdout_chars: 228
 stderr_chars: 0
-stdout_bytes: 237
+stdout_bytes: 228
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 237
+inline_stdout_chars: 228
 inline_stderr_chars: 0
-estimated_inline_tokens: 60
+estimated_inline_tokens: 57
 ```
 
 ### 7. shell_exec
@@ -171,8 +171,8 @@ exit_code: 0
 stdout: [&#x27;manifest.json&#x27;, &#x27;payload.enc&#x27;, &#x27;decoy.txt&#x27;]
 
 stderr: 
-duration_seconds: 0.22
-command: bash /opt/workspace/tmp/shell_9612e4ca98ad43dd9d844d2c0f65df54.sh
+duration_seconds: 0.27
+command: bash /opt/workspace/tmp/shell_f477f679f3e44168b589571847d35a39.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -221,10 +221,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-402741A45A760000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+40A7AA2910700000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
 
-duration_seconds: 0.11
-command: bash /opt/workspace/tmp/shell_e9d206db4bff41a99749b58fe6cee346.sh
+duration_seconds: 0.19
+command: bash /opt/workspace/tmp/shell_efc08a54539641d087a5b9b4c5d5fde2.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -250,8 +250,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.12
-command: bash /opt/workspace/tmp/shell_239c097313b64588b7dc798f9bd28fb7.sh
+duration_seconds: 0.2
+command: bash /opt/workspace/tmp/shell_2b8648e7730346bcb3f13b275e4950a5.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -283,8 +283,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.25
-command: bash /opt/workspace/tmp/shell_3d3a8c43463a496b8dd284c71ca90270.sh
+duration_seconds: 0.33
+command: bash /opt/workspace/tmp/shell_3fce0378a0c44aaca1fe4c9689db6a1f.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

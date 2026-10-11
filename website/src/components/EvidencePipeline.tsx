@@ -15,7 +15,7 @@ export default function EvidencePipeline({ reduced, paused, measurement, base }:
       const context = gsap.context(() => {
         const timeline=gsap.timeline({scrollTrigger:{trigger:root.current,start:"top 85%",end:"center center",scrub:.7}});
         timeline.fromTo(".evidence-illustration",{scale:.8},{scale:1,ease:"none",duration:1},0);
-        timeline.fromTo(".pipeline-stage",{opacity:.4,y:12},{opacity:1,y:0,stagger:.15,duration:.4,ease:"none"},0);
+        timeline.fromTo(".pipeline-stage",{y:12},{y:0,stagger:.15,duration:.4,ease:"none"},0);
       }, root);
       return () => context.revert();
     });

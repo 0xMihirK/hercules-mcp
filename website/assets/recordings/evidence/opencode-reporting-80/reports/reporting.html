@@ -11,34 +11,34 @@ Actual response excerpt:
 ```text
 tool: nmap_scan
 mode: port
-target: 172.30.81.10
+target: 172.30.200.10
 ports: 8000,8080,8443
 exit_code: 0
 stderr: 
-duration_seconds: 0.25
-command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.81.10
+duration_seconds: 0.58
+command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.200.10
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 1626
+stdout_chars: 1630
 stderr_chars: 0
-stdout_bytes: 1626
+stdout_bytes: 1630
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 407
-raw_artifact: /opt/workspace/logs/exec_raw_20261007_100504_931374.txt
-raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261007_100504_931374.txt
+estimated_inline_tokens: 408
+raw_artifact: /opt/workspace/logs/exec_raw_20261011_174813_926222.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261011_174813_926222.txt
 filter_notes: raw output preserved in artifact
 parsed: scanner: nmap
-start_time: 1791367504
+start_time: 1791740893
 host_count: 1
 hosts: status: up
-addresses: addr: 172.30.81.10
+addresses: addr: 172.30.200.10
 addrtype: ipv4
 ports: portid: 8000
 protocol: tcp
@@ -58,7 +58,7 @@ state: open
 service: name: https-alt
 product: None
 version: None
-structured_
+structur
 ```
 
 ### 4. network_curl
@@ -67,14 +67,14 @@ I will confirm that the discovered HTTP service responds, retaining the response
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.81.10:8000/health
+url: http://172.30.200.10:8000/health
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.2
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.81.10:8000/health
+duration_seconds: 0.44
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -163,8 +163,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 3.25
-command: bash /opt/workspace/tmp/shell_0f3c4c6c65714bad8e3811c6eec62658.sh
+duration_seconds: 0.81
+command: bash /opt/workspace/tmp/shell_08055cc5c70d4f74af7a0006cb0badba.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -187,14 +187,14 @@ I will check the debug route now. The report must distinguish current evidence f
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.81.10:8000/debug
+url: http://172.30.200.10:8000/debug
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.16
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/current-debug.txt http://172.30.81.10:8000/debug
+duration_seconds: 0.51
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/current-debug.txt http://172.30.200.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True

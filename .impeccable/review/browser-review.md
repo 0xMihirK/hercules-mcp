@@ -31,12 +31,4 @@ because hero, sections, motion and responsive phases were not closed. Those
 automated phases remain open; no state or receipt was edited to manufacture a
 pass. Publication proceeds under the user's explicit browser-review approval.
 
-Browser QA covers actual offscreen pausing, fixed grids, agent changes, Replay,
-explicit pause, enlargement, loading failures, slow fonts, reduced motion and
-320px through desktop layouts at DPR 1 and 2. The IAB did not reproduce a hidden
-document transition. A 640px CSS layout check represents available width at 200%
-desktop zoom, without claiming a native browser zoom action. Full-page capture
-intermittently failed in the provider; the valid loading-state composition
-capture is supplemented by a painted native viewport and full enlarged report,
-Replay and recovery captures. All 120 raw sessions and 240 public native stills
-remain independently validated and byte-preserved.
+The earlier ANSI/xterm review is historical. On 2026-10-12, all 120 schema-3 XTerm/Xvfb captures passed real-tool validation and 840 independent RGB comparisons. Final browser checks and publication gates are in website/capture/VERIFICATION.md. The manual disposition in finish-verdict.md supersedes the historical xterm verdict. Genuine browser zoom and a real hidden-document transition remain unavailable through IAB. No automated visual-review completion or new human approval receipt is asserted.

@@ -10,28 +10,28 @@ I will discover only the fixture's small route list, with bounded concurrency an
 Actual response excerpt:
 ```text
 tool: fuzz_dirs
-target: http://172.30.81.10:8000
+target: http://172.30.130.10:8000
 fuzzer: ffuf
 exit_code: 0
 stderr: 
-duration_seconds: 0.75
-command: ffuf -u http://172.30.81.10:8000/FUZZ -w /opt/workspace/paths.txt -t 2 -ic -s -json -mc all -fc 404 -rate 15
+duration_seconds: 0.7
+command: ffuf -u http://172.30.130.10:8000/FUZZ -w /opt/workspace/paths.txt -t 2 -ic -s -json -mc all -fc 404 -rate 15
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 1705
+stdout_chars: 1717
 stderr_chars: 30
-stdout_bytes: 1705
+stdout_bytes: 1717
 stderr_bytes: 30
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 427
-raw_artifact: /opt/workspace/logs/exec_raw_20261007_085744_553177.txt
-raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261007_085744_553177.txt
+estimated_inline_tokens: 430
+raw_artifact: /opt/workspace/logs/exec_raw_20261011_130152_366029.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261011_130152_366029.txt
 filter_notes: output transformed; see output_transform statistics
 raw output preserved in artifact
 output_transform: stream: stderr
@@ -40,7 +40,7 @@ semantic: False
 removed_lines: 7
 removed_chars: 30
 filter_version: 1
-results: input: FFUFHASH: MzU5YzMx
+results: input: FFUFHASH: ZTgyZmIx
 FUZZ: cm9ib3RzLnR4dA==
 position: 1
 status: 200
@@ -49,7 +49,7 @@ words: 4
 lines: 4
 content-type: text/plain
 redirectlocation: 
-url: http://172.30.81.10:8000/ro
+url: http://172.30.130.10:8000/
 ```
 
 ### 4. web_scan
@@ -59,25 +59,25 @@ Actual response excerpt:
 ```text
 tool: web_scan
 selected_tool: whatweb
-target: http://172.30.81.10:8000
+target: http://172.30.130.10:8000
 exit_code: 0
-stdout: http://172.30.81.10:8000 [200 OK] Country[RESERVED][ZZ], HTML5, HTTPServer[AtlasLab/1.0], IP[172.30.81.10], PasswordField[password], Title[Atlas lab — sign in], UncommonHeaders[x-hercules-lab]
+stdout: http://172.30.130.10:8000 [200 OK] Country[RESERVED][ZZ], HTML5, HTTPServer[AtlasLab/1.0], IP[172.30.130.10], PasswordField[password], Title[Atlas lab — sign in], UncommonHeaders[x-hercules-lab]
 
 stderr: 
-duration_seconds: 2.88
-command: whatweb -a 1 --color=NEVER  http://172.30.81.10:8000
+duration_seconds: 3.09
+command: whatweb -a 1 --color=NEVER  http://172.30.130.10:8000
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 193
+stdout_chars: 195
 stderr_chars: 0
-stdout_bytes: 195
+stdout_bytes: 197
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 193
+inline_stdout_chars: 195
 inline_stderr_chars: 0
 estimated_inline_tokens: 49
 ```
@@ -98,27 +98,27 @@ I will run only this local template. Built-in online template updates and intera
 Actual response excerpt:
 ```text
 tool: nuclei_run
-targets: http://172.30.81.10:8000
+targets: http://172.30.130.10:8000
 exit_code: 0
 stderr: 
-duration_seconds: 0.27
-command: nuclei -jsonl -nc -or -ot -silent -target http://172.30.81.10:8000 -rate-limit 10 -t /opt/workspace/nuclei-templates/lab-debug.yaml -duc -ni
+duration_seconds: 0.52
+command: nuclei -jsonl -nc -or -ot -silent -target http://172.30.130.10:8000 -rate-limit 10 -t /opt/workspace/nuclei-templates/lab-debug.yaml -duc -ni
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 674
+stdout_chars: 698
 stderr_chars: 0
-stdout_bytes: 674
+stdout_bytes: 698
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 169
-raw_artifact: /opt/workspace/logs/nuclei_raw_20261007_085814_747710.txt
-raw_artifacts: combined: /opt/workspace/logs/nuclei_raw_20261007_085814_747710.txt
+estimated_inline_tokens: 175
+raw_artifact: /opt/workspace/logs/nuclei_raw_20261011_130223_102727.txt
+raw_artifacts: combined: /opt/workspace/logs/nuclei_raw_20261011_130223_102727.txt
 filter_notes: raw output preserved in artifact
 matches: template-id: hercules-lab-debug
 template-path: /opt/workspace/nuclei-templates/lab-debug.yaml
@@ -127,12 +127,12 @@ author: hercules-showcase
 tags: None
 severity: info
 type: http
-host: 172.30.81.10
+host: 172.30.130.10
 port: 8000
 scheme: http
-url: http://172.30.81.10:8000
-matched-at: http://172.30.81.10:8000/debug
-ip: 172.30.81.10
+url: http://172.30.130.10:8000
+matched-at: http://172.30.130.10:8000/debug
+ip: 172.30.
 ```
 
 ### 7. network_curl
@@ -141,14 +141,14 @@ I will test the suspected backup route independently. Its normal 404 must be rej
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.81.10:8000/backup
+url: http://172.30.130.10:8000/backup
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
 duration_seconds: 0.14
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/backup-404.html http://172.30.81.10:8000/backup
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/backup-404.html http://172.30.130.10:8000/backup
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -192,7 +192,7 @@ I will confirm the debug response in the browser before accepting the scanner le
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.81.10:8000/debug
+url: http://172.30.130.10:8000/debug
 session: review
 stealth: cloak stealth Chromium
 proxy_enabled: False
@@ -203,26 +203,26 @@ session_relaunched: False
 next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
-duration_seconds: 0.56
-command: agent-browser --json --session review open http://172.30.81.10:8000/debug
+duration_seconds: 1.12
+command: agent-browser --json --session review open http://172.30.130.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 344
+stdout_chars: 345
 stderr_chars: 0
-stdout_bytes: 344
+stdout_bytes: 345
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 86
+estimated_inline_tokens: 87
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 2445630243232661243
+launchHash: 6731183766866639137
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -230,7 +230,7 @@ restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
 title: 
-url: http://172.30.81.10:8000/debug
+url: http://172.30.130.10:8000/debug
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
@@ -245,16 +245,16 @@ tool: browser_read
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.12
+duration_seconds: 0.22
 command: agent-browser --json --session review get text body
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 451
+stdout_chars: 452
 stderr_chars: 0
-stdout_bytes: 451
+stdout_bytes: 452
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
@@ -264,14 +264,14 @@ estimated_inline_tokens: 113
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 2445630243232661243
+launchHash: 6731183766866639137
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
 restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
-origin: http://172.30.81.10:8000/debug
+origin: http://172.30.130.10:8000/debug
 text: {"build": "lab-2026.10", "debug": true, "environment": "disposable", "credentials": "none"}
 error: None
 structured_output: True
@@ -292,7 +292,7 @@ exit_code: 0
 stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/debug.png
 
 stderr: 
-duration_seconds: 0.17
+duration_seconds: 0.28
 command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/debug.png
 output_filtered: False
 output_complete: True

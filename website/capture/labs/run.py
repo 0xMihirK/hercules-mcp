@@ -17,7 +17,7 @@ from .cases import CASES
 from .program import Program, payload
 from .sandbox import ROOT, fresh_source, host_environment, server_command
 
-IMAGE = "hercules-showcase-capture:20261007-v2"
+IMAGE = "hercules-showcase-capture:20261008-pixels"
 FIXTURE = "hercules-showcase-lab:20261007"
 CAPTURE = ROOT / "website/capture"
 RESULTS = ROOT / "website/test-results/labs"
@@ -212,24 +212,54 @@ class Lab:
             while self.relay.poll() is None:
                 _, line = self.responses.get()
                 if line:
-                    self.relay.stdin.write(line)
-                    self.relay.stdin.flush()
+                    try:
+                        self.relay.stdin.write(line)
+                        self.relay.stdin.flush()
+                    except OSError:
+                        if self.relay.poll() is None:
+                            raise
+                        return
         threading.Thread(target=forward_requests, daemon=True).start()
         threading.Thread(target=forward_responses, daemon=True).start()
         output = self.directory / "recordings"
         output.mkdir()
-        args = ["run", "--rm", "--name", self.agent_name, "--network", self.network,
+        image_id=docker("image", "inspect", "--format", "{{.Id}}", IMAGE, capture_output=True, text=True).stdout.strip()
+        # Retain exit/OOM diagnostics until transaction-owned cleanup runs.
+        args = ["run", "--name", self.agent_name, "--network", self.network,
+                "--env", "CAPTURE_IMAGE_ID="+image_id,
                 "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                 "--label", "hercules.capture.owner=" + self.owner,
                 "--mount", f"type=bind,source={CAPTURE},target=/capture,readonly",
                 "--mount", f"type=bind,source={self.config},target=/capture-session,readonly",
-                "--mount", f"type=bind,source={output},target=/out", IMAGE, client, scenario,
+                "--mount", f"type=bind,source={output},target=/out", image_id, client, scenario,
                 "--cols", str(cols), "--rows", str(rows), "--duration", "420", "--real-lab"]
         if smoke:
             args.append("--smoke")
         self.created.append(("container", self.agent_name))
-        docker(*args, stdout=(self.directory / "capture.stdout.log").open("w", encoding="utf-8"),
-               stderr=(self.directory / "capture.stderr.log").open("w", encoding="utf-8"))
+        with (self.directory/"capture.stdout.log").open("w",encoding="utf-8") as stdout, (self.directory/"capture.stderr.log").open("w",encoding="utf-8") as stderr:
+            process=subprocess.Popen(["docker",*map(str,args)],stdout=stdout,stderr=stderr)
+            guard=None
+            try:
+                deadline=time.monotonic()+45
+                while process.poll() is None and time.monotonic()<deadline:
+                    state=subprocess.run(["docker","inspect","--format","{{.State.Running}}",self.agent_name],capture_output=True,text=True)
+                    if state.returncode==0 and state.stdout.strip()=="true":
+                        guard=subprocess.Popen(["docker","exec",self.agent_name,"python","/capture/clock_guard.py"],stdout=stdout,stderr=stderr)
+                        break
+                    time.sleep(.1)
+                result=process.wait()
+                if guard is not None:guard.wait(timeout=30)
+                if result:raise subprocess.CalledProcessError(result,["docker",*map(str,args)])
+                clock=output/"clock-validation.json"
+                if not clock.exists() or not json.loads(clock.read_text())["valid"]:
+                    raise ValueError("Native capture clock drifted or was not observed; recapture required")
+            finally:
+                for child in (guard,process):
+                    if child is not None and child.poll() is None:child.terminate();child.wait(timeout=10)
+                state=subprocess.run(["docker","inspect","--format","{{json .State}}",self.agent_name],capture_output=True,text=True)
+                if state.returncode==0:
+                    details=json.loads(state.stdout)
+                    (self.directory/"capture-container-state.json").write_text(json.dumps({key:details.get(key) for key in ("Status","ExitCode","OOMKilled","Error","StartedAt","FinishedAt")},indent=2)+"\n",encoding="utf-8",newline="\n")
         status = json.loads((output / f"{client}-{scenario}-{cols}.json").read_text())
         if not smoke and not status["completed"]:
             raise ValueError("Native client did not complete the validated investigation")

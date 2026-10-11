@@ -1,45 +1,42 @@
-# Native recording verification
+# Native pixel fidelity verification
 
-Verified on 2026-10-07 before publication.
+Local verification completed on 2026-10-12. GitHub Pages publication is gated by the repository's build and deployment workflow.
 
-- All 48 sessions completed: four pinned clients, six examples, two terminal
-  grids. Every session called Hercules's lifecycle, operation, evidence read,
-  and report write tools through the fixture's actual exported STDIO schemas.
-- The containers used no accounts, external network, host configuration, or
-  Docker socket. Scan findings and container startup are scripted responses.
-- `npm test`: 21 passing tests. The native regression compares text, character
-  widths, foreground/background colors, and cursor positions at five checkpoints
-  per recording. Original output chunks and fresh catch-up playback match.
-- TypeScript checks and the production build passed.
-- Browser layouts checked at 320, 360, 390, 799, 800, 1100, and 1440 pixels. Controls
-  fit without horizontal overflow. Desktop/mobile recordings retain 36/28 rows.
-- Checked DPR 1 and 2, 125% page zoom, and loading with 600ms network latency and
-  cache disabled. Terminal initialization waits for IBM Plex Mono.
-- Checked pause, replay, automatic random example changes, resizing during playback,
-  enlargement, Escape, focus trapping with disabled controls, reduced-motion
-  still frames, explicit Play, and offscreen pause. A visibility-change listener
-  resets the playback clock so hidden-tab time cannot become a resume jump.
-- Compared native OpenCode's wordmark/MCP menu, Claude's MCP tool count, Codex's
-  MCP inventory/plan, and Hermes's loaded-server list against their raw captures.
-  No browser console errors remained in the final local check.
-- Added DNS, header review, and browser inspection cases. Random selection reaches
-  all six cases and excludes the immediately previous case. The selector, footer
-  status, and progress bar are absent; header playback controls remain.
-- Verified the local CTF extraction, XOR/base64 decode, recovered flag, SHA-256
-  match, decoy rejection, and reproducible report. Substituting the decoy payload
-  fails verification and produces no verified solution.
-- Every replay opens on visible native output. Hermes's 11–14 second blank
-  startup is skipped through metadata, with raw bytes and timestamps preserved.
-  Paused Hermes replay visibly opens on its native wordmark.
-- Re-recorded all Claude cases in truecolor. Native orange mascot animation has
-  distinct captured frames in every recording. Compared mascot shapes/colors
-  and native progress presentation with the supplied Keploy tutorial reference.
-  xterm's glyph renderer fixes font fallback gaps; normal panel proportions use
-  measured terminal dimensions. Claude's configuration wizard is skipped while
-  its native application entrance remains animated.
-- Per-recording hash query strings prevent recaptured files from using stale
-  HTTP cache entries. The final production preview was checked without cache.
+The schema-3 player displays independent XTerm/Xvfb graphical captures. Earlier comparisons between ANSI/xterm reconstructions did not establish native appearance or motion and are superseded by this verification.
 
-Native timing plays at 1×; provider and tool delays remain authored examples.
-Hermes's shallow checkout displays `vunknown` in its native banner; provenance
-records the exact pinned revision. No CLI output is replaced with drawn artwork.
+## Capture gates
+
+- All 120 recordings passed: four pinned clients, ten real local-lab investigations, three geometries per client. The twelve pilots passed before expansion.
+- Claude 2.1.289 uses its native full-screen conversation renderer, selected by the user to match the reference's docked composer. Cascadia Mono, native mascot entrance, medium effort, auto mode, progress glyphs and labels are captured without website replacements. Codex 0.160.1, OpenCode 1.18.35 and Hermes 0.21.5 retain their native interfaces; Hermes uses its modern TUI.
+- XTerm 379 under Xvfb runs in an immutable Docker image. Measured cells are 11 × 24 pixels. Profiles identify emulator, fonts, palette, model, permission mode, image and source fingerprints. Actual emulator capability responses are forwarded and retained.
+- Agents receive no host Docker socket or personal configuration. Scripted providers bind loopback; actual Hercules processes own isolated Kali runtimes and internal fixture networks. Every expected branch, MCP call, artifact, report, forensic flag checksum and transaction-owned cleanup passed validation. Missing evidence rejects capture.
+- FFmpeg's first encoded frame gates native startup. Original master timestamps must cover the recorder interval. Lossless RGB masters remain locally; every delta frame was checked against decoded master pixels. Browser screenshots and Nuclei templates retain their original bytes.
+- Seven independent checkpoints per recording passed at canonical size: startup, native entrance, MCP inspection, details, investigation, report and completion. This is **840 native RGB comparisons**, including independent master PNGs.
+
+## Timing and payload limits
+
+Canvas2D playback uses original presentation timestamps and elapsed time with pause accounting; it has no capped frame-step slowdown. Duplicate timestamps select the last original frame. The visible loop holds the report for six seconds and ends before process teardown clears the terminal. Raw recordings and masters retain teardown unchanged.
+
+Requested sampling is 60 fps, but the host sometimes stalls. The largest accepted sampling gap is **2.333 seconds**. Missing sampling intervals are not filled with fabricated animation. The independent UTC/monotonic clock guard rejects discontinuities exceeding 16.67 ms; the largest accepted jump is 14.286 ms. Failed captures, including simultaneous Hermes clock discontinuities, were retained and recaptured. No timing threshold was relaxed.
+
+A browser Claude progress sample recorded 154 changes, zero timestamp-selection mismatches, maximum paint latency 6.90 ms and maximum presentation lateness 12.60 ms. A final Hermes narrow-player sample recorded 11 changes, zero mismatches and maximum paint latency 4.40 ms. These bounded samples do not establish gap-free capture or guarantee browser scheduling on every device.
+
+Recording assets occupy **914,646,930 bytes**; the production site is approximately 920.7 MB, below the 1 GB Pages limit. Timestamped PTY downloads use lossless ZIP wrapping: exactly one original `.cast` file, with archive and payload hashes verified separately. Untouched `.ansi` remains directly downloadable. Shared large evidence downloads preserve identical original bytes and each recording's original workspace path and checksum.
+
+## Playback and browser checks
+
+- All **32 Node tests** passed: background primitives/effects, ANSI/CR/LF, within-channel native timestamps, serialized writes, cancellation, shuffle bags, geometry milestones, original timing, delta reconstruction, integrity, nonconsecutive atlas prefetching, evidence hashes and CTF checksums.
+- All **38 Python tests** passed: capture pixels, readiness, clocks, actual lab branches, batch circuit breaking, screenshots, transcript/report selection, ownership cleanup, source provenance, shared evidence and byte-exact ZIP round trips.
+- TypeScript and the final production build passed. The build reports a large JavaScript chunk warning. Development recordings and test-only fixtures are excluded from production.
+- Actual browser inspection covered desktop, 320px and intermediate widths; enlargement; uniform scaling at DPR 1/2; rapid agent switching; pause/replay; explicit pause preservation; resizing during loading; slow/failed assets; reduced motion; keyboard focus, Escape and offscreen pause. No broken images, stale canvases, overlapping artwork or clipped controls were observed.
+- A cold Canvas2D failure fixture shows the actual completed capture with transcript recovery and synchronized completed report evidence. A test-only clock jump exercised automatic cycling: selected agent retained, new progress reset to zero, old canvas retained during loading, and new-case files did not inherit old completion. The fixture and clock override were removed afterward.
+- Final axe-core 4.14.0 checks found **zero WCAG violations** on desktop and 320px. Desktop version labels over the procedural background required manual contrast review; their opacity is now 1, with conservative worst-background contrast above 4.5:1. The mobile check had no incomplete results. Evidence labels remain opaque during motion and illustration captions no longer overlap imagery. Source detector checks passed for changed interface files.
+- Installation prompt copying, tool chains, architecture controls, original ANSI/ZIP downloads and reports were inspected. Findings retain investigation results after report housekeeping; previews preserve final verification and scope while original reports remain unchanged.
+
+## Explicit limitations
+
+Genuine browser zoom and a real hidden-document transition are unavailable through the in-app browser controls. CSS width tests are not browser zoom. Actual offscreen pause and visibility-clock regressions passed.
+
+Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval was fabricated. The manual disposition is recorded separately in `.impeccable/review/finish-verdict.md`.
+
+Model decisions, observations, delays and usage counters are scripted and labeled. Tools execute in local labs; native pixels and labels are not rewritten. Hercules's public MCP APIs are unchanged.

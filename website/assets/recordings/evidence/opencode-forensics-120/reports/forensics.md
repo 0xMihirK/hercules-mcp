@@ -11,13 +11,13 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: 0148631dfcc880874354e4c45e50c0098d0d08a8ed2c679bfcdb3a57f86bba54  /opt/workspace/challenge/carrier.png
+stdout: dea2a63a5cf4bdb1715cac7f7db151f06af2e9e0d29818fb4fdca825febf3b2d  /opt/workspace/challenge/carrier.png
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_c4e63eab71b446009c68f85b56be1e47.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_dbedab00b97e4a36a3cf7596e264dbf4.sh: line 1: file: command not found
 
-duration_seconds: 0.22
-command: bash /opt/workspace/tmp/shell_c4e63eab71b446009c68f85b56be1e47.sh
+duration_seconds: 0.52
+command: bash /opt/workspace/tmp/shell_dbedab00b97e4a36a3cf7596e264dbf4.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -63,8 +63,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.39
-command: bash /opt/workspace/tmp/shell_8af73bbbd5314417af092c90a9ef4c0d.sh
+duration_seconds: 2.38
+command: bash /opt/workspace/tmp/shell_d305ac9fc51c43cca90f2364733f956a.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -101,7 +101,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 1.56
+duration_seconds: 1.14
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -126,39 +126,38 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-NG]mk
+K]mk
 manifest.json%
 NB-Y
 \H!u
 F!F);
 Apk"
-NG] 
 payload.enc
-Salted__"
+Salted__
+6Zm+
 decoy.txt
-NG]mk
+K]mk
 manifest.jsonPK
-NG] 
 payload.encPK
 decoy.txtPK
 
 stderr: 
-duration_seconds: 0.31
-command: bash /opt/workspace/tmp/shell_e64328f0f4d44f8ead6196e4ae4b9ae3.sh
+duration_seconds: 0.28
+command: bash /opt/workspace/tmp/shell_0c80bb4da9614eb198ce9f26e946005d.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 241
+stdout_chars: 233
 stderr_chars: 0
-stdout_bytes: 241
+stdout_bytes: 233
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 241
+inline_stdout_chars: 233
 inline_stderr_chars: 0
-estimated_inline_tokens: 61
+estimated_inline_tokens: 59
 ```
 
 ### 7. shell_exec
@@ -171,8 +170,8 @@ exit_code: 0
 stdout: ['manifest.json', 'payload.enc', 'decoy.txt']
 
 stderr: 
-duration_seconds: 0.47
-command: bash /opt/workspace/tmp/shell_efdf9439819741c5b1bf5d8910a66e7d.sh
+duration_seconds: 0.48
+command: bash /opt/workspace/tmp/shell_f69b3bc6724e4c16aae543ae1a7ea1ce.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -221,10 +220,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-4097B50C55760000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+4007F63D5C7E0000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:112:
 
-duration_seconds: 0.3
-command: bash /opt/workspace/tmp/shell_e6e5fc158fd24928a085980ea6b6a7ea.sh
+duration_seconds: 0.38
+command: bash /opt/workspace/tmp/shell_ad9a77dbf34e4b70a41daf602f27980b.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -250,8 +249,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.26
-command: bash /opt/workspace/tmp/shell_2db555796fa04736b9f9321316f17707.sh
+duration_seconds: 0.3
+command: bash /opt/workspace/tmp/shell_f3770947ff6e4863994a4e376ae6d00a.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -283,8 +282,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 2.5
-command: bash /opt/workspace/tmp/shell_8610fd3307fd4a108a2e27971b43e5b7.sh
+duration_seconds: 0.36
+command: bash /opt/workspace/tmp/shell_cbf223918f8b4dc08cb66cdad19f1e1a.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

@@ -10,14 +10,14 @@ I will inspect declared routes before guessing endpoints.
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.65.10:8000/robots.txt
+url: http://172.30.201.10:8000/robots.txt
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 2.67
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.65.10:8000/robots.txt
+duration_seconds: 0.3
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.201.10:8000/robots.txt
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -49,7 +49,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 17:35:37 GMT
+Date: Sun, 11 Oct 2026 15:31:28 GMT
 Content-Type: text/plain
 Content-Length: 52
 X-Hercules-Lab: disposable
@@ -66,14 +66,14 @@ I will preserve the rejected request. It should tell us which prerequisite is mi
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.65.10:8000/api/draft
+url: http://172.30.201.10:8000/api/draft
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 4.5
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/draft-denied.txt http://172.30.65.10:8000/api/draft
+duration_seconds: 0.22
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/draft-denied.txt http://172.30.201.10:8000/api/draft
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -117,7 +117,7 @@ The challenge offers a draft-session bootstrap. I will follow that local clue in
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.65.10:8000/ctf/bootstrap
+url: http://172.30.201.10:8000/ctf/bootstrap
 session: review
 stealth: cloak stealth Chromium
 proxy_enabled: False
@@ -128,16 +128,16 @@ session_relaunched: False
 next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
-duration_seconds: 15.53
-command: agent-browser --json --session review open http://172.30.65.10:8000/ctf/bootstrap
+duration_seconds: 1.23
+command: agent-browser --json --session review open http://172.30.201.10:8000/ctf/bootstrap
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 353
+stdout_chars: 354
 stderr_chars: 0
-stdout_bytes: 353
+stdout_bytes: 354
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
@@ -147,7 +147,7 @@ estimated_inline_tokens: 89
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 13548822512900451882
+launchHash: 15569125051624760883
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -155,7 +155,7 @@ restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
 title: 
-url: http://172.30.65.10:8000/ctf/bootstrap
+url: http://172.30.201.10:8000/ctf/bootstrap
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
@@ -199,14 +199,14 @@ Both prerequisites are now observed. I will send the scoped request and save the
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.65.10:8000/api/draft
+url: http://172.30.201.10:8000/api/draft
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.33
-command: curl -s -X GET --proto =http,https -i -H '***' -b *** --max-time 5 -o /opt/workspace/artifacts/draft-flag.txt http://172.30.65.10:8000/api/draft
+duration_seconds: 0.22
+command: curl -s -X GET --proto =http,https -i -H '***' -b *** --max-time 5 -o /opt/workspace/artifacts/draft-flag.txt http://172.30.201.10:8000/api/draft
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -233,8 +233,8 @@ exit_code: 0
 stdout: {"flag": "HERCULES{state_and_requests_tell_the_story}", "checksum_match": true, "sha256": "1599e7f57f275f7e8ec73c7da7defc6109710466e158b4ef5bea0bdb7ffe9f4d"}
 
 stderr: 
-duration_seconds: 5.67
-command: bash /opt/workspace/tmp/shell_da90d498e1964483994e8538a42075e3.sh
+duration_seconds: 0.5
+command: bash /opt/workspace/tmp/shell_14ef51e4694946cdac3da025fb45b843.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

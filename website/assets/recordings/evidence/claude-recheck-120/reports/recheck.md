@@ -10,14 +10,14 @@ I will capture the baseline response before changing the disposable configuratio
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/debug
+url: http://172.30.190.10:8000/debug
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
 duration_seconds: 0.17
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/before.txt http://172.30.80.10:8000/debug
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/before.txt http://172.30.190.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -49,7 +49,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 09:27:29 GMT
+Date: Sun, 11 Oct 2026 13:59:10 GMT
 Content-Type: application/json
 Content-Length: 91
 X-Hercules-Lab: disposable
@@ -63,14 +63,14 @@ I will apply only the explicitly scoped fixture remediation. This changes no pro
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/lab-control/remediate
+url: http://172.30.190.10:8000/lab-control/remediate
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.19
-command: curl -s -X POST --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/change.txt http://172.30.80.10:8000/lab-control/remediate
+duration_seconds: 0.16
+command: curl -s -X POST --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/change.txt http://172.30.190.10:8000/lab-control/remediate
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -93,14 +93,14 @@ I will repeat the same debug request after the change, keeping its response sepa
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/debug
+url: http://172.30.190.10:8000/debug
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.17
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/after.txt http://172.30.80.10:8000/debug
+duration_seconds: 0.14
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/after.txt http://172.30.190.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -132,7 +132,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 404 Not Found
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 09:27:54 GMT
+Date: Sun, 11 Oct 2026 13:59:35 GMT
 Content-Type: application/json
 Content-Length: 9
 X-Hercules-Lab: disposable
@@ -148,14 +148,14 @@ I will confirm that the application remains healthy after remediation.
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/health
+url: http://172.30.190.10:8000/health
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.19
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/recheck-health.txt http://172.30.80.10:8000/health
+duration_seconds: 0.17
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/recheck-health.txt http://172.30.190.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -187,8 +187,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.27
-command: bash /opt/workspace/tmp/shell_dee19336ae144efba917cefc45431e01.sh
+duration_seconds: 0.23
+command: bash /opt/workspace/tmp/shell_acc86d6dee0a49158b041c9c6b5c93f5.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

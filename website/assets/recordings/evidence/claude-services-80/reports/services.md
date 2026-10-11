@@ -11,34 +11,34 @@ Actual response excerpt:
 ```text
 tool: nmap_scan
 mode: port
-target: 172.30.80.10
+target: 172.30.131.10
 ports: 8000,8080,8443
 exit_code: 0
 stderr: 
-duration_seconds: 0.28
-command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.80.10
+duration_seconds: 0.64
+command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.131.10
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 1626
+stdout_chars: 1629
 stderr_chars: 0
-stdout_bytes: 1626
+stdout_bytes: 1629
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 407
-raw_artifact: /opt/workspace/logs/exec_raw_20261007_171444_039747.txt
-raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261007_171444_039747.txt
+estimated_inline_tokens: 408
+raw_artifact: /opt/workspace/logs/exec_raw_20261011_125016_961801.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261011_125016_961801.txt
 filter_notes: raw output preserved in artifact
 parsed: scanner: nmap
-start_time: 1791393283
+start_time: 1791723016
 host_count: 1
 hosts: status: up
-addresses: addr: 172.30.80.10
+addresses: addr: 172.30.131.10
 addrtype: ipv4
 ports: portid: 8000
 protocol: tcp
@@ -58,7 +58,7 @@ state: open
 service: name: https-alt
 product: None
 version: None
-structured_
+structur
 ```
 
 ### 4. shell_exec
@@ -68,22 +68,22 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-07 17:15 +0000
-Nmap scan report for hercules-capture-cde25db30eb6-fixture.hercules-capture-cde25db30eb6-net (172.30.80.10)
-Host is up (0.000036s latency).
+stdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-11 12:50 +0000
+Nmap scan report for hercules-capture-01ee92741d1d-fixture.hercules-capture-01ee92741d1d-net (172.30.131.10)
+Host is up (0.0000090s latency).
 
 PORT     STATE SERVICE   VERSION
 8000/tcp open  http-alt?
 1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :
-SF-Port8000-TCP:V=7.99%I=2%D=10/7%Time=6AC67E1B%P=x86_64-pc-linux-gnu%r(Ge
-SF:tRequest,2DD,"HTTP/1\.0\x20200\x20OK\r\nServer:\x20AtlasLab/1\.0\x20\r\
-SF:nDate:\x20Wed,\x2007\x20Oct\x202026\x2017:15:07\x20GMT\r\nContent-Type:
-SF:\x20text/html;\x20charset=utf-8\r\nContent-Length:\x20565\r\nX-Hercules
-SF:-Lab:\x20disposable\r\n\r\n<!doctype\x20html><html\x20lang=\"en\"><titl
-SF:e>Atlas\x20lab\x20\xe2\x80\x94\x20sign\x20in</title>\n<style>body{font:
-SF:18px\x20system-ui;max-width:540px;margin:80px\x20auto;background:#e9e9e
-SF:6;color:#242424}label,input,button{display:block;margin:12px\x200}input
-SF:,button{padding:12px}
+SF-Port8000-TCP:V=7.99%I=2%D=10/11%Time=6ACB8620%P=x86_64-pc-linux-gnu%r(G
+SF:etRequest,2DD,"HTTP/1\.0\x20200\x20OK\r\nServer:\x20AtlasLab/1\.0\x20\r
+SF:\nDate:\x20Sun,\x2011\x20Oct\x202026\x2012:50:40\x20GMT\r\nContent-Type
+SF::\x20text/html;\x20charset=utf-8\r\nContent-Length:\x20565\r\nX-Hercule
+SF:s-Lab:\x20disposable\r\n\r\n<!doctype\x20html><html\x20lang=\"en\"><tit
+SF:le>Atlas\x20lab\x20\xe2\x80\x94\x20sign\x20in</title>\n<style>body{font
+SF::18px\x20system-ui;max-width:540px;margin:80px\x20auto;background:#e9e9
+SF:e6;color:#242424}label,input,button{display:block;margin:12px\x200}inpu
+SF:t,button{padding:12
 ```
 
 ### 5. network_curl
@@ -92,14 +92,14 @@ I will retain the actual headers and page, then compare them with the scanner's 
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000
+url: http://172.30.131.10:8000
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.38
-command: curl -s -X GET --proto =http,https -i --max-time 5 -D /opt/workspace/artifacts/headers.txt -o /opt/workspace/artifacts/home.html http://172.30.80.10:8000
+duration_seconds: 1.16
+command: curl -s -X GET --proto =http,https -i --max-time 5 -D /opt/workspace/artifacts/headers.txt -o /opt/workspace/artifacts/home.html http://172.30.131.10:8000
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -173,7 +173,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 17:15:29 GMT
+Date: Sun, 11 Oct 2026 12:51:02 GMT
 Content-Type: text/html; charset=utf-8
 Content-Length: 565
 X-Hercules-Lab: disposable
@@ -187,14 +187,14 @@ I will verify the administrative route's actual response. A 403 is an access-con
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.80.10:8000/admin
+url: http://172.30.131.10:8000/admin
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.28
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/admin-denied.html http://172.30.80.10:8000/admin
+duration_seconds: 0.31
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/admin-denied.html http://172.30.131.10:8000/admin
 output_filtered: False
 output_complete: True
 evidence_complete: True

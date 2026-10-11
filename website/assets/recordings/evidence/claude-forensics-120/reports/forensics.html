@@ -11,13 +11,13 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: cd6a0877ed35ad1333291d93ff887b96287c4d07b1498638e01995ff1761dfb2  /opt/workspace/challenge/carrier.png
+stdout: 06f163d0e66b2f7e22f696c596fdf3f9bafc34790e1729d31bca29d96ce1717f  /opt/workspace/challenge/carrier.png
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_b99919fcc9804eb587be70de53cabf8a.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_09aff52584ce46fbb5f4e1aedfa346d4.sh: line 1: file: command not found
 
-duration_seconds: 0.19
-command: bash /opt/workspace/tmp/shell_b99919fcc9804eb587be70de53cabf8a.sh
+duration_seconds: 0.17
+command: bash /opt/workspace/tmp/shell_09aff52584ce46fbb5f4e1aedfa346d4.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -63,8 +63,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.17
-command: bash /opt/workspace/tmp/shell_ec78875a82a040a4a6a8ced0fe2ae3f4.sh
+duration_seconds: 0.19
+command: bash /opt/workspace/tmp/shell_24f62b241e5a441ab8b179a87106f55d.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -101,7 +101,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 0.66
+duration_seconds: 1.27
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -126,7 +126,7 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-IG]mk
+jK]mk
 manifest.json%
 NB-Y
 \H!u
@@ -134,31 +134,29 @@ F!F);
 Apk&quot;
 payload.enc
 Salted__
-V/p#
-7(	iA
 decoy.txt
-IG]mk
+jK]mk
 manifest.jsonPK
 payload.encPK
 decoy.txtPK
 
 stderr: 
-duration_seconds: 0.16
-command: bash /opt/workspace/tmp/shell_35b61c1383a844f995152e9361a0b605.sh
+duration_seconds: 0.19
+command: bash /opt/workspace/tmp/shell_966406bb4da846f28dcb8bbb05a44424.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 241
+stdout_chars: 230
 stderr_chars: 0
-stdout_bytes: 241
+stdout_bytes: 230
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 241
+inline_stdout_chars: 230
 inline_stderr_chars: 0
-estimated_inline_tokens: 61
+estimated_inline_tokens: 58
 ```
 
 ### 7. shell_exec
@@ -171,8 +169,8 @@ exit_code: 0
 stdout: [&#x27;manifest.json&#x27;, &#x27;payload.enc&#x27;, &#x27;decoy.txt&#x27;]
 
 stderr: 
-duration_seconds: 0.17
-command: bash /opt/workspace/tmp/shell_cc7910cc211e4f378b1b4021814a71f0.sh
+duration_seconds: 0.34
+command: bash /opt/workspace/tmp/shell_3e288c1f8d3945778b43fb1c38885277.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -221,10 +219,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-40A7926EC1770000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+40770AE6D3730000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
 
-duration_seconds: 0.16
-command: bash /opt/workspace/tmp/shell_89755ddb138b47698d8a6d8d692042dd.sh
+duration_seconds: 0.33
+command: bash /opt/workspace/tmp/shell_38a54909293646278363d93f5c0041cd.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -250,8 +248,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.14
-command: bash /opt/workspace/tmp/shell_9c68914080a84bf19de68b2c517e3ad1.sh
+duration_seconds: 0.94
+command: bash /opt/workspace/tmp/shell_4e9b31aec39f44db9f251cfab51d6bf9.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -283,8 +281,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.17
-command: bash /opt/workspace/tmp/shell_2a4776738cd2412986c0a41b3d133fb1.sh
+duration_seconds: 0.36
+command: bash /opt/workspace/tmp/shell_0d0157f7adc54adea4f0e28f4833b1d6.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
