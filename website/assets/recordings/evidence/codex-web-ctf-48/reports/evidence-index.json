@@ -2,17 +2,17 @@
   {
     "path": "artifacts/draft-denied.txt",
     "bytes": 203,
-    "sha256": "f4ffd0fd7e43d1a445ccb8010ef1700772ad8807299046da10740dc476f36614"
+    "sha256": "2bf7ac5616e943b6f99d22155f772982d6f11384e7a7ec31e0bc714aa1cca17b"
   },
   {
     "path": "artifacts/draft-flag.txt",
     "bytes": 293,
-    "sha256": "e27418192f91510207c49b63963e6e263087650936850f725a075597ba535499"
+    "sha256": "bbccc42bea672b6141516dfb5c94bc81642fd437dec26710b1dc26e68fc39b9a"
   },
   {
     "path": "artifacts/robots.txt",
     "bytes": 205,
-    "sha256": "efe0c47f0bc4f7e46433947cf04322194edb3aaf406e1c4b3411ba5a07859f58"
+    "sha256": "3acbbcae361ead02a324ccd2a52557c7ed42b7fd3ef4ce7d320d0f68161129c1"
   },
   {
     "path": "artifacts/web-ctf-verification.json",
@@ -22,7 +22,7 @@
   {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "cdf19a3a26fcae1283c00adeb1a546ead3950587a1e2e79e7c86425e9e502ef2"
+    "sha256": "4205f5243ffd64277685fe1afc4fd2e170739e3d60141581194ba3abe147acf8"
   },
   {
     "path": "challenge/route.pcap",
@@ -30,18 +30,18 @@
     "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
   },
   {
-    "path": "logs/agent-browser_raw_20261007_173450_010739.txt",
+    "path": "logs/agent-browser_raw_20261011_154243_530548.txt",
     "bytes": 107410,
     "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
   },
   {
-    "path": "logs/agent-browser_stdout_20261007_173453_061887.txt",
+    "path": "logs/agent-browser_stdout_20261011_154246_569564.txt",
     "bytes": 107350,
     "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
   },
   {
     "path": "reports/web-ctf.md",
-    "bytes": 7742,
-    "sha256": "2d75590aa04369185258913d29b60836c176408786e921ee8efbd2f7589a8ba9"
+    "bytes": 7751,
+    "sha256": "51edd6c1ea2f778370c674399a8f630db076a5e9a4fdd04c4e810b42c434447c"
   }
 ]

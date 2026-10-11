@@ -1,97 +1,51 @@
-# Native capture harness
+# Native graphical capture harness
 
-The harness records unmodified Claude Code **2.1.292**, Codex **0.160.1**,
-OpenCode **1.18.35** and Hermes **0.21.5** (modern `--tui`, source revision
-`f97608f178d1ffeca59860195ab7da295f7c8e5f`). Claude uses the documented standard
-conversation renderer, truecolor and a credential-free loopback Foundry gateway.
-The other clients use their supported local providers. No personal configuration,
-account credentials or paid model calls are used.
+The harness runs pinned native clients inside XTerm 379 under Xvfb. It records lossless RGB video at a requested 60 fps and unchanged ANSI output with timestamps. PNG delta atlases are checked byte for byte against decoded native graphical master frames. Actual presentation timestamps, including any capture gaps, are retained.
 
-`record.py` drives real PTYs, native menus/MCP inspection, prompts and approval
-cards. It records the clients' output bytes and monotonic timestamps; it draws
-no terminal interface. Native animations run normally; input and model response
-delays are authored. Model reasoning, usage counters and example prompts are
-scripted and explicitly labeled. Tool responses are real Hercules responses.
+`record.py` configures fresh local providers, drives native MCP inspection, prompts, planning, and detail interactions, and forwards real emulator responses. It draws no terminal interface. Claude uses the documented gateway, native full-screen conversation renderer, Opus 5.5 configuration, medium effort, and auto mode. Local project trust and onboarding preferences apply only to the disposable fixture directory. OpenCode's native tool-detail action is bound through its own tui.json. Hermes uses the recommended modern TUI. Claude uses the documented `CLAUDE_CODE_NO_FLICKER=1` setting to retain the docked composer selected by the user. Cascadia Mono uses pinned Noto Sans Symbols2 and Noto Color Emoji fallbacks. The emulator uses a black/white palette and measured cell dimensions; captured pixels are never recolored by the website.
 
-## Execution and isolation
-
-`labs/run.py` owns a fresh internal Docker network, lab fixture, capture
-container, host-side Hercules process and private relay. Agents receive fresh
-allowlisted configuration, a read-only harness and their capture output mount.
-They receive no host Docker socket or personal configuration. Providers bind
-container loopback. A STDIO bridge connects each client to Hercules through the
-private transaction-owned relay; tool arguments/results are passed unchanged.
-
-Hercules starts a real client-owned Kali runtime with selected capabilities and
-`HERCULES_DOCKER_NETWORK`. Fixture services supply DNS, HTTP, TLS, login workflows,
-CTFs and remediation state on the internal network. No public target is contacted.
-Browser/scanner/shell operations, file writes and Markdown/HTML reports execute
-through Hercules. Cleanup verifies and removes only exact transaction-owned
-resources. These protections do not imply that all Docker deployments are a
-complete security boundary; operator networking and privileges matter.
-
-`labs/program.py` advances authored model responses only after observed tool
-results satisfy the expected branch. It derives job IDs, evidence references
-and CTF keys from those results. Unexpected or missing evidence stops validation.
-The forensic CTF follows PCAP fragments through an appended archive, PBKDF2/AES
-and compressed hidden data, rejects a decoy and verifies a checksum. There is
-no prewritten solver available to the agent.
+`labs/run.py` owns each fixture network, capture container, relay, and isolated host Hercules process. Hercules starts real Kali with HERCULES_DOCKER_NETWORK. Agents have no Docker socket or personal configuration. Every result, report, evidence index, and cleanup is validated. Scripted provider decisions advance only from observed results.
 
 ## Reproduce
 
-Use the repository's Python environment and working Docker. Build the capture
-image and fixture image, then run the ten-case matrix:
+Use the repository Python environment and working Docker. Build all three capture dependencies before recording:
 
 ```sh
-docker build -t hercules-showcase-capture:20261007-v2 website/capture
-docker build -t hercules-showcase-lab:20261007 -f website/capture/labs/Dockerfile website/capture/labs
-uv run python -m website.capture.labs.batch --workers 3
-uv run python -m unittest website.capture.labs.test_program
+docker build -t hercules-showcase-capture:20261008-pixels -f website/capture/Dockerfile website/capture
+docker build -t hercules-showcase-lab:20261007 website/capture/labs
+python -m website.capture.labs.sandbox --build
+python -m website.capture.labs.batch --cases network --workers 1 --index pixel-fidelity-pilot-matrix.json --subnet-base 95
 ```
 
-The matrix is four clients × ten cases × three geometries (120×36, 80×28,
-48×28): **120 recordings**. Individual arguments and image configuration are
-available through `uv run python -m website.capture.labs.run --help`. Selected Kali
-capabilities are shell, session, workspace, DNS, Nmap, curl, ncat, WhatWeb,
-fuzzing, Nuclei, SearchSploit, binwalk, steghide and browser.
+Review the twelve pilots before expanding to all ten cases:
 
 ```sh
-# A separate partial development preview; never publishes approximations:
-uv run python -m website.capture.labs.publish --development
+python -m website.capture.labs.publish --development --current-only
 cd website
 npm run dev
 ```
 
-Use development-only `frame-review.html` to render each recording's actual
-first native frame. Browser screenshots and SHA/time/geometry proofs go under
-`test-results/labs/browser-stills/`. `first-frame.mjs` finds the first application
-frame, excluding blank startup waits and one-time onboarding. It does not
-change raw casts or later animation timing.
+`frame-review.html` compares the player canvas with independently decoded graphical master PNGs at native size. Matching two ANSI reconstructions is not a fidelity check. Review startup, logos, MCP inventory, native detail/menu states, task changes, progress, and reports against the native captures and supplied reference.
+
+After pilot acceptance, capture the full matrix, validate it, and stage production assets:
 
 ```sh
-# Requires all 120 validated captures and matching actual browser stills:
-uv run python -m website.capture.labs.publish
-cd website
-npm test
-npm run build
+python -m website.capture.labs.batch --workers 1 --index pixel-native-matrix.json --subnet-base 95
+python -m website.capture.labs.publish
 ```
 
-The publisher verifies versions, meaningful tool sequence, lifecycle, report
-contents, CTF evidence, every evidence-index checksum and owned cleanup. It
-archives prior staging directories recoverably before staging a fresh matrix.
-Failed captures remain diagnostic data and are never substitute demonstrations.
-Visitors receive static casts, stills, transcripts and artifacts.
+The public publisher requires 120 complete, current-harness captures, real tool validation, report artifacts, and transaction-owned cleanup. It archives existing public assets recoverably and copies the manifest last. Development bundles remain separate. Failed or unsupported clients are never replaced by authored terminal UI.
 
-## Provenance
+`repack.py` can regenerate delta atlases and posters from retained native masters without modifying ANSI bytes. It preserves prior bundles and restores them if packing fails. Every profile retains original capture hashes and identifies the postprocessor separately.
 
-The manifest separates real tools from scripted models, preserves cast bytes,
-records capture image/source/profile, native geometry, milestones, input timing,
-MCP schema hash and artifact links/hashes. Actual result excerpts and report
-availability follow observed completion. Character measurements include the
-whole structured response; approximate tokens use `ceil(characters / 4)` and
-are not tokenizer counts. Output completeness and evidence completeness are
-separate. A bounded response is not automatically a semantically filtered one.
-Catalog provenance uses consistent LF; casts retain original ANSI/CR/LF.
+Run capture regressions with `python -m unittest website.capture.test_pixels website.capture.test_readiness website.capture.test_clock_guard website.capture.labs.test_program website.capture.labs.test_publish website.capture.labs.test_batch`. Run website checks with `npm test`, `npx tsc --noEmit`, and `npm run build` after a validated matrix is staged.
 
-See [website capture documentation](../CAPTURE.md) for client references and
-the public provenance contract.
+The independent clock guard rejects discontinuities larger than one capture frame and records cumulative clock drift separately. Failed agent containers retain exit and OOM diagnostics before ownership-checked cleanup. Playback ends after the six-second report hold, before native process teardown can clear the terminal; the original master and raw ANSI retain that teardown unchanged.
+
+FFmpeg’s first encoded frame gates native startup. An elapsed sleep is insufficient under load. Packing and publication require the unchanged master timestamps to cover the recorder interval. Browser screenshots and local Nuclei templates are downloadable, with screenshot metadata checked against the observed result.
+
+The publisher shares byte-identical artifacts larger than 1 MiB by SHA-256 across recordings. Each recording still names its observed workspace path and original checksum. Downloads contain the unchanged artifact bytes; raw terminal recordings are never deduplicated or normalized.
+
+Timestamped `.cast` downloads are losslessly ZIP-wrapped to keep the production site below the 1 GB Pages limit. Each archive contains exactly one unchanged recording. Schema 3 records archive SHA-256, original payload filename, payload SHA-256 and byte count. The publisher reopens each archive and checks byte equality; website regressions extract and validate the original payload independently. `.ansi` downloads remain direct and byte exact. Packaging does not change native PNG pixels, timestamps, CR/LF or artifact bytes.
+
+The verified 120-session bundle occupies 914,646,930 bytes; the production site is approximately 920.7 MB. Thirty-two Node tests, thirty-eight Python tests, TypeScript, the production build and browser review passed on 2026-10-12. See [VERIFICATION.md](VERIFICATION.md) for comparisons, actual timing measurements, sampling gaps and explicit limitations.

@@ -130,6 +130,13 @@ test("capture input, markers and terminal responses are never typed into replay"
   assert.equal(new RecordingCursor(recording).drain(8), "native menu\r\n");
 });
 
+test("native input and output retain their own timestamps across one polling cycle",()=>{
+  const recording=parseRecording(cast([2.235886,"i","\x1b[1;1R"],[2.235673,"o","native frame\r\n"],[2.3,"o","next frame"]));
+  assert.equal(new RecordingCursor(recording).drain(2.24),"native frame\r\n");
+  assert.throws(()=>parseRecording(cast([2,"o","later"],[1,"o","earlier"])),/Invalid recording event/);
+  assert.throws(()=>parseRecording(cast([2,"i","later"],[1,"i","earlier"])),/Invalid recording event/);
+});
+
 test("shuffle cycles cover each case once and avoid a boundary repeat",()=>{
   const ids=["network","web","ctf","report"];
   const bag=new ShuffleBag(ids,()=>.25);

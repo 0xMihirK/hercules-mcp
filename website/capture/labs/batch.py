@@ -10,8 +10,10 @@ from .cases import CASES
 from .run import Lab, RESULTS
 
 CLIENTS = ("claude", "codex", "opencode", "hermes")
-GEOMETRIES = ((120, 36), (80, 28), (48, 28))
-VERSIONS = {"claude":"2.1.292", "codex":"0.160.1", "opencode":"1.18.35", "hermes":"0.21.5"}
+PROFILES = json.loads((Path(__file__).parents[1]/"profiles.json").read_text(encoding="utf-8"))
+VERSIONS = {c:p["version"] for c,p in PROFILES["clients"].items()}
+def geometries(client):
+    return PROFILES["clients"][client]["geometries"]
 
 
 def capture(item, slot):
@@ -36,7 +38,7 @@ def main():
     args = parser.parse_args()
     if Path(args.index).name != args.index or not args.index.endswith("matrix.json"):
         parser.error("The index must be a plain filename ending in matrix.json")
-    matrix = [(c,s,cols,rows) for c in args.clients for s in args.cases for cols,rows in GEOMETRIES if cols in args.geometries]
+    matrix = [(c,s,cols,rows) for c in args.clients for s in args.cases for cols,rows in geometries(c) if cols in args.geometries]
     index = RESULTS / args.index
     records = json.loads(index.read_text(encoding="utf-8")) if index.exists() else []
     from .publish import approved
@@ -75,12 +77,23 @@ def main():
     # A worker owns a distinct subnet for its entire queue, never overlapping a
     # live transaction. Startup is serialized separately by the capture lock.
     queues = [remaining[i::args.workers] for i in range(args.workers)]
+    import threading
+    halted=threading.Event()
+    failure_lock=threading.Lock()
+    failure_streak=0
     def worker(slot, work):
+        nonlocal failure_streak
         for item in work:
+            if halted.is_set() or index.with_suffix(".stop").exists():
+                print(json.dumps({"stopped":str(index),"reason":"Three consecutive capture failures" if halted.is_set() else "Requested stop after transaction cleanup"}),flush=True)
+                return
             try:
                 result = capture(item, args.subnet_base - 80 + slot)
             except Exception as error:
                 result = {"client":item[0],"scenario":item[1],"columns":item[2],"rows":item[3],"completed":False,"error":str(error)}
+            with failure_lock:
+                failure_streak=0 if result["completed"] else failure_streak+1
+                if failure_streak>=3:halted.set()
             print(json.dumps(result), flush=True)
             yield result
     # Publish progress in the parent so concurrent workers never race the index.
@@ -102,7 +115,13 @@ def main():
                 index.write_text(json.dumps(records,indent=2)+"\n",encoding="utf-8",newline="\n")
         for job in jobs:
             job.result()
-    successes = {(r["client"],r["scenario"],r["columns"],r["rows"]) for r in records if r["completed"]}
+    successes = set(verified)
+    for r in records:
+        key=(r["client"],r["scenario"],r["columns"],r["rows"])
+        if not r["completed"] or key not in matrix or key in successes:continue
+        try:approved(Path(r["directory"]),*key)
+        except (ValueError,OSError,KeyError):continue
+        successes.add(key)
     missing = [item for item in matrix if item not in successes]
     if missing:
         raise SystemExit(f"{len(missing)} native sessions failed validation; none are substituted.")

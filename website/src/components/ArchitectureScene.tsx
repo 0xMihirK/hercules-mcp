@@ -26,7 +26,7 @@ export default function ArchitectureScene({ reduced, paused }: { reduced: boolea
   return <section id="architecture" ref={root} className="architecture chapter">
     <div className="wrap"><div className="chapter-heading"><h2>One connection.<br />An owned workspace.</h2><p>The agent speaks MCP. Hercules manages the runtime. Docker contains the tools. Your workspace retains what happened.</p></div>
       <div className="architecture-scene">
-        <div className="architecture-nodes" aria-label="Hercules architecture">
+        <div className="architecture-nodes" role="group" aria-label="Hercules architecture">
           <div className="architecture-node"><Desktop size={30} aria-hidden="true" /><h3>Your agent</h3><p>Windows · macOS · Linux<br />Worker or custom integration</p></div><ArrowRight className="node-arrow" size={24} aria-hidden="true" />
           <div className="architecture-node"><PlugsConnected size={30} aria-hidden="true" /><h3>Host MCP server</h3><p>STDIO transport<br />Explicit lifecycle + ownership</p></div><ArrowRight className="node-arrow" size={24} aria-hidden="true" />
           <div className="architecture-node runtime-node"><Cube size={30} aria-hidden="true" /><h3>Kali in Docker</h3><p>Client-owned runtime<br />Selected capabilities</p></div><ArrowRight className="node-arrow" size={24} aria-hidden="true" />
@@ -34,10 +34,10 @@ export default function ArchitectureScene({ reduced, paused }: { reduced: boolea
           <svg viewBox="0 0 1000 10" className="architecture-line" aria-hidden="true"><path className="architecture-path" d="M0 5H1000" stroke="currentColor" strokeWidth="2" fill="none" strokeDasharray="600" /></svg>
         </div>
         <div className="architecture-detail"><div className="architecture-visual"><img className="runtime-illustration" src={`${import.meta.env.BASE_URL}assets/illustrations/container-cutaway.png`} width="1536" height="1024" alt="Illustration of a graphite enclosure with copper boundaries representing a contained runtime." loading="lazy" decoding="async" /><span>Illustration · runtime containment</span></div>
-          <div className="architecture-story"><div className="phase-buttons" aria-label="Architecture stages">{phases.map((item,i) => <button key={item.title} aria-pressed={phase === i} onClick={() => setPhase(i)}>{item.title}</button>)}</div><h3>{phases[phase].title}</h3><p>{phases[phase].text}</p><pre>{phases[phase].code}</pre></div>
+          <div className="architecture-story"><div className="phase-buttons" role="group" aria-label="Architecture stages">{phases.map((item,i) => <button key={item.title} aria-pressed={phase === i} onClick={() => setPhase(i)}>{item.title}</button>)}</div><h3>{phases[phase].title}</h3><p>{phases[phase].text}</p><pre>{phases[phase].code}</pre></div>
         </div>
       </div>
-      <div className="ownership-ledger" aria-label="Separate runtime ownership"><div><strong>Client A</strong><span>Container A</span><span>Workspace A</span><span>Allocated port set A</span></div><div><strong>Client B</strong><span>Container B</span><span>Workspace B</span><span>Allocated port set B</span></div><p>Ownership diagram · ports are checked at startup and reallocated when a configured set is occupied.</p></div>
+      <div className="ownership-ledger" role="group" aria-label="Separate runtime ownership"><div><strong>Client A</strong><span>Container A</span><span>Workspace A</span><span>Allocated port set A</span></div><div><strong>Client B</strong><span>Container B</span><span>Workspace B</span><span>Allocated port set B</span></div><p>Ownership diagram · ports are checked at startup and reallocated when a configured set is occupied.</p></div>
       <div className="containment-note"><strong>Isolation you control.</strong><p>Docker containment depends on the operator’s networking and privileges. Hercules supports configured networks and scoped targets; containers are not a complete security boundary. These demonstrations use an internal lab network and no public targets.</p></div>
       <div className="architecture-static">{phases.map(item => <div key={item.title}><h3>{item.title}</h3><p>{item.text}</p></div>)}</div>
     </div>

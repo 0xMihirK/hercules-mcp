@@ -3,3 +3,6 @@ Dockerfile text eol=lf
 # Recording hashes and ANSI payloads must survive Windows/Linux checkouts.
 website/assets/recordings/** -text
 website/capture/*.json text eol=lf
+website/capture/**/*.py text eol=lf
+website/capture/*.py text eol=lf
+website/capture/fonts/*.ttf -text

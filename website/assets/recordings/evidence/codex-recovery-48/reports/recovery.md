@@ -27,9 +27,9 @@ is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-07T20:19:11.255485+00:00
-updated_at: 2026-10-07T20:19:58.860906+00:00
-finished_at: 2026-10-07T20:19:19Z
+created_at: 2026-10-11T16:02:23.587409+00:00
+updated_at: 2026-10-11T16:03:11.881119+00:00
+finished_at: 2026-10-11T16:02:31Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -63,14 +63,14 @@ I will confirm that the discovered HTTP service responds, retaining the response
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.102.10:8000/health
+url: http://172.30.200.10:8000/health
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.14
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.102.10:8000/health
+duration_seconds: 0.2
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -102,7 +102,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 20:20:27 GMT
+Date: Sun, 11 Oct 2026 16:03:41 GMT
 Content-Type: application/json
 Content-Length: 37
 X-Hercules-Lab: disposable
@@ -123,9 +123,9 @@ is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-07T20:19:11.255485+00:00
-updated_at: 2026-10-07T20:20:49.476927+00:00
-finished_at: 2026-10-07T20:19:19Z
+created_at: 2026-10-11T16:02:23.587409+00:00
+updated_at: 2026-10-11T16:04:04.257683+00:00
+finished_at: 2026-10-11T16:02:31Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -146,8 +146,8 @@ exit_code: 0
 stdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.
 
 stderr: 
-duration_seconds: 0.16
-command: bash /opt/workspace/tmp/shell_773b340498ec44e8b10598b27e6270a2.sh
+duration_seconds: 0.2
+command: bash /opt/workspace/tmp/shell_57a40f9830284bda87680e2fc8297d13.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True

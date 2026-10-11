@@ -11,45 +11,45 @@ Actual response excerpt:
 ```text
 tool: recon_dns
 selected_tool: dig
-target: 172.30.65.10
-command: dig @172.30.65.10 172.30.65.10 A
+target: 172.30.201.10
+command: dig @172.30.201.10 172.30.201.10 A
 exit_code: 0
 stdout: 
-; <<>> DiG 9.20.27-2-Debian <<>> @172.30.65.10 172.30.65.10 A
+; <<>> DiG 9.20.27-2-Debian <<>> @172.30.201.10 172.30.201.10 A
 ; (1 server found)
 ;; global options: +cmd
 ;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 55105
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 50610
 ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
 ;; QUESTION SECTION:
-;172.30.65.10.			IN	A
+;172.30.201.10.			IN	A
 
 ;; ANSWER SECTION:
-172.30.65.10.		60	IN	A	172.30.65.10
+172.30.201.10.		60	IN	A	172.30.201.10
 
-;; Query time: 28 msec
-;; SERVER: 172.30.65.10#53(172.30.65.10) (UDP)
-;; WHEN: Wed Oct 07 17:20:38 UTC 2026
-;; MSG SIZE  rcvd: 46
+;; Query time: 4 msec
+;; SERVER: 172.30.201.10#53(172.30.201.10) (UDP)
+;; WHEN: Sun Oct 11 15:03:24 UTC 2026
+;; MSG SIZE  rcvd: 47
 
 
 stderr: 
-duration_seconds: 0.27
+duration_seconds: 0.33
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 480
+stdout_chars: 486
 stderr_chars: 0
-stdout_bytes: 480
+stdout_bytes: 486
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 480
+inline_stdout_chars: 486
 inline_stderr_chars: 0
-estimated_inline_tokens: 120
+estimated_inline_tokens: 122
 ```
 
 ### 4. network_curl
@@ -58,14 +58,14 @@ I will inspect the first redirect without following it, so each hop remains expl
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.65.10:8080
+url: http://172.30.201.10:8080
 redirects_followed: False
 redirect_note: 
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.58
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/redirect.txt http://172.30.65.10:8080
+duration_seconds: 0.27
+command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/redirect.txt http://172.30.201.10:8080
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -90,18 +90,18 @@ Actual response excerpt:
 tool: workspace_read_file
 path: /opt/workspace/artifacts/redirect.txt
 encoding: text
-bytes: 246
-total_bytes: 246
+bytes: 247
+total_bytes: 247
 offset: 0
 truncated: False
 next_offset: None
 content: HTTP/1.0 302 Found
 Server: AtlasLab/1.0 
-Date: Wed, 07 Oct 2026 17:20:46 GMT
+Date: Sun, 11 Oct 2026 15:03:32 GMT
 Content-Type: text/html; charset=utf-8
 Content-Length: 33
 X-Hercules-Lab: disposable
-Location: https://172.30.65.10:8443/login
+Location: https://172.30.201.10:8443/login
 
 Redirect to the lab TLS endpoint.
 ```
@@ -113,7 +113,7 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: Connecting to 172.30.65.10
+stdout: Connecting to 172.30.201.10
 Can't use SSL_get_servername
 depth=0 CN=lab
 verify return:1
@@ -123,22 +123,22 @@ Certificate chain
  0 s:CN=lab
    i:CN=lab
    a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
-   v:NotBefore: Oct  7 17:18:34 2026 GMT; NotAfter: Nov  6 17:18:34 2026 GMT
+   v:NotBefore: Oct 11 15:02:01 2026 GMT; NotAfter: Nov 10 15:02:01 2026 GMT
 ---
 Server certificate
 -----BEGIN CERTIFICATE-----
-MIIDEzCCAfugAwIBAgIUFu2ptXzsyalmHSAIlMcLftdRfeswDQYJKoZIhvcNAQEL
-BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAwNzE3MTgzNFoXDTI2MTEwNjE3MTgz
-NFowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
-AQEAuD7k0GbSWWJzii9ZeX1qYWRuMLE05O21FrnVy67WTUS0DZNXiyPSc/auVpbt
-E633ikWdqh/OIJvDniAGw/MXYLJHW4HS2h8Aqh70zlOSu5NvAJ6FqvAVkbs+NF2j
-2BoePZypG5ho2h/8DUXkctYw2rrEi/ASAst7Q/a7jbdIE+4nP+fbHyKRo6N7L6mv
-/A0DMRDEmDzrmtRIoBE15omjlqP9yi//hiQQpYJXQ+voqSZpcwStWbEhUPAFN4U3
-wS0DDpzJn2EGS4/ieZFaOlJFovAOV2z04JnBjldvjxMRZHxb+IhOUFYBmnM76nwe
-0wiRSN2ujeGHNC32N5cqmSFLkwIDAQABo2kwZzAdBgNVHQ4EFgQUM0Jdo9DYwWla
-G4XTQNqBrwSyliwwHwYDVR0jBBgwFoAUM0Jdo9DYwWlaG4XTQNqBrwSyliwwDwYD
-VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweQQowDQYJKoZIhvcNAQEL
-BQADgg
+MIIDEzCCAfugAwIBAgIUfvPFvn2dd3zvIRVAcvT6odfovDgwDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAxMTE1MDIwMVoXDTI2MTExMDE1MDIw
+MVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAvgFWB4PYV10LCvtZtvuii0JDXbW0XkGSwkO5xJwjdkZJbfSXvJSZadEYkXbo
+nS9UhyruShygaI8dKOB6H4yAYSGAWo6PUqpyGYS+cmBxuMceXAjT1zVQIx/FpaZ5
+P/2GZj0+ZqOv9HzFfgYqYR58dqNyuCiprkBXHjDC/JNegxZ358lvZTnAMYOSx4sE
+p1jNWdaKJfnmgMvwQeW0Nr8+Vs6vaY6JBBOdmiYzGROkT8LsOoTkPIqb7D60bgBX
+ly5ptOL8zaghspTa3c2tDSizpVzewO4PlKZvY72L0epFPDFnU24x8iAb8lHnVR0A
+LqtqhD6ufafcNxStrfutOfQXzwIDAQABo2kwZzAdBgNVHQ4EFgQUmVJUDgh5BLVB
+k2tFd06pZ2BeY8swHwYDVR0jBBgwFoAUmVJUDgh5BLVBk2tFd06pZ2BeY8swDwYD
+VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweyQowDQYJKoZIhvcNAQEL
+BQADg
 ```
 
 ### 7. network_curl
@@ -147,14 +147,14 @@ The lab chain verifies. I will request the TLS page with certificate validation 
 Actual response excerpt:
 ```text
 tool: network_curl
-url: https://172.30.65.10:8443/login
+url: https://172.30.201.10:8443/login
 redirects_followed: False
 redirect_note: Redirect following is disabled while target scopes are configured.
 exit_code: 0
 stdout: 
 stderr: 
 duration_seconds: 0.25
-command: curl -s -X GET --proto =http,https -i --cacert /opt/workspace/lab-cert.pem --max-time 5 -o /opt/workspace/artifacts/tls-login.html https://172.30.65.10:8443/login
+command: curl -s -X GET --proto =http,https -i --cacert /opt/workspace/lab-cert.pem --max-time 5 -o /opt/workspace/artifacts/tls-login.html https://172.30.201.10:8443/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -198,7 +198,7 @@ I will observe how the browser handles the redirect. A supplied curl CA does not
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.65.10:8080
+url: http://172.30.201.10:8080
 session: review
 stealth: cloak stealth Chromium
 proxy_enabled: False
@@ -211,8 +211,8 @@ exit_code: 1
 stdout: {"success":false,"data":null,"error":"Navigation failed: net::ERR_CERT_AUTHORITY_INVALID"}
 
 stderr: 
-duration_seconds: 1.27
-command: agent-browser --json --session review open http://172.30.65.10:8080
+duration_seconds: 1.95
+command: agent-browser --json --session review open http://172.30.201.10:8080
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -235,7 +235,7 @@ I will check the live local page in the native browser backend rather than infer
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.65.10:8000/login
+url: http://172.30.201.10:8000/login
 session: review
 stealth: cloak stealth Chromium
 proxy_enabled: False
@@ -247,25 +247,25 @@ next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
 duration_seconds: 0.36
-command: agent-browser --json --session review open http://172.30.65.10:8000/login
+command: agent-browser --json --session review open http://172.30.201.10:8000/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 364
+stdout_chars: 365
 stderr_chars: 0
-stdout_bytes: 366
+stdout_bytes: 367
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 91
+estimated_inline_tokens: 92
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
 engine: chrome
-launchHash: 13548822512900451882
+launchHash: 15569125051624760883
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -273,7 +273,7 @@ restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
 title: Atlas lab — sign in
-url: http://172.30.65.10:8000/login
+url: http://172.30.201.10:8000/login
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
@@ -293,7 +293,7 @@ exit_code: 0
 stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/http-login.png
 
 stderr: 
-duration_seconds: 0.25
+duration_seconds: 0.23
 command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/http-login.png
 output_filtered: False
 output_complete: True

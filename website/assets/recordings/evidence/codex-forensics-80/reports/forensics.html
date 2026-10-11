@@ -11,13 +11,13 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: 9e963ac4085c068d35927ef3a03d92e25d405aa66bd9d418530c5d343a64ee4a  /opt/workspace/challenge/carrier.png
+stdout: 871665690fdb3994c4a67a9716142469f651ba8300798a536346365eab3497a4  /opt/workspace/challenge/carrier.png
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_6243818c70964c13a3099a14395161d2.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_fb4da1784cdf4edab27601ec8cec4477.sh: line 1: file: command not found
 
-duration_seconds: 0.41
-command: bash /opt/workspace/tmp/shell_6243818c70964c13a3099a14395161d2.sh
+duration_seconds: 0.2
+command: bash /opt/workspace/tmp/shell_fb4da1784cdf4edab27601ec8cec4477.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -63,8 +63,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.55
-command: bash /opt/workspace/tmp/shell_7d0e5cb07e5a4431bd50d6f75aea2d76.sh
+duration_seconds: 2.75
+command: bash /opt/workspace/tmp/shell_9e720e685e5544d2a5d46cc9d3968996.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -101,7 +101,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 2.02
+duration_seconds: 0.95
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -126,38 +126,39 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-G]mk
+I{K]mk
 manifest.json%
 NB-Y
 \H!u
 F!F);
 Apk&quot;
+I{K]
 payload.enc
 Salted__
-*c=3
+P\6Z8{xW 
+I{K]
 decoy.txt
-G]mk
+I{K]mk
 manifest.jsonPK
-payload.encPK
-decoy.txtPK
+I{K]
 
 stderr: 
-duration_seconds: 0.19
-command: bash /opt/workspace/tmp/shell_f5da583d519b47f88012a1739d7660ac.sh
+duration_seconds: 0.23
+command: bash /opt/workspace/tmp/shell_23885cd9d6b64b7494ee2142fa7685b6.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 233
+stdout_chars: 231
 stderr_chars: 0
-stdout_bytes: 233
+stdout_bytes: 231
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 233
+inline_stdout_chars: 231
 inline_stderr_chars: 0
-estimated_inline_tokens: 59
+estimated_inline_tokens: 58
 ```
 
 ### 7. shell_exec
@@ -170,8 +171,8 @@ exit_code: 0
 stdout: [&#x27;manifest.json&#x27;, &#x27;payload.enc&#x27;, &#x27;decoy.txt&#x27;]
 
 stderr: 
-duration_seconds: 0.36
-command: bash /opt/workspace/tmp/shell_c0e1137e3bd64da5bf3477043ea4c437.sh
+duration_seconds: 0.3
+command: bash /opt/workspace/tmp/shell_bba387a3732f4f658cc8e2eed3410ed9.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -220,10 +221,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-40D71FE700780000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+4097D470E87D0000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
 
-duration_seconds: 0.39
-command: bash /opt/workspace/tmp/shell_8ffc6c347f8c4e688b1999bac97f4b4e.sh
+duration_seconds: 0.25
+command: bash /opt/workspace/tmp/shell_416cdd9a2f50449c87956e706e02f7f6.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -249,8 +250,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.25
-command: bash /opt/workspace/tmp/shell_02ae2dc1dd6c4478a43ffdfeb399635a.sh
+duration_seconds: 0.33
+command: bash /opt/workspace/tmp/shell_e91624847dd8479aaada43fd4743c0e9.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -282,8 +283,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 2.73
-command: bash /opt/workspace/tmp/shell_e9487d88297c4205a780090900476d7d.sh
+duration_seconds: 0.42
+command: bash /opt/workspace/tmp/shell_4638c20a961b4b4395b954caef0d5896.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
