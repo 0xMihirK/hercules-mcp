@@ -40,3 +40,17 @@ Genuine browser zoom and a real hidden-document transition are unavailable throu
 Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval was fabricated. The manual disposition is recorded separately in `.impeccable/review/finish-verdict.md`.
 
 Model decisions, observations, delays and usage counters are scripted and labeled. Tools execute in local labs; native pixels and labels are not rewritten. Hercules's public MCP APIs are unchanged.
+
+## Website playback update — 2026-10-13
+
+The website now advances the original source timeline at 2.5×, as requested. Capture speed and downloadable timestamps stay at 1×. Six recorded seconds of report hold now occupy 2.4 seconds before the shuffled loop advances. Agent changes retain the prior decoded frame, crossfade the incoming native image over 240 ms, and ease the panel height change. Reduced motion bypasses these transitions.
+
+The first native frame is displayed before the remaining assets finish preloading; playback begins only after preload completes. Rapid switching cancels discarded decoding and transitions. A zoom control exposes original-size pixels in a scrollable viewport, and Fit entire terminal restores the full interface. Scroll keys operate the presentation viewport; they do not control a live agent.
+
+All 34 website regressions passed, including 840 native RGB checkpoint comparisons and new rate/preload regressions. All 38 capture/lab regressions, TypeScript and the production build passed. Source detector checks passed.
+
+Browser confirmation observed two native canvases during the 240 ms fade and one afterward; rapid switching retained the final selected client. A two-second sample advanced 5.042 source seconds over 2.004 wall seconds (approximately 2.52× including frame-sampling boundaries). Automatic shuffled cycling was observed. At a breakpoint, an outer viewport width of 786 px retained the 120-column recording despite a 776 px client width after scrollbars appeared.
+
+The fit view retained the complete native frame; zoom displayed native-size pixels and supported horizontal/vertical arrow-key scrolling. The 320px layout had no page overflow, all four controls measured 44 × 44 px, and enlarged fit scaled 528 × 672 pixels uniformly to approximately 299 × 380 CSS pixels. DPR 2 and reduced motion passed; reduced-motion switching had zero active animations and one canvas. The findings panel is now keyboard focusable when its results overflow.
+
+Final axe-core checks found zero WCAG violations on desktop and mobile. Mobile had no incomplete results; desktop clipped findings required manual contrast review. Browser console errors/warnings were empty. Earlier capture and unavailable-browser-check limitations remain applicable; native data was not recaptured or retimed.

@@ -1,6 +1,6 @@
 # Native pixel recording provenance
 
-The player displays pixels captured from real agents inside XTerm and Xvfb in Docker. Canvas2D composes lossless PNG deltas at their original presentation timestamps. It does not redraw terminal glyphs, logos, menus, or progress indicators. Untouched ANSI bytes remain directly downloadable; lossless ZIP downloads contain unchanged timestamped PTY recordings with separate archive and original-payload hashes.
+The player displays pixels captured from real agents inside XTerm and Xvfb in Docker. Canvas2D composes lossless PNG deltas from their original presentation timestamps. The website plays that timeline at 2.5×; raw downloads and capture timing remain at 1×. It does not redraw terminal glyphs, logos, menus, or progress indicators. Untouched ANSI bytes remain directly downloadable; lossless ZIP downloads contain unchanged timestamped PTY recordings with separate archive and original-payload hashes.
 
 | Client | Pinned release | Native renderer | Terminal geometries |
 | --- | --- | --- | --- |
@@ -21,7 +21,7 @@ Schema 3 records atlas assets and hashes, exact presentation timestamps, indepen
 
 Capture timing records the measured largest sampling gap and an independent UTC/monotonic clock check. Original graphical timestamps retain OS clock slewing. A clock discontinuity larger than one 60 fps frame rejects capture; cumulative UTC/PTY drift is disclosed separately. Requested 60 fps sampling is not a claim that the machine never stalls.
 
-The player keeps the selected agent, shuffles cases without immediate repetition, replays the same case when switching agents, and holds completion for six seconds. It scales uniformly without reflow. Decoded native frames replace the display atomically; loading and failures retain the previous frame or a verified captured poster. Hidden and offscreen players pause. Reduced motion starts on an actual completed frame until visitors select Play.
+The player keeps the selected agent, shuffles cases without immediate repetition, replays the same case when switching agents, and holds six seconds of recorded completion (2.4 seconds at 2.5×). Fit view shows the full native interface without reflow; zoom view exposes native-size pixels with horizontal and vertical scrolling. Fully decoded frames crossfade over 240 ms between sessions, and panel height changes smoothly; reduced motion swaps directly. The first native frame appears before the remaining session preloads; loading and failures retain the previous frame or a verified captured poster. Hidden and offscreen players pause. Reduced motion starts on an actual completed frame until visitors select Play.
 
 The visible loop ends after the report hold, before the native process-exit screen clear. Raw terminal recordings and lossless masters preserve those exit bytes and frames unchanged.
 

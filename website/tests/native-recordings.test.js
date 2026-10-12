@@ -31,7 +31,7 @@ function imageFormat(bytes,file){
 test("120 sessions preserve pinned clients, bytes and real-tool provenance",async()=>{
   const m=await manifest();assert.equal(m.schemaVersion,3);assert.equal(m.developmentOnly,false);
   assert.equal(m.nativeUI,true);assert.equal(m.realTools,true);assert.equal(m.scriptedModel,true);assert.equal(m.scriptedToolResults,false);
-  assert.equal(m.accountAccess,false);assert.equal(m.externalNetwork,false);assert.equal(m.playbackSpeed,1);
+  assert.equal(m.accountAccess,false);assert.equal(m.externalNetwork,false);assert.equal(m.captureSpeed,1);assert.equal(m.playbackSpeed,2.5);
   const catalog=await readFile(new URL("../capture/lab-cases.json",import.meta.url),"utf8");assert.equal(hash(catalog.replace(/\r\n/g,"\n")),m.caseCatalogSha256);
   assert.equal(Object.keys(m.cases).length,10);assert.equal(m.recordings.length,120);const seen=new Set();
   for(const r of m.recordings){
