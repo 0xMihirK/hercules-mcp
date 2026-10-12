@@ -23,6 +23,16 @@ test("cycling retains the completed native report instead of showing process tea
   assert.equal(sessionEnd(80,undefined),80);assert.equal(sessionEnd(105,100),105);
 });
 
+test("2.5× playback scales source time, preserves pauses and loops before teardown",()=>{
+  const end=sessionEnd(106.5,100),clock=new PlaybackClock(2,2.5);
+  clock.tick(100,false,end);assert.equal(clock.tick(2100,false,end),7);
+  clock.tick(2200,true,end);clock.tick(20000,true,end);clock.tick(21000,false,end);
+  assert.equal(clock.tick(21400,false,end),8,"pause intervals stay excluded at accelerated speed");
+  clock.suspend();assert.equal(clock.tick(40000,false,end),8);
+  assert.equal(clock.tick(100000,false,end),106,"loop ends on the native report, before exit clear");
+  assert.throws(()=>new PlaybackClock(0,0),RangeError);assert.throws(()=>new PlaybackClock(0,Infinity),RangeError);
+});
+
 test("duplicate capture timestamps present the last native frame at that timestamp",()=>{
   const frames=[{at:0,id:"opening"},{at:.117,id:"partial"},{at:.117,id:"complete"},{at:.134,id:"next"}];
   assert.equal(frames[frameAt(frames,.116999)].id,"opening");

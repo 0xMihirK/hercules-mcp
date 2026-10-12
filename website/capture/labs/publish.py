@@ -371,7 +371,7 @@ def main():
     case_catalog=catalog()
     write_json(CAPTURE/"lab-cases.json",case_catalog)
     shutil.copyfile(CAPTURE/"lab-surface.json",stage/"mcp-surface.json")
-    manifest={"schemaVersion":3,"format":"lossless-native-pixel-atlases","rawFormat":"asciicast-v2","nativeUI":True,"playbackSpeed":1,"realTools":True,"scriptedModel":True,
+    manifest={"schemaVersion":3,"format":"lossless-native-pixel-atlases","rawFormat":"asciicast-v2","nativeUI":True,"captureSpeed":1,"playbackSpeed":2.5,"realTools":True,"scriptedModel":True,
         "scriptedToolResults":False,"scriptedUsageCounters":True,"accountAccess":False,"externalNetwork":False,"developmentOnly":args.development,
         "term":"xterm-256color","theme":"native dark","font":"Cascadia Mono 2407.24","recordings":metadata,
         "clients":{c:{"version":v,"renderer":PROFILES["clients"][c]["renderer"]} for c,v in VERSIONS.items()},

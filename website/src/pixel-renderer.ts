@@ -39,6 +39,7 @@ export class PixelRenderer {
     // image memory bounded separately so asset latency cannot slow animations.
     for(let start=0;start<this.index.sheets.length;start+=4){
       await Promise.all(this.index.sheets.slice(start,start+4).map(async(asset,offset)=>{
+        if(this.bytes.has(start+offset))return;
         const bytes=await verifiedFetch(this.base+asset.file,asset.sha256,this.signal);
         if(this.alive && !this.signal.aborted)this.bytes.set(start+offset,bytes);
       }));
@@ -50,7 +51,11 @@ export class PixelRenderer {
     let promise=this.decoding.get(number);
     if(!promise){
       const asset=this.index.sheets[number];
-      promise=(this.bytes.has(number)?Promise.resolve(this.bytes.get(number)!):verifiedFetch(this.base+asset.file,asset.sha256,this.signal)).then(bytes=>createImageBitmap(new Blob([bytes],{type:"image/png"}),{colorSpaceConversion:"none"})).then(image=>{
+      promise=(this.bytes.has(number)?Promise.resolve(this.bytes.get(number)!):verifiedFetch(this.base+asset.file,asset.sha256,this.signal)).then(bytes=>{
+        if(!this.alive || this.signal.aborted)throw new DOMException("Discarded capture","AbortError");
+        this.bytes.set(number,bytes);
+        return createImageBitmap(new Blob([bytes],{type:"image/png"}),{colorSpaceConversion:"none"});
+      }).then(image=>{
         if(!this.alive){image.close();throw new DOMException("Discarded capture","AbortError");}
         this.images.set(number,{image,used:performance.now()});return image;
       });this.decoding.set(number,promise);

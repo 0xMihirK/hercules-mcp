@@ -40,7 +40,7 @@ The public publisher requires 120 complete, current-harness captures, real tool 
 
 Run capture regressions with `python -m unittest website.capture.test_pixels website.capture.test_readiness website.capture.test_clock_guard website.capture.labs.test_program website.capture.labs.test_publish website.capture.labs.test_batch`. Run website checks with `npm test`, `npx tsc --noEmit`, and `npm run build` after a validated matrix is staged.
 
-The independent clock guard rejects discontinuities larger than one capture frame and records cumulative clock drift separately. Failed agent containers retain exit and OOM diagnostics before ownership-checked cleanup. Playback ends after the six-second report hold, before native process teardown can clear the terminal; the original master and raw ANSI retain that teardown unchanged.
+The independent clock guard rejects discontinuities larger than one capture frame and records cumulative clock drift separately. Failed agent containers retain exit and OOM diagnostics before ownership-checked cleanup. Website playback runs at 2.5× and ends after six recorded seconds of report hold (2.4 wall-clock seconds), before native process teardown can clear the terminal; the original master and raw ANSI retain that teardown unchanged.
 
 FFmpeg’s first encoded frame gates native startup. An elapsed sleep is insufficient under load. Packing and publication require the unchanged master timestamps to cover the recorder interval. Browser screenshots and local Nuclei templates are downloadable, with screenshot metadata checked against the observed result.
 
@@ -49,3 +49,5 @@ The publisher shares byte-identical artifacts larger than 1 MiB by SHA-256 acros
 Timestamped `.cast` downloads are losslessly ZIP-wrapped to keep the production site below the 1 GB Pages limit. Each archive contains exactly one unchanged recording. Schema 3 records archive SHA-256, original payload filename, payload SHA-256 and byte count. The publisher reopens each archive and checks byte equality; website regressions extract and validate the original payload independently. `.ansi` downloads remain direct and byte exact. Packaging does not change native PNG pixels, timestamps, CR/LF or artifact bytes.
 
 The verified 120-session bundle occupies 914,646,930 bytes; the production site is approximately 920.7 MB. Thirty-two Node tests, thirty-eight Python tests, TypeScript, the production build and browser review passed on 2026-10-12. See [VERIFICATION.md](VERIFICATION.md) for comparisons, actual timing measurements, sampling gaps and explicit limitations.
+
+Capture metadata identifies `captureSpeed: 1` and website `playbackSpeed: 2.5`. Native captures, master timestamps and downloaded payloads are unchanged. Agent switching crossfades decoded pixels, with direct swaps under reduced motion. Fit and scrollable native-size zoom views preserve the original proportions.

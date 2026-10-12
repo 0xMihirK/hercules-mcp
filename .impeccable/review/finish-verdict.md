@@ -13,3 +13,9 @@ The bounded final review found evidence-stage opacity below the contrast floor. 
 Local proof: `website/test-results/browser-review/final-native-player.jpg` and `final-native-320-dpr2.jpg`. Counts, provenance and practical limits: `website/capture/VERIFICATION.md`.
 
 This is a manual disposition under the user's approval. The installed Impeccable React/Canvas adapter remains unsupported and automated phases remain open. No engine completion receipt is asserted. Genuine browser zoom and a real hidden-document transition remain unavailable through IAB.
+
+## Playback refinement — 2026-10-13
+
+The user requested smooth agent changes, 2.5× looping and a scrollable, properly framed terminal. The native source pixels remain unchanged. The incoming decoded frame crossfades over 240 ms, with eased height changes; the first frame precedes remaining-asset preload. Fit shows the whole interface, and native-size zoom provides scrolling. Scrollbars no longer change capture geometry. Keyboard focus was added to the overflowing findings panel.
+
+Browser confirmation covered switching/cancellation, 2.5× progress, natural cycling, full-frame fit, native-size scrolling, 320px controls, DPR 2 and reduced-motion direct swaps. Accessibility checks found no WCAG violations after the keyboard fix; clipped desktop findings required manual contrast review. All 34 website tests, 38 capture tests, 840 pixel comparisons, TypeScript and the production build passed. The previously approved manual browser path and engine-adapter limitation remain unchanged.
