@@ -1,0 +1,293 @@
+{
+  "network": {
+    "objective": "Map the local network, verify its services, and leave a clear inventory.",
+    "summary": "Addresses, exposed services, HTTP checks, and certificate diagnostics are linked to an evidence-backed inventory.",
+    "beats": [
+      {
+        "afterCall": 3,
+        "action": "Map the services",
+        "finding": "The supplied hostname resolves inside the local lab.",
+        "artifact": "artifacts/services.nmap"
+      },
+      {
+        "afterCall": 5,
+        "action": "Verify what is running",
+        "finding": "Service detection is retained alongside the discovery scan.",
+        "artifact": "artifacts/services.nmap"
+      },
+      {
+        "afterCall": 7,
+        "action": "Check the application",
+        "finding": "Health and route checks add application evidence to the inventory.",
+        "artifact": "artifacts/health.txt"
+      },
+      {
+        "afterCall": 9,
+        "action": "Prepare the inventory",
+        "finding": "The certificate diagnostics have been read before reporting.",
+        "artifact": "artifacts/tls.txt"
+      }
+    ]
+  },
+  "services": {
+    "objective": "Check the lab’s services and separate applicable findings from unsupported leads.",
+    "summary": "The report distinguishes observed services, reference leads, and an access-control response. A catalog match is not treated as a verified vulnerability.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Compare the observations",
+        "finding": "Service identification is available for comparison with the application.",
+        "artifact": "artifacts/assessment.nmap"
+      },
+      {
+        "afterCall": 5,
+        "action": "Read the application evidence",
+        "finding": "The application’s own headers are preserved.",
+        "artifact": "artifacts/headers.txt"
+      },
+      {
+        "afterCall": 8,
+        "action": "Reject an unsupported lead",
+        "finding": "The lab identifies itself as AtlasLab; the catalog lead’s prerequisites are not established.",
+        "artifact": "artifacts/headers.txt"
+      },
+      {
+        "afterCall": 9,
+        "action": "Record the limits",
+        "finding": "The administrative route denies access. That response alone does not prove compromise.",
+        "artifact": "artifacts/admin-denied.html"
+      }
+    ]
+  },
+  "website": {
+    "objective": "Review the local website, confirm a suspicious route, and reject false positives.",
+    "summary": "Independent checks confirm the lab’s debug endpoint. The absent backup route is rejected, and browser evidence supports the report.",
+    "beats": [
+      {
+        "afterCall": 3,
+        "action": "Cross-check a lead",
+        "finding": "Route discovery found the local debug endpoint."
+      },
+      {
+        "afterCall": 6,
+        "action": "Verify the exposure",
+        "finding": "A narrowly scoped check matched the lab’s explicit debug marker."
+      },
+      {
+        "afterCall": 7,
+        "action": "Reject a false positive",
+        "finding": "The suspected backup route returns a normal not-found response.",
+        "artifact": "artifacts/backup-404.html"
+      },
+      {
+        "afterCall": 10,
+        "action": "Confirm in the browser",
+        "finding": "The browser confirms the disposable debug data.",
+        "artifact": "browser/review/artifacts/debug.png"
+      }
+    ]
+  },
+  "tls": {
+    "objective": "Follow the local redirect and check its certificate and browser behavior.",
+    "summary": "The certificate verifies with the supplied lab CA. Browser trust is assessed separately, with its limitation stated in the report.",
+    "beats": [
+      {
+        "afterCall": 5,
+        "action": "Follow each hop",
+        "finding": "The first response redirects to the local TLS endpoint.",
+        "artifact": "artifacts/redirect.txt"
+      },
+      {
+        "afterCall": 6,
+        "action": "Validate the certificate",
+        "finding": "The certificate chain verifies with the supplied lab authority.",
+        "artifact": "artifacts/tls.txt"
+      },
+      {
+        "afterCall": 7,
+        "action": "Check the destination",
+        "finding": "The destination is requested with certificate validation enabled.",
+        "artifact": "artifacts/tls-login.html"
+      },
+      {
+        "afterCall": 11,
+        "action": "Keep the browser evidence",
+        "finding": "The reachable HTTP page is retained; browser trust is reported separately.",
+        "artifact": "browser/review/artifacts/http-login.png"
+      }
+    ]
+  },
+  "browser": {
+    "objective": "Exercise the local login flow and verify what happens after sign-in.",
+    "summary": "The browser reaches the dashboard. An independent incorrect-password request checks rejection afterward; untested security properties remain explicit.",
+    "beats": [
+      {
+        "afterCall": 5,
+        "action": "Use the visible controls",
+        "finding": "A fresh page snapshot identifies the labeled login fields."
+      },
+      {
+        "afterCall": 9,
+        "action": "Verify sign-in",
+        "finding": "The browser’s destination confirms the successful local login."
+      },
+      {
+        "afterCall": 10,
+        "action": "Check the rejected branch",
+        "finding": "A separate incorrect-password request is retained for comparison.",
+        "artifact": "artifacts/login-rejected.txt"
+      },
+      {
+        "afterCall": 11,
+        "action": "Save visual evidence",
+        "finding": "The verified dashboard is saved alongside the observations.",
+        "artifact": "browser/review/artifacts/dashboard.png"
+      }
+    ]
+  },
+  "forensics": {
+    "objective": "Follow packet clues through a carrier, archive, and encrypted payload to verify a flag.",
+    "summary": "The packet sequence supplies the key clues. A failed key and decoy are rejected before the recovered flag passes its manifest checksum.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Follow the packet clues",
+        "finding": "Ordered packet fragments reveal a route to the carrier file.",
+        "artifact": "challenge/route.pcap"
+      },
+      {
+        "afterCall": 8,
+        "action": "Inspect the hidden layer",
+        "finding": "The appended archive’s manifest specifies the encryption and compression layers."
+      },
+      {
+        "afterCall": 9,
+        "action": "Revise the hypothesis",
+        "finding": "The tempting key without separators fails to decrypt the payload."
+      },
+      {
+        "afterCall": 12,
+        "action": "Verify the recovered answer",
+        "finding": "The flag checksum matches; the decoy’s checksum does not.",
+        "artifact": "artifacts/forensics/verification.json"
+      }
+    ]
+  },
+  "web-ctf": {
+    "objective": "Combine browser state and request clues to solve the local web challenge.",
+    "summary": "The solution uses a discovered endpoint, a browser-established session, and the required request header. The recovered flag is checked against its digest.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Follow a discovered route",
+        "finding": "The declared draft endpoint becomes the next lead.",
+        "artifact": "artifacts/robots.txt"
+      },
+      {
+        "afterCall": 5,
+        "action": "Learn from rejection",
+        "finding": "The initial request lacks a prerequisite and is retained.",
+        "artifact": "artifacts/draft-denied.txt"
+      },
+      {
+        "afterCall": 8,
+        "action": "Combine the clues",
+        "finding": "The browser reveals a required route header for the draft session."
+      },
+      {
+        "afterCall": 10,
+        "action": "Verify the answer",
+        "finding": "The scoped request succeeds and the recovered flag’s digest matches.",
+        "artifact": "artifacts/web-ctf-verification.json"
+      }
+    ]
+  },
+  "reporting": {
+    "objective": "Reconcile a large review log with fresh checks and create a readable report.",
+    "summary": "The report separates supplied historical input from fresh observations, reconciles the complete log, and records its limitations.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Gather fresh evidence",
+        "finding": "The service scan and current health response are retained.",
+        "artifact": "artifacts/health.txt"
+      },
+      {
+        "afterCall": 6,
+        "action": "Read beyond the first page",
+        "finding": "The supplied review log is examined in bounded pages."
+      },
+      {
+        "afterCall": 7,
+        "action": "Reconcile the complete input",
+        "finding": "A full-file computation accounts for all 160 supplied records.",
+        "artifact": "artifacts/reconciled.json"
+      },
+      {
+        "afterCall": 9,
+        "action": "State what is known",
+        "finding": "The reconciliation is checked against current observations.",
+        "artifact": "artifacts/reconciled.json"
+      }
+    ]
+  },
+  "recovery": {
+    "objective": "Recover from a slow local check without losing its diagnostic evidence.",
+    "summary": "A bounded request times out, its diagnostic is preserved, and a narrower health check confirms recovery rather than a complete outage.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Monitor the background work",
+        "finding": "The job is inspected using the identifier it actually returned."
+      },
+      {
+        "afterCall": 5,
+        "action": "Keep the diagnostic",
+        "finding": "The slow request exceeded its explicit time budget.",
+        "artifact": "artifacts/slow-partial.txt"
+      },
+      {
+        "afterCall": 7,
+        "action": "Narrow the investigation",
+        "finding": "A fresh health request succeeds; the service is not entirely unavailable.",
+        "artifact": "artifacts/health.txt"
+      },
+      {
+        "afterCall": 9,
+        "action": "Record the recovery",
+        "finding": "The report preserves the timeout and the successful follow-up.",
+        "artifact": "artifacts/recovery.txt"
+      }
+    ]
+  },
+  "recheck": {
+    "objective": "Change only the local lab configuration and verify the before-and-after result.",
+    "summary": "Repeated checks show that the lab’s debug access closes and the expected response policies appear. No external service is changed.",
+    "beats": [
+      {
+        "afterCall": 4,
+        "action": "Retain the baseline",
+        "finding": "The local debug endpoint is initially available.",
+        "artifact": "artifacts/before.txt"
+      },
+      {
+        "afterCall": 5,
+        "action": "Apply the local change",
+        "finding": "Only the disposable fixture’s configuration is changed.",
+        "artifact": "artifacts/change.txt"
+      },
+      {
+        "afterCall": 7,
+        "action": "Repeat the same check",
+        "finding": "The debug endpoint now returns not found.",
+        "artifact": "artifacts/after.txt"
+      },
+      {
+        "afterCall": 9,
+        "action": "Compare the evidence",
+        "finding": "The saved comparison documents the changed response and headers.",
+        "artifact": "artifacts/comparison.json"
+      }
+    ]
+  }
+}

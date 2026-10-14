@@ -1,6 +1,6 @@
 # Native pixel fidelity verification
 
-Local verification completed on 2026-10-12. GitHub Pages publication is gated by the repository's build and deployment workflow.
+Native capture validation completed on 2026-10-12; playback and redesign verification updated on 2026-10-15. GitHub Pages publication is gated by the repository's build and deployment workflow.
 
 The schema-3 player displays independent XTerm/Xvfb graphical captures. Earlier comparisons between ANSI/xterm reconstructions did not establish native appearance or motion and are superseded by this verification.
 
@@ -23,34 +23,34 @@ A browser Claude progress sample recorded 154 changes, zero timestamp-selection 
 
 Recording assets occupy **914,646,930 bytes**; the production site is approximately 920.7 MB, below the 1 GB Pages limit. Timestamped PTY downloads use lossless ZIP wrapping: exactly one original `.cast` file, with archive and payload hashes verified separately. Untouched `.ansi` remains directly downloadable. Shared large evidence downloads preserve identical original bytes and each recording's original workspace path and checksum.
 
-## Playback and browser checks
+## Current playback and visual redesign — 2026-10-15
 
-- All **32 Node tests** passed: background primitives/effects, ANSI/CR/LF, within-channel native timestamps, serialized writes, cancellation, shuffle bags, geometry milestones, original timing, delta reconstruction, integrity, nonconsecutive atlas prefetching, evidence hashes and CTF checksums.
-- All **38 Python tests** passed: capture pixels, readiness, clocks, actual lab branches, batch circuit breaking, screenshots, transcript/report selection, ownership cleanup, source provenance, shared evidence and byte-exact ZIP round trips.
-- TypeScript and the final production build passed. The build reports a large JavaScript chunk warning. Development recordings and test-only fixtures are excluded from production.
-- Actual browser inspection covered desktop, 320px and intermediate widths; enlargement; uniform scaling at DPR 1/2; rapid agent switching; pause/replay; explicit pause preservation; resizing during loading; slow/failed assets; reduced motion; keyboard focus, Escape and offscreen pause. No broken images, stale canvases, overlapping artwork or clipped controls were observed.
-- A cold Canvas2D failure fixture shows the actual completed capture with transcript recovery and synchronized completed report evidence. A test-only clock jump exercised automatic cycling: selected agent retained, new progress reset to zero, old canvas retained during loading, and new-case files did not inherit old completion. The fixture and clock override were removed afterward.
-- Final axe-core 4.14.0 checks found **zero WCAG violations** on desktop and 320px. Desktop version labels over the procedural background required manual contrast review; their opacity is now 1, with conservative worst-background contrast above 4.5:1. The mobile check had no incomplete results. Evidence labels remain opaque during motion and illustration captions no longer overlap imagery. Source detector checks passed for changed interface files.
-- Installation prompt copying, tool chains, architecture controls, original ANSI/ZIP downloads and reports were inspected. Findings retain investigation results after report housekeeping; previews preserve final verification and scope while original reports remain unchanged.
+The source matrix is unchanged. The visible player remains a composition of independently captured native pixels. Current verification passed all **39 Node tests**, including the 840 canonical RGB comparisons, raw bytes and evidence hashes, CTF checksums, bounded cache/decode behavior, progressive first-frame readiness, playback clocks, cancellation, all background primitives/effects, and summary availability gates. All **38 Python capture/lab regressions** passed. These regressions validate retained data and harness behavior; no new Docker captures were run for this visual update.
+
+The player buffers five source seconds initially and maintains twelve ahead. Verified compressed assets are shared with a 32MiB LRU cap. Decoded bitmaps are limited to 64MiB and dependencies compose sequentially. Long dependency seeks and large cache entries are covered by regressions. The first native poster is independent of atlas buffering; failed/stalled assets preserve a valid frame and suspend time. Agent changes restart the same case with explicit pause preserved, and use a 200ms decoded-frame fade. Downloads and zoom were removed from player controls.
+
+Current browser checks observed:
+
+- Warm opening commits of 88.7ms (Hermes), 98.7ms (Claude), and 188.8ms (Hermes after an initially offscreen/paused entrance), below the 250ms target in these local samples. Cold loading remains network/decoding dependent. A cold narrow Hermes poster took 447.6ms and subsequent atlas reconstruction took 1.29s while the poster remained visible. This is not a latency guarantee for all networks or devices.
+- Rapid Codex → OpenCode → Claude switching settled on one Claude canvas, the same case, matching prompt/summary, and explicit pause intact. Discarded work did not overwrite the final selection.
+- Enlargement produced **zero additional pixel recording requests**, retained source time/120 columns, and fitted the full frame uniformly. Closing retained that same recording. Canonical Hermes entrance shows the complete native wordmark; the 48-column entrance shows the client's genuine compact title. Later native banner scrolling is preserved.
+- PageUp moved from 151.246s to 139.246s and paused. Home returned to the entrance. Previously presented maximum remains available for review. Play resumes from the selected point. A long elapsed-time browser sample advanced approximately 2.49 source seconds per wall second, consistent with 2.5× and frame-boundary sampling.
+- DPR 2 at 320px retained uniform scaling, a completed actual frame and synchronized report under reduced motion, with zero active animations. The responsive layout has no horizontal page overflow at 320px. Controls retain 44px targets.
+- A temporary cold renderer-failure entry disabled visible Canvas2D before React mounted. An actual completed PNG loaded through the image fallback and the verified report remained available. The fixture is removed before production. Blocking atlas assets retained the native poster, showed retry guidance, and recovered through Replay after the block was removed.
+- A throttled-asset check retained the previous image during switching and progressive loading. Temporary network, renderer, and media overrides are removed after review.
+- The single-prompt action reported success; the exact string passed to the clipboard matched the unchanged canonical `install.txt` (1,124 characters in the deployment revision). Direct clipboard readback is unavailable in this browser.
+- Mobile axe-core checks found zero WCAG violations and zero incomplete results after removing contrast-reducing text fades. Desktop axe found zero violations and one incomplete contrast result for `.diagram-detail`; manual review confirmed muted silver on solid graphite above 4.5:1.
+
+The redesigned page replaces raw tool/API chains, the chassis illustration and the tall tabbed evidence panel with understandable capability examples, a large software-workspace lifecycle, platform compatibility, a visual filtering explanation, synchronized outcomes, and prominent single-prompt installation. Labels remain HTML. Docker networking, privileges, explicit startup and session ownership are explained accurately. The existing logo artwork is reframed without replacing its paths; Docker artwork is attributed to Devicon v2.17.0. No rejected generated image is used.
+
+TypeScript and the production build passed. The measured production tree is approximately 920.7MB, with no temporary QA fixtures. The build retains the existing large-JavaScript-chunk warning.
+
+No numerical filter-savings claim is published. Registered Hydra, Nikto and Nuclei filters were checked locally with characterized input containing noise, findings and diagnostics; they reduced known noise and preserved errors/warnings. A fresh live-lab filter benchmark was unavailable because Docker Desktop did not start. The previous 99.9% response-bounding example is not represented as filter performance.
 
 ## Explicit limitations
 
-Genuine browser zoom and a real hidden-document transition are unavailable through the in-app browser controls. CSS width tests are not browser zoom. Actual offscreen pause and visibility-clock regressions passed.
+The existing capture's largest sampling gap is still 2.333 seconds; missing motion is not fabricated. Model decisions, observations, delays, and usage counters remain scripted and labeled. Tools in the retained recordings execute in local labs; public targets are not contacted. Raw ANSI/CR/LF, source pixel assets and hashes remain unchanged. Hercules's public MCP APIs are unchanged.
 
-Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval was fabricated. The manual disposition is recorded separately in `.impeccable/review/finish-verdict.md`.
+Genuine browser zoom and a real hidden-document transition are unavailable through the in-app browser controls. CSS width and DPR tests are not browser zoom. Offscreen behavior and visibility-clock regressions remain independently checkable.
 
-Model decisions, observations, delays and usage counters are scripted and labeled. Tools execute in local labs; native pixels and labels are not rewritten. Hercules's public MCP APIs are unchanged.
-
-## Website playback update — 2026-10-13
-
-The website now advances the original source timeline at 2.5×, as requested. Capture speed and downloadable timestamps stay at 1×. Six recorded seconds of report hold now occupy 2.4 seconds before the shuffled loop advances. Agent changes retain the prior decoded frame, crossfade the incoming native image over 240 ms, and ease the panel height change. Reduced motion bypasses these transitions.
-
-The first native frame is displayed before the remaining assets finish preloading; playback begins only after preload completes. Rapid switching cancels discarded decoding and transitions. A zoom control exposes original-size pixels in a scrollable viewport, and Fit entire terminal restores the full interface. Scroll keys operate the presentation viewport; they do not control a live agent.
-
-All 34 website regressions passed, including 840 native RGB checkpoint comparisons and new rate/preload regressions. All 38 capture/lab regressions, TypeScript and the production build passed. Source detector checks passed.
-
-Browser confirmation observed two native canvases during the 240 ms fade and one afterward; rapid switching retained the final selected client. A two-second sample advanced 5.042 source seconds over 2.004 wall seconds (approximately 2.52× including frame-sampling boundaries). Automatic shuffled cycling was observed. At a breakpoint, an outer viewport width of 786 px retained the 120-column recording despite a 776 px client width after scrollbars appeared.
-
-The fit view retained the complete native frame; zoom displayed native-size pixels and supported horizontal/vertical arrow-key scrolling. The 320px layout had no page overflow, all four controls measured 44 × 44 px, and enlarged fit scaled 528 × 672 pixels uniformly to approximately 299 × 380 CSS pixels. DPR 2 and reduced motion passed; reduced-motion switching had zero active animations and one canvas. The findings panel is now keyboard focusable when its results overflow.
-
-Final axe-core checks found zero WCAG violations on desktop and mobile. Mobile had no incomplete results; desktop clipped findings required manual contrast review. Browser console errors/warnings were empty. Earlier capture and unavailable-browser-check limitations remain applicable; native data was not recaptured or retimed.
+Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval is fabricated. The manual disposition is recorded in `.impeccable/review/finish-verdict.md`.
