@@ -173,7 +173,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       }
       if(!valid())return;
       clock.suspend();setLoading(false);setBuffering(false);if(!retained.current)setFallback(true);
-      setError(cause instanceof Error && cause.message.includes("integrity")?cause.message:"This recording could not load. Replay to retry; the last captured frame remains visible.");
+      setError(cause instanceof Error && cause.message.includes("integrity")?cause.message:"This recording could not load. Select Replay to try again.");
     }
     initialize();
     return()=>{abort.abort();cancelAnimationFrame(frame);renderer?.dispose();transition?.cancel();for(const child of host.current?.children || [])if(child!==retained.current)child.remove();document.removeEventListener("visibilitychange",suspend);};
@@ -202,7 +202,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
           {maximum>minimum && runtime.current?.renderer && <input className="history-scroll" type="range" min={minimum} max={maximum} step={1/60} value={Math.max(minimum,Math.min(maximum,time))} aria-label="Recorded terminal history" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/>}
         </div>
         <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">{stopped?"Scroll to review history":<><span className="desktop-history-hint">Scroll up to review</span><span className="touch-history-hint">Pause to review history</span></>}</span></div>
-        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Buffering the next captured screens…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/main/website/CAPTURE.md">Recording details</a>}</p>}
+        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/main/website/CAPTURE.md">About these recordings</a>}</p>}
         <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
       </div>
       <SessionStory recording={shown || null} time={time} base={base} title={currentCase?.title || ""}/>

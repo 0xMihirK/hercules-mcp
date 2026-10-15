@@ -15,13 +15,13 @@ export default function SessionStory({recording,time,base,title}:{recording:Nati
   const artifact=visible.find(a=>a.path===beatArtifact?.artifact);
   const picture=visible.find(a=>/browser\/.*\.png$/.test(a.path));
   return <aside className="session-story" aria-label="Investigation summary">
-    <div className="story-objective"><span className="story-label">The investigation</span><h3>{title || "Local lab investigation"}</h3><p>{story?.objective || "Real tools in a disposable local lab. Follow the verified observations as the recording plays."}</p></div>
+    <div className="story-objective"><span className="story-label">The investigation</span><h3>{title || "Local lab investigation"}</h3><p>{story?.objective || "Hercules tools run in a local lab. Results appear here as the recording reaches each check."}</p></div>
     <div className="story-action"><span className={reportReady?"action-mark complete":"action-mark"}>{reportReady?<Check size={17}/>:<span/>}</span><strong>{action}</strong></div>
     <ol className="story-observations">{beats.slice(-2).map(beat=><li key={beat.afterCall}><Check size={17} aria-hidden="true"/><p>{beat.finding}</p></li>)}</ol>
-    {!beats.length && <div className="story-pending"><FolderOpen size={40} aria-hidden="true"/><p>The session starts its own workspace before checking the local lab.</p></div>}
+    {!beats.length && <div className="story-pending"><FolderOpen size={40} aria-hidden="true"/><p>The agent connects to Hercules and starts its tool container before checking the lab.</p></div>}
     {picture && <a className="story-evidence" href={base+picture.file} target="_blank" rel="noreferrer"><img src={base+picture.file} alt={recording?.scenario==="browser"?"Verified local dashboard":recording?.scenario==="tls"?"Captured local login page":"Captured local debug page"} loading="lazy"/><span>View browser evidence <ArrowUpRight size={17}/></span></a>}
-    {!picture && artifact && <div className="story-artifact"><FileText size={24} aria-hidden="true"/><span>{recording?.scenario==="forensics"?"Challenge clues checked":recording?.scenario==="reporting"?"Source material reconciled":"Supporting observations verified"}</span></div>}
-    {reportReady && <div className="story-report"><h4>A report you can follow.</h4><p>{story?.summary}</p><a className="text-link" href={base+recording!.reportHtml} target="_blank" rel="noreferrer">View report <ArrowUpRight size={18}/></a></div>}
-    <p className="story-provenance">Local lab. Real tools.<br/>Scripted model decisions.</p>
+    {!picture && artifact && <div className="story-artifact"><FileText size={24} aria-hidden="true"/><span>{recording?.scenario==="forensics"?(artifact.path.endsWith("verification.json")?"Flag verification recorded":"Packet clues recorded"):recording?.scenario==="reporting"?(artifact.path.endsWith("reconciled.json")?"Full log count recorded":"Current checks recorded"):"Supporting results recorded"}</span></div>}
+    {reportReady && <div className="story-report"><h4>Report summary</h4><p>{story?.summary}</p><a className="text-link" href={base+recording!.reportHtml} target="_blank" rel="noreferrer">View report <ArrowUpRight size={18}/></a></div>}
+    <p className="story-provenance">Tools run in a local lab.<br/>Model responses are scripted.</p>
   </aside>;
 }

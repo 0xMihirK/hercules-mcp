@@ -36,5 +36,5 @@ test("the real companion component gates discoveries, screenshots and verified r
 });
 test("browser story preserves success before the independent rejected-password check",()=>{
   const story=data.browser;assert.equal(story.beats[1].afterCall,9);assert.equal(story.beats[2].afterCall,10);
-  assert.match(story.beats[1].finding,/successful/);assert.match(story.beats[2].finding,/incorrect-password/);
+  assert.match(story.beats[1].finding,/successful/);assert.match(story.beats[2].finding,/incorrect password/);
 });
