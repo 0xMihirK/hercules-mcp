@@ -1,28 +1,32 @@
-import { useMemo, useState } from "react";
-import { ArrowRight, CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
-
-export type Catalog = { full_tool_count: number; resource_count: number; capabilities: { key: string; category: string; mcp_tools: string[]; description?: string }[] };
-const chains = [
-  { name: "Network", brief: "Turn reachable services into a verified inventory.", tools: ["recon_dns", "nmap_scan", "network_curl", "workspace_write_file"], evidence: ["DNS answers", "Scan XML", "HTTP responses", "Inventory report"], decision: "An open port is a lead. Verify the service before assessing applicability.", case: "Network inventory / service assessment" },
-  { name: "Web", brief: "Discover, cross-check, then confirm in a browser.", tools: ["fuzz_dirs", "web_scan", "nuclei_run", "browser_snapshot"], evidence: ["Discovered routes", "Fingerprint", "Matcher results", "Browser evidence"], decision: "Independent observations confirm the debug endpoint; a normal 404 rejects the backup guess.", case: "Website assessment / remediation recheck" },
-  { name: "CTF", brief: "Follow the evidence through each hidden layer.", tools: ["shell_exec", "ctf_binwalk", "workspace_read_file", "shell_exec"], evidence: ["Packet clues", "Carrier signatures", "Archive manifest", "Verified flag digest"], decision: "A rejected key changes the hypothesis. The manifest checksum separates the recovered flag from the decoy.", case: "Layered forensic CTF / web CTF" },
-  { name: "Reporting", brief: "Reconcile findings and leave a reproducible trail.", tools: ["workspace_read_file", "shell_check_job", "workspace_write_file", "system_stop_container"], evidence: ["Paged artifacts", "Job diagnostics", "Markdown + HTML", "Preserved workspace"], decision: "Distinguish fresh observations from supplied inputs. Verify the saved report before cleaning up its runtime.", case: "Evidence to report / background-job recovery" },
-];
-
-export default function ToolChains({ catalog }: { catalog: Catalog | null }) {
-  const [open, setOpen] = useState("Network"), [query, setQuery] = useState("");
-  const tools = useMemo(() => [...new Set(catalog?.capabilities.flatMap(c => c.mcp_tools) || [])].filter(t => t.toLowerCase().includes(query.toLowerCase())), [catalog, query]);
-  return <section id="tools" className="chapter wrap">
-    <div className="chapter-heading"><h2>Tools that work<br />better together.</h2><p>Discovery changes the next question. Verification changes the answer. Hercules keeps the tool calls and their evidence in one workspace.</p></div>
-    <div className="chains">{chains.map(chain => <article className={open === chain.name ? "chain is-open" : "chain"} key={chain.name}>
-      <h3><button aria-expanded={open === chain.name} aria-controls={`chain-${chain.name}`} onClick={() => setOpen(open === chain.name ? "" : chain.name)}><span>{chain.name}</span><span className="chain-brief">{chain.brief}</span><CaretDown size={22} aria-hidden="true" /></button></h3>
-      <div id={`chain-${chain.name}`} hidden={open !== chain.name} className="chain-content">
-        <ol className="chain-flow">{chain.tools.map((tool, i) => <li key={i}><code>{tool}</code><span>{chain.evidence[i]}</span>{i < 3 && <ArrowRight aria-hidden="true" size={20} />}</li>)}</ol>
-        <div className="chain-decision"><p>{chain.decision}</p><span>{chain.case}</span></div>
-      </div>
-    </article>)}</div>
-    <details className="catalog"><summary>Explore the complete tool catalog <span>{catalog ? `${catalog.full_tool_count} tools · ${catalog.resource_count} resources` : "Loading source catalog"}</span><CaretDown size={20} aria-hidden="true" /></summary>
-      <div className="catalog-body"><label className="search"><MagnifyingGlass size={20} aria-hidden="true" /><span className="sr-only">Search MCP tools</span><input type="search" placeholder="Search by tool name" value={query} onChange={e => setQuery(e.target.value)} /></label><p>{tools.length} matching tools. Installed capabilities determine which tools your server exposes.</p><ul className="tool-catalog">{tools.map(tool => <li key={tool}><code>{tool}</code></li>)}</ul>{!tools.length && catalog && <p>No matching tools. Try “browser”, “shell” or “workspace”.</p>}</div>
-    </details>
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { ArrowRight, ArrowUpRight, Check, GlobeHemisphereWest, Network, FileArchive, FileImage, Fingerprint, FileText, MagnifyingGlass, X } from "@phosphor-icons/react";
+import { stories } from "./SessionStory";
+gsap.registerPlugin(ScrollTrigger);
+const asset=(path:string)=>import.meta.env.BASE_URL+"assets/"+path;
+export default function ToolChains({reduced,paused}:{reduced:boolean;paused:boolean}){
+  const root=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    if(reduced || paused || !root.current)return;
+    const context=gsap.context(()=>{
+      gsap.from(".capability", {y:28,duration:.8,stagger:.12,ease:"power3.out",scrollTrigger:{trigger:root.current,start:"top 85%",once:true}});
+      gsap.fromTo(".network-link",{strokeDashoffset:180},{strokeDashoffset:0,duration:2.2,ease:"power2.out",scrollTrigger:{trigger:".network-map",start:"top 85%",once:true}});
+      gsap.from(".clue-step",{y:18,stagger:.18,duration:.6,scrollTrigger:{trigger:".clue-trail",start:"top 85%",once:true}});
+    },root);
+    return()=>context.revert();
+  },[reduced,paused]);
+  return <section id="tools" ref={root} className="chapter wrap capabilities-section">
+    <div className="feature-heading"><h2>One workspace.<br/>Many ways to investigate.</h2><p>Combine scans, browser checks, and file analysis to investigate a problem and report the result.</p></div>
+    <div className="capability-gallery">
+      <article className="capability capability-network"><div className="capability-title"><Network size={28}/><h3>Map a network.</h3></div><p>Find services, check what responds, and build an inventory.</p>
+        <div className="network-map" role="img" aria-label="A local lab connection is checked for web services and certificate behavior."><svg viewBox="0 0 600 240" aria-hidden="true"><path className="network-link" d="M95 120H235L370 50H500M235 120H500M235 120L370 190H500" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="180"/></svg><div className="map-origin"><GlobeHemisphereWest size={37}/><span>Local lab</span></div><div className="map-hub"><MagnifyingGlass size={27}/><span>Verify</span></div><div className="map-endpoints"><span>Reachable services</span><span>Website response</span><span>Certificate check</span></div></div>
+        <div className="capability-outcome"><Check size={18}/><span>A service inventory with supporting checks.</span></div>
+      </article>
+      <article className="capability capability-web"><div className="capability-title"><GlobeHemisphereWest size={28}/><h3>Review a website.</h3></div><p>Use a browser and independent checks to confirm or rule out a suspected issue.</p><div className="website-review" role="group" aria-label="Illustrated website investigation, based on the local lab"><div className="review-address"><GlobeHemisphereWest size={17}/><span>Local website</span><MagnifyingGlass size={17}/></div><div className="review-question">Two reported issues<br/><strong>One confirmed finding</strong></div><div className="review-verdict"><Check size={20}/><div><strong>Debug data exposed</strong><span>Confirmed by request and browser checks</span></div></div><div className="review-verdict rejected"><X size={20}/><div><strong>Backup page not found</strong><span>The requested route returns 404</span></div></div></div><div className="verification-pair"><span><Check size={17}/>Confirmed issue</span><span><X size={17}/>Rejected lead</span></div></article>
+      <article className="capability capability-ctf"><div className="capability-title"><Fingerprint size={28}/><h3>Solve a security challenge.</h3></div><p>Solve a capture-the-flag (CTF) puzzle by following file clues and checking the hidden answer.</p><div className="clue-trail">{[{icon:Network,label:"Packet clues"},{icon:FileImage,label:"Carrier file"},{icon:FileArchive,label:"Hidden archive"},{icon:Fingerprint,label:"Verified flag"}].map(({icon:Icon,label},i)=><div className="clue-step" key={label}><Icon size={36}/><span>{label}</span>{i<3 && <ArrowRight size={18} aria-hidden="true"/>}</div>)}</div><p className="clue-decision"><X size={17}/>Incorrect key and decoy rejected.<Check size={17}/>Flag checksum verified.</p></article>
+      <article className="capability capability-report"><div className="capability-title"><FileText size={28}/><h3>Write a report.</h3></div><div className="report-sample"><span>Website assessment</span><h4>Confirmed findings and rejected leads.</h4><p>{stories.website.summary}</p><div><span><Check size={17}/>Exposed debug data</span><span><X size={17}/>Backup page ruled out</span></div></div><a className="text-link" href={asset("recordings/evidence/claude-website-120/reports/website.html")} target="_blank" rel="noreferrer">View the local lab report <ArrowUpRight size={18}/></a></article>
+    </div>
+    <a className="catalog-source text-link" href="https://github.com/0xMihirK/hercules-mcp#capabilities-and-mcp-surface">See the complete tool catalog <ArrowUpRight size={18}/></a>
   </section>;
 }

@@ -1,35 +1,28 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ArrowRight, DownloadSimple } from "@phosphor-icons/react";
+import { ArrowRight, ArrowUpRight, Check, FunnelSimple, WarningCircle, FileText } from "@phosphor-icons/react";
 gsap.registerPlugin(ScrollTrigger);
-export type Measurement = { tool: string; rawCharacters: number; inlineResponseCharacters: number; characterReduction: number; rawTokenEstimate: number; inlineTokenEstimate: number; outputComplete: boolean; evidenceComplete: boolean; outputFiltered: boolean; rawArtifact: string; file?: string; caseTitle?: string };
-const stages = ["Raw output", "Preserved diagnostics", "Filtered findings", "Bounded response", "Readable artifacts"];
-
-export default function EvidencePipeline({ reduced, paused, measurement, base }: { reduced: boolean; paused: boolean; measurement: Measurement | null; base: string }) {
-  const root = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (reduced || paused || !root.current) return;
-    const media = gsap.matchMedia();
-    media.add("(min-width: 1000px)", () => {
-      const context = gsap.context(() => {
-        const timeline=gsap.timeline({scrollTrigger:{trigger:root.current,start:"top 85%",end:"center center",scrub:.7}});
-        timeline.fromTo(".evidence-illustration",{scale:.8},{scale:1,ease:"none",duration:1},0);
-        timeline.fromTo(".pipeline-stage",{y:12},{y:0,stagger:.15,duration:.4,ease:"none"},0);
-      }, root);
-      return () => context.revert();
-    });
-    return () => media.revert();
-  }, [reduced, paused]);
-  return <section id="evidence" ref={root} className="chapter wrap evidence-section">
-    <div className="chapter-heading"><h2>Less noise in context.<br />More evidence on disk.</h2><p>Tool-specific filters extract useful findings. Bounded responses keep the conversation manageable, while raw artifacts preserve the diagnostics you may need next.</p></div>
-    <ol className="output-pipeline">{stages.map((stage,i) => <li className="pipeline-stage" key={stage}><span>{stage}</span>{i < 4 && <ArrowRight size={20} aria-hidden="true" />}</li>)}</ol>
-    <div className="evidence-layout"><div className="evidence-paper"><img className="evidence-illustration" src={`${import.meta.env.BASE_URL}assets/illustrations/evidence-stack.png`} width="1536" height="1024" alt="Graphite and copper illustration of layered report pages and preserved evidence." loading="lazy" decoding="async" /><span>Illustration · evidence layers</span></div><div className="evidence-explanation">
-      <h3>Measure the response.<br />Keep the original.</h3>
-      {measurement ? <><p className="measurement-source">Measured from a real local <code>{measurement.tool}</code> call. Includes serialized response metadata.</p><div className="character-comparison"><div><span>Raw output</span><strong>{measurement.rawCharacters.toLocaleString()}</strong><small>characters · ~{measurement.rawTokenEstimate.toLocaleString()} tokens</small></div><ArrowRight size={24} aria-hidden="true" /><div><span>Inline response</span><strong>{measurement.inlineResponseCharacters.toLocaleString()}</strong><small>characters · ~{measurement.inlineTokenEstimate.toLocaleString()} tokens</small></div></div><p>{measurement.characterReduction > 0 ? `${measurement.characterReduction}% fewer characters in this response.` : "This response’s metadata adds characters; reduction varies by tool and output."} Token estimates use characters ÷ 4, rounded up. They are approximate.</p>{measurement.file && <a className="text-link" href={base + measurement.file} download><DownloadSimple size={20} aria-hidden="true" />Inspect the raw artifact</a>}</> : <p>Measurements will appear with validated lab artifacts. No estimated savings are presented as measured results.</p>}
-      {measurement?.caseTitle && <p className="measurement-case">Capture: {measurement.caseTitle}. This is one observed call, not an average or a promised saving.</p>}
-      {measurement && !measurement.outputFiltered && <p className="measurement-case">This call demonstrates response bounding. Semantic filtering was not applied.</p>}
-      <dl className="completeness"><div><dt><code>output_complete</code>{measurement && <span className="complete-value">{String(measurement.outputComplete)}</span>}</dt><dd>Whether the inline response contains the full tool output.</dd></div><div><dt><code>evidence_complete</code>{measurement && <span className="complete-value">{String(measurement.evidenceComplete)}</span>}</dt><dd>Whether the available artifacts preserve the captured evidence.</dd></div></dl><p>Neither flag proves that an investigation is exhaustive. Reports should state scope, rejected leads and untested assumptions.</p>
-    </div></div>
+export type Measurement={tool:string;rawCharacters:number;inlineResponseCharacters:number;characterReduction:number;rawTokenEstimate:number;inlineTokenEstimate:number;outputComplete:boolean;evidenceComplete:boolean;outputFiltered:boolean;rawArtifact:string;file?:string;caseTitle?:string};
+export default function EvidencePipeline({reduced,paused}:{reduced:boolean;paused:boolean}){
+  const root=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    if(reduced || paused || !root.current)return;
+    const context=gsap.context(()=>{
+      const timeline=gsap.timeline({scrollTrigger:{trigger:".filter-scene",start:"top 80%",end:"bottom 55%",scrub:.5}});
+      timeline.to(".noise-line i",{scaleX:0,transformOrigin:"left",stagger:.12,duration:.6},0);
+      timeline.fromTo(".retained-line",{x:-20},{x:0,stagger:.15,duration:.8},.3);
+      timeline.fromTo(".filter-output",{y:22},{y:0,duration:1,ease:"none"},0);
+    },root);
+    return()=>context.revert();
+  },[reduced,paused]);
+  return <section id="evidence" ref={root} className="chapter wrap efficiency-section">
+    <div className="feature-heading"><h2>Filter scanner noise<br/>before it reaches your agent.</h2><p>Tool-specific filters remove known banners and repeated progress messages while keeping findings and important diagnostics.</p></div>
+    <div className="filter-scene">
+      <div className="filter-input"><h3>Before filtering</h3><div className="output-line noise-line"><span>Scanner banners</span><i/></div><div className="output-line noise-line"><span>Repeated progress</span><i/></div><div className="output-line finding-line"><Check size={18}/><span>Findings</span></div><div className="output-line warning-line"><WarningCircle size={18}/><span>Warnings and errors</span></div><div className="output-line noise-line"><span>Routine startup messages</span><i/></div></div>
+      <div className="filter-transform"><div><FunnelSimple size={46}/><span>Hercules filters</span></div><ArrowRight size={23} aria-hidden="true"/></div>
+      <div className="filter-output"><h3>After filtering</h3><div className="retained-line"><Check size={23}/><div><strong>Useful findings</strong><p>Results that guide the next check.</p></div></div><div className="retained-line"><WarningCircle size={23}/><div><strong>Important diagnostics</strong><p>Warnings, failures, and limits stay visible.</p></div></div><div className="filter-benefit"><span>Fewer repeated messages to read.</span><strong>Fewer tokens spent on routine output.</strong></div></div>
+    </div>
+    <div className="efficiency-notes"><div><FileText size={26}/><h3>Large responses have a separate limit.</h3><p>Response-size limits are separate from filtering. Large results can be saved as files and read in smaller sections.</p></div><div><h3>Check what the result covers.</h3><p>Savings depend on the tool and its output. Hercules reports whether output was shortened and whether complete raw output is still available.</p><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp#output-artifacts-sessions-and-workspaces">Read about filters and output limits <ArrowUpRight size={18}/></a></div></div>
   </section>;
 }
