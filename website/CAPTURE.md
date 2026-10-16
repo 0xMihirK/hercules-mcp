@@ -38,3 +38,12 @@ Readable transcripts pair each actual tool call, arguments and observed result w
 The existing 120-session matrix passed capture/tool/evidence/report/cleanup validation on 2026-10-12. Current playback regressions again compare seven independent native RGB checkpoints per session: 840 comparisons. See [verification status](capture/VERIFICATION.md) for current checks, measured behavior, sampling gaps, and unavailable checks, and [reproduction instructions](capture/README.md). Earlier schema-2 comparisons do not establish native graphical fidelity.
 
 Claude uses its documented full-screen renderer, selected to match the reference’s docked composer. The real emulator palette is black/white, with line-height configured through XTerm and cell dimensions measured after mapping. No terminal labels, artwork, colors, or positions are replaced in playback. Lossless live capture writes to the container filesystem before retaining the master, so Windows/OneDrive asset writes do not stall sampling. Each capture records the actual immutable Docker image ID.
+
+
+## Presentation correction — 2026-10-16
+
+Source recordings, ANSI bytes, timestamps, hashes, MCP calls, and APIs are unchanged. The frame now uses the full available phone width. The recorded-history range is horizontal beneath the image. A lazy-loaded complete transcript is available below the player, with discarded requests aborted when the selected recording changes. Enlargement keeps the existing source geometry and fits within the viewport; it does not choose or request a different recording.
+
+The compact companion shows the current action and recent observations; the objective appears once in the prompt bar. Actual browser imagery is used only for the browser workflow, gated by artifact availability. JSON response screenshots are excluded from marketing imagery. Cropped previews link to their unchanged originals.
+
+The lower showcase uses plain-language capabilities, a software boundary containing the Kali tools, independent session ownership, and an actual registered-filter specimen. The specimen is labeled illustrative input, not a newly captured lab run. No generated chassis, blank paper, fabricated agent UI, or numerical filter-performance claim is shown.

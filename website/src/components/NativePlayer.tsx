@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ArrowsInSimple, ArrowsOutSimple, Pause, Play, ArrowCounterClockwise } from "@phosphor-icons/react";
+import { ArrowsInSimple } from "@phosphor-icons/react/ArrowsInSimple";
+import { ArrowsOutSimple } from "@phosphor-icons/react/ArrowsOutSimple";
+import { Pause } from "@phosphor-icons/react/Pause";
+import { Play } from "@phosphor-icons/react/Play";
+import { ArrowCounterClockwise } from "@phosphor-icons/react/ArrowCounterClockwise";
 import { ShuffleBag, recordingGeometry, mapMilestoneTime } from "../recording.js";
 import { PlaybackClock, sessionEnd, PLAYBACK_RATE } from "../pixel-timeline.js";
 import { PixelRenderer, verifiedFetch, type PixelIndex } from "../pixel-renderer";
 import { clients, type Client, type NativeManifest, type NativeRecording } from "../native-types";
 import CapturedPoster from "./CapturedPoster";
 import SessionStory, {stories} from "./SessionStory";
+import SessionTranscript from "./SessionTranscript";
 
 type Recording=NativeManifest["recordings"][number];
 type Runtime={renderer:PixelRenderer|null;canvas:HTMLCanvasElement;clock:PlaybackClock;end:number;maximum:number;minimum:number;seek:number|null;record:Recording};
@@ -186,6 +191,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   return <div className="native-player" data-native-ready={ready} data-client={shownClient} data-requested-client={client} data-case={shown?.scenario || scenario} data-columns={shown?.columns || columns} data-recording-sha={shown?.sha256} data-playback-rate={PLAYBACK_RATE}>
     <div className="agent-tabs" role="tablist" aria-label="Example agent">{clients.map(({id,name},i)=><button key={id} id={"agent-"+id} aria-controls="native-session" role="tab" aria-selected={client===id} tabIndex={client===id?0:-1} onClick={()=>switchAgent(id)} onKeyDown={e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();const n=e.key==="Home"?0:e.key==="End"?3:(i+(e.key==="ArrowRight"?1:3))%4;switchAgent(clients[n].id);(e.currentTarget.parentElement?.children[n] as HTMLButtonElement)?.focus();}}}>{name}<span>{manifest?.clients[id]?.version || ""}</span></button>)}</div>
     <div className="player-layout">
+      <div className="player-recording">
       <div ref={stage} className={"native-stage"+(expanded?" is-expanded":"")} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={expanded?clients.find(c=>c.id===shownClient)?.name+" recording":undefined} onKeyDown={e=>{
         if(expanded && e.key==="Escape")setExpanded(false);
         if(expanded && e.key==="Tab"){const targets=stage.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href],[tabindex="0"]');if(targets?.length){const first=targets[0],last=targets[targets.length-1];if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}}}
@@ -199,11 +205,13 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         }}><div ref={host} className="native-host"/>
           {fallback && !retained.current && requested && <CapturedPoster base={base} opening={requested.still && requested.stillSha256?{file:requested.still,sha256:requested.stillSha256}:undefined} completed={requested.completedStill && requested.completedStillSha256?{file:requested.completedStill,sha256:requested.completedStillSha256}:undefined} preferCompleted={true} label={"Captured native "+requested.client+" interface"} onReady={file=>{if(file!==requested.completedStill && file!==requested.still)return;setCommitted(requested);const at=file===requested.completedStill?requested.completedStillAt ?? requested.duration:requested.displayStart || 0;setTime(at);setMaximum(at);setReady(true);}}/>}
           {!retained.current && !fallback && <div className="recording-loading" role="status">Loading the captured interface…</div>}
-          {maximum>minimum && runtime.current?.renderer && <input className="history-scroll" type="range" min={minimum} max={maximum} step={1/60} value={Math.max(minimum,Math.min(maximum,time))} aria-label="Recorded terminal history" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/>}
         </div>
+        <div className="recording-history"><span>Recorded history</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,maximum)} disabled={maximum<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(maximum,time))} aria-label="Recorded terminal history" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/></div>
         <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">{stopped?"Scroll to review history":<><span className="desktop-history-hint">Scroll up to review</span><span className="touch-history-hint">Pause to review history</span></>}</span></div>
         {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/main/website/CAPTURE.md">About these recordings</a>}</p>}
         <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
+      </div>
+      <SessionTranscript key={shown?.transcript || "loading"} url={shown?.transcript?base+shown.transcript:undefined}/>
       </div>
       <SessionStory recording={shown || null} time={time} base={base} title={currentCase?.title || ""}/>
     </div>

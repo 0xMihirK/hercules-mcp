@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createElement} from "react";
+import {execFileSync} from "node:child_process";
 import ts from "typescript";
 const data=JSON.parse(await readFile(new URL("../src/showcase-content.json",import.meta.url),"utf8"));
 const manifest=JSON.parse(await readFile(new URL("../assets/recordings/manifest.json",import.meta.url),"utf8"));
@@ -12,7 +13,7 @@ async function component(path,replacements={}){
   const code=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
     .replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve("react/jsx-runtime")))
     .replaceAll('"react"',JSON.stringify(import.meta.resolve("react")))
-    .replaceAll('"@phosphor-icons/react"',JSON.stringify(import.meta.resolve("@phosphor-icons/react")));
+    .replace(/"(@phosphor-icons\/react(?:\/[^"]+)?)"/g,(_,specifier)=>JSON.stringify(import.meta.resolve(specifier)));
   return import("data:text/javascript;base64,"+Buffer.from(code).toString("base64"));
 }
 const {default:Story}=await component("../src/components/SessionStory.tsx",{'import content from "../showcase-content.json";':"const content="+JSON.stringify(data)+";"});
@@ -29,10 +30,23 @@ test("the real companion component gates discoveries, screenshots and verified r
   const first=data.website.beats[0],at=r.synchronized[first.afterCall-1].at;
   assert.ok(!render(at-.01).includes(first.finding));assert.ok(render(at+.01).includes(first.finding));
   const report=r.reportAvailableAt;assert.ok(!render(report-.01).includes("View report"));assert.ok(render(report+.01).includes("View report"));
-  const screenshot=r.artifacts.find(a=>a.path.includes("debug.png"));
-  assert.ok(!render(screenshot.availableAt-.01).includes('alt="Captured local debug page"'));
-  assert.ok(render(Math.max(at,screenshot.availableAt)+.01).includes('alt="Captured local debug page"'));
+  // Raw JSON browser captures are not used as marketing imagery.
+  assert.ok(!render(report+1).includes("debug.png"));
+  const browser=manifest.recordings.find(r=>r.client==="claude" && r.scenario==="browser" && r.columns===120);
+  const picture=browser.artifacts.find(a=>a.path.includes("dashboard.png"));
+  const browserRender=time=>renderToStaticMarkup(createElement(Story,{recording:browser,time,base:"/assets/recordings/",title:"Browser workflow review"}));
+  assert.ok(!browserRender(picture.availableAt-.01).includes('alt="Verified local dashboard"'));
+  assert.ok(browserRender(picture.availableAt+.01).includes('alt="Verified local dashboard"'));
   assert.doesNotMatch(render(report+1),/nuclei_run|scriptedObservation|output_complete|matcher-status/);
+});
+test("the showcased filtering example is produced by the registered Hercules filter",async()=>{
+  const specimen=JSON.parse(await readFile(new URL("../assets/filter-example.json",import.meta.url),"utf8"));
+  const actual=execFileSync("python",["-c","import json,sys;from hercules.output.filters import filter_nikto;s=json.load(sys.stdin);print(json.dumps(filter_nikto(s['raw'])))"],{cwd:new URL("../../",import.meta.url),input:JSON.stringify(specimen),encoding:"utf8"});
+  assert.equal(JSON.parse(actual),specimen.filtered);
+  assert.ok(specimen.filtered.includes("WARNING: Scan was incomplete"));
+  assert.ok(specimen.filtered.includes("Debug data is visible"));
+  assert.ok(!specimen.filtered.includes("Start Time:"));
+  assert.ok(!specimen.filtered.includes("End Time:"));
 });
 test("browser story preserves success before the independent rejected-password check",()=>{
   const story=data.browser;assert.equal(story.beats[1].afterCall,9);assert.equal(story.beats[2].afterCall,10);

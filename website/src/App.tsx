@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUpRight, Pause, Play } from "@phosphor-icons/react";
+import { ArrowDown } from "@phosphor-icons/react/ArrowDown";
+import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { Pause } from "@phosphor-icons/react/Pause";
+import { Play } from "@phosphor-icons/react/Play";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
