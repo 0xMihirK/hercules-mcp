@@ -1,6 +1,6 @@
 # Native pixel fidelity verification
 
-Native capture validation completed on 2026-10-12; playback and redesign verification updated on 2026-10-15. GitHub Pages publication is gated by the repository's build and deployment workflow.
+Native capture validation completed on 2026-10-12; playback and redesign verification updated on 2026-10-16. GitHub Pages publication is gated by the repository's build and deployment workflow.
 
 The schema-3 player displays independent XTerm/Xvfb graphical captures. Earlier comparisons between ANSI/xterm reconstructions did not establish native appearance or motion and are superseded by this verification.
 
@@ -46,6 +46,18 @@ The redesigned page replaces raw tool/API chains, the chassis illustration and t
 TypeScript and the production build passed. The measured production tree is approximately 920.7MB, with no temporary QA fixtures. The build retains the existing large-JavaScript-chunk warning.
 
 No numerical filter-savings claim is published. Registered Hydra, Nikto and Nuclei filters were checked locally with characterized input containing noise, findings and diagnostics; they reduced known noise and preserved errors/warnings. A fresh live-lab filter benchmark was unavailable because Docker Desktop did not start. The previous 99.9% response-bounding example is not represented as filter performance.
+
+## Visual corrections — 2026-10-16
+
+The current source passes 40 website regressions, including 840 independent RGB checkpoints, raw/evidence integrity, playback/cache behavior, background rendering, actual-call availability gates, and the newly displayed registered-filter specimen. The Python harness result above belongs to the previous verification date; no new capture or live-lab run is claimed. TypeScript and the production build passed. The existing large-chunk warning remains.
+
+An independent agent visually reviewed the full 1440px page, a 1280×720 laptop, 390/320px phones, capability and lifecycle controls, all four clients, transcript, and reduced motion. It found enlarged-player overflow, phone connector wrapping, and an unreadable browser preview. These were corrected; the reviewer separately inspected the corrected PNGs and confirmed those visible repairs. Its browser became unavailable during confirmation, so that final disposition is screenshot review, not a second browser interaction pass.
+
+Root-browser checks confirmed the enlarged stage fits x24–1256 at 1280px with all controls visible. At 320px the native frame is approximately 305px wide, compared with the prior 219px; source geometry and aspect ratio remain intact. Agent tabs fit inside their grid. The history range no longer removes space from the image. A readable full transcript supplements the unchanged native pixels. Reduced motion and DPR 2 retain actual captured frames.
+
+The architecture now uses a software boundary with tool groups inside the Kali container. Lifecycle changes are explicit rather than driven by scroll position. There is no pin spacer. The filter demonstrator retains opaque findings/warnings and reserves its height; the following section moved less than one CSS pixel between the measured original and filtered states. No numerical token saving is claimed.
+
+Phone axe-core found zero WCAG violations. The filter example now has a named group role. Remaining image-related contrast checks require manual inspection because the clipped original screenshot extends beyond its excerpt window; surrounding text is opaque silver on solid graphite. Current final desktop checks and published verification are recorded in the accompanying visual review. Genuine browser zoom and physical-phone testing remain unavailable.
 
 ## Explicit limitations
 

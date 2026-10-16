@@ -1,5 +1,10 @@
 import { useRef, useState } from "react";
-import { ArrowRight, ArrowUpRight, Check, Copy, ChatText, PlugsConnected } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
+import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { Check } from "@phosphor-icons/react/Check";
+import { Copy } from "@phosphor-icons/react/Copy";
+import { ChatText } from "@phosphor-icons/react/ChatText";
+import { PlugsConnected } from "@phosphor-icons/react/PlugsConnected";
 export default function Setup({prompt}:{prompt:string}){
   const [status,setStatus]=useState(""),details=useRef<HTMLDetailsElement>(null);
   async function copy(){

@@ -117,13 +117,13 @@ The hero and agent introduction are preserved. The technical catalog lives in Gi
 
 Sharp corners, fine rules, generous chapter spacing, and readable silver text. Use copper to indicate actions, active stages, and meaningful connections. Keep labels opaque during animation. Do not introduce glass panels, decorative status dots, unverified counters, or a new type system.
 
-The four capability examples form an asymmetric gallery: network mapping, website verification, layered challenge solving, and a readable report. Use functional diagrams and real browser/report content. Illustrations must describe software relationships, not substitute physical machinery for Docker. The rejected chassis, blank paper, and generated architecture overview are not shown.
+One focused capability example is shown at a time in a four-tab walkthrough: network mapping, website verification, layered challenge solving, and a readable report. Use functional diagrams and real browser/report content. Illustrations must describe software relationships, not substitute physical machinery for Docker. The rejected chassis, blank paper, and generated architecture overview are not shown.
 
-The sandbox is a large HTML software-workspace scene. Its agent requests connect through Hercules to two separately owned Docker runtimes. Lifecycle controls explain connection, explicit startup, independent sessions, and cleanup. The lion uses the existing vector paths with tighter intrinsic framing; authentic Docker artwork is from Devicon v2.17.0. OS and interface glyphs use the existing Phosphor library. Labels and controls remain accessible HTML.
+The sandbox is an HTML software scene. A task from the agent passes through Hercules to a visibly bounded Kali container, with the security tools inside that boundary. A secondary route shows independent session ownership. Lifecycle controls explain connection, explicit startup, independent sessions, and cleanup. The page scrolls naturally; changing scroll position does not change the selected lifecycle state. The lion uses the existing vector paths with tighter intrinsic framing; authentic Docker artwork is from Devicon v2.17.0. OS and interface glyphs use the existing Phosphor library. Labels and controls remain accessible HTML.
 
 ## Native player
 
-One Canvas2D player, four agent tabs, and a compact investigation summary beside it on desktop and below it on phones. The summary follows actual completed-call timestamps: objective, action, discoveries, rejected leads, visual evidence, and verified report. No findings or report appear before their underlying artifacts are available.
+One Canvas2D player, four agent tabs, and a compact investigation summary beside it on desktop and below it on phones. The prompt contains the objective once. The compact summary follows actual completed-call timestamps: current action, up to two observations, available browser evidence, and the verified report action. No findings or report appear before their underlying artifacts are available.
 
 Play captured pixels at 2.5×. Switching agents restarts the same case and preserves explicit pause. Shuffled cycling retains the selected agent. Hold six recorded seconds at completion (2.4 wall seconds). Decode the opening before switching, crossfade for 200ms, and retain the last valid frame during loading, buffering, or failures. Reduced motion starts with a captured completed frame and swaps directly.
 
@@ -131,11 +131,11 @@ Load five source seconds at startup and maintain twelve ahead, with a shared ver
 
 The only player buttons are pause/play, replay, and enlargement, each at least 44px. Enlargement fits and centers the existing complete frame; it does not choose a different geometry or reload the recording. Preserve proportions and never reflow terminal artwork.
 
-Recorded-history navigation pauses playback and reviews previously presented screens. Desktop wheel/trackpad and Arrow/Page/Home/End keys provide access. Phone swipes scroll the page while playing; pause first to review history. Play resumes from the selected point. Range navigation remains keyboard accessible, and page scrolling is released at history boundaries.
+Recorded-history navigation pauses playback and reviews previously presented screens. Desktop wheel/trackpad and Arrow/Page/Home/End keys provide access. Phone swipes scroll the page while playing; pause first to review history. Play resumes from the selected point. A horizontal history range sits below the image so it does not consume native-frame width. Navigation remains keyboard accessible, and page scrolling is released at history boundaries. Phones give the frame the full available page width; the complete transcript is available in a readable disclosure below it.
 
 ## Motion and accessibility
 
-Use one scoped desktop sandbox pin at minimum 1024px width and 700px height. The four lifecycle stages advance with scroll; buttons also work independently. Connections, positional reveals, and noise-bar transformations explain the product. Avoid fading readable text below contrast requirements.
+Use an unpinned software scene with explicit lifecycle controls. An entering connection pulse and a contained tool reveal explain the request path and startup. No automatic lifecycle switching or scroll spacer may interrupt reading. The real filter example collapses routine lines while leaving findings and warnings opaque, with reserved space to keep the next section stable.
 
 Phones use ordinary document flow with meaningful positional motion. Reduced motion and the site motion control preserve every fact without pinning or continuous effects. Hidden/offscreen playback pauses without consuming unseen time. Focus outlines use copper; enlargement contains keyboard focus and closes with Escape. Loading errors retain a captured frame and expose retry guidance. If Canvas is unavailable, show an actual captured image.
 
@@ -144,3 +144,9 @@ Installation prominently presents “Install with one prompt,” a copy action, 
 ## Review requirements
 
 Review desktop, short laptop, and phones from 320px, including readable copy, relevance, contrast, keyboard access, reduced motion, DPR 1/2, asset failures, agent switching, history, and enlargement. Compare native reconstruction against independent captured pixels. Do not claim fresh capture or filter benchmarks when Docker is unavailable. Impeccable's React/Canvas adapter is unsupported; the user approved manual browser review. No automated visual receipt is asserted.
+
+## Visual corrections — 2026-10-16
+
+The browser proof uses a clearly labeled excerpt of the original capture, linked to the unchanged full image. Browser evidence remains actual pixels; no native interface is drawn by the website. The filter specimen is characterized input passed through the registered Hercules Nikto filter, with a regression requiring the finding and incomplete-scan warning to survive. It is not a live benchmark and carries no percentage claim.
+
+Lower-section styles live in showcase.css. Remove superseded overrides rather than adding another layer. Mobile agent names and versions stack to prevent grid overflow. The site motion action sits in the phone footer. Enlargement uses its side insets with automatic width, preserving source geometry. Icon imports use the library’s individual public entrypoints, and Tailwind scans source files rather than recording archives.
