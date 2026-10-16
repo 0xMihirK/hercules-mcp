@@ -25,7 +25,7 @@ export default function ArchitectureScene({reduced,paused}:{reduced:boolean;paus
   useEffect(()=>{
     if(reduced || paused || !root.current)return;
     const context=gsap.context(()=>{
-      gsap.fromTo(".connection-packet",{xPercent:-100},{xPercent:420,duration:1.1,ease:"power2.out",scrollTrigger:{trigger:scene.current,start:"top 80%",once:true}});
+      gsap.fromTo(".connection-packet",{xPercent:-100},{xPercent:520,duration:1.1,ease:"power2.out",scrollTrigger:{trigger:scene.current,start:"top 80%",once:true}});
       if(phase===1 || phase===2)gsap.fromTo(".runtime-capability",{clipPath:"inset(0 0 100% 0)",y:5},{clipPath:"inset(0 0 0% 0)",y:0,duration:.45,stagger:.06,ease:"power3.out"});
     },root);
     return()=>context.revert();

@@ -59,6 +59,14 @@ The architecture now uses a software boundary with tool groups inside the Kali c
 
 Phone axe-core found zero WCAG violations. The filter example now has a named group role. Remaining image-related contrast checks require manual inspection because the clipped original screenshot extends beyond its excerpt window; surrounding text is opaque silver on solid graphite. Current final desktop checks and published verification are recorded in the accompanying visual review. Genuine browser zoom and physical-phone testing remain unavailable.
 
+## Illustration refinement — 2026-10-16
+
+Network routes now meet equal-height service rows; the challenge uses a continuous three-stage route; and the host Hercules process has balanced framing and structural ports. Phone connectors turn vertically into the Docker boundary. The illustrations retain the existing product facts and graphite/copper palette. Original browser captures and native recording pixels are unchanged.
+
+An independent agent inspected desktop network/architecture and 390px phone network/architecture screenshots and found no material visual defect. Root separately confirmed the final challenge at 1440px and 320px, and corrected a 13px internal network overflow at 800px. The final 800px diagram has equal client/scroll widths. At 320px/DPR 2, the page and challenge fit without horizontal overflow, reduced motion exposes all content, and zero animations are running. Final narrow axe-core reports zero WCAG violations; the unchanged playback-speed overlay still requires manual image-related contrast review. The opaque diagram labels remain readable on solid graphite.
+
+TypeScript, the production build, and the focused four showcase regressions pass. The existing large-JavaScript-chunk warning remains. This pass adds no new captures, benchmarks, native-player changes, or genuine browser-zoom claims.
+
 ## Explicit limitations
 
 The existing capture's largest sampling gap is still 2.333 seconds; missing motion is not fabricated. Model decisions, observations, delays, and usage counters remain scripted and labeled. Tools in the retained recordings execute in local labs; public targets are not contacted. Raw ANSI/CR/LF, source pixel assets and hashes remain unchanged. Hercules's public MCP APIs are unchanged.
