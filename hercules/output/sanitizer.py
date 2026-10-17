@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 _CSI_FINAL_MIN = 0x40
 _CSI_FINAL_MAX = 0x7E
@@ -64,15 +65,26 @@ def _write_character(
     return min(cursor + 1, max_columns)
 
 
-def render_terminal(
+@dataclass(frozen=True)
+class TerminalRendering:
+    text: str
+    column_clipped: bool = False
+    character_clipped: bool = False
+
+    @property
+    def clipped(self) -> bool:
+        return self.column_clipped or self.character_clipped
+
+
+def render_terminal_result(
     text: str,
     *,
     max_columns: int = MAX_TERMINAL_COLUMNS,
     max_characters: int = MAX_RENDERED_CHARACTERS,
-) -> str:
+) -> TerminalRendering:
     """Render the final visible terminal state without deleting ordinary text."""
     if not text:
-        return text
+        return TerminalRendering(text)
     max_columns = max(1, min(int(max_columns), MAX_TERMINAL_COLUMNS))
     max_characters = max(1, min(int(max_characters), MAX_RENDERED_CHARACTERS))
 
@@ -81,6 +93,7 @@ def render_terminal(
     cursor = 0
     index = 0
     rendered_characters = 0
+    column_clipped = False
 
     def flush_line(*, newline: bool) -> None:
         nonlocal line, cursor, rendered_characters
@@ -118,6 +131,7 @@ def render_terminal(
             index += 1
             continue
         if char == "\t":
+            column_clipped |= cursor >= max_columns
             cursor = _write_character(
                 line,
                 cursor,
@@ -178,6 +192,7 @@ def render_terminal(
         if code == 0 or code == 0x7F or code < 0x20 or 0x80 <= code <= 0x9F:
             index += 1
             continue
+        column_clipped |= cursor >= max_columns
         cursor = _write_character(
             line,
             cursor,
@@ -186,9 +201,14 @@ def render_terminal(
         )
         index += 1
 
+    character_clipped = index < len(text) and rendered_characters + len(line) >= max_characters
     if line:
         flush_line(newline=False)
-    return "".join(output)
+    return TerminalRendering("".join(output), column_clipped, character_clipped)
+
+
+def render_terminal(text: str, **limits: int) -> str:
+    return render_terminal_result(text, **limits).text
 
 
 def sanitize(text: str) -> str:

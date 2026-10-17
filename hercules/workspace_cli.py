@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +22,7 @@ def _manager(args: argparse.Namespace) -> tuple[HerculesConfig, WorkspaceManager
     return config, WorkspaceManager(
         root,
         max_inline_bytes=config.max_inline_file_bytes,
+        allow_retired=args.command == "retire",
     )
 
 
@@ -92,6 +92,14 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser = subparsers.add_parser("list", help="List session usage and ownership.")
     list_parser.add_argument("--json", action="store_true")
 
+    for action in ("import", "export"):
+        transfer = subparsers.add_parser(action, help=f"{action.title()} one explicit regular file, with checksum verification.")
+        transfer.add_argument("--session", required=True)
+        transfer.add_argument("--source", required=True)
+        transfer.add_argument("--destination", required=True)
+        transfer.add_argument("--overwrite", action="store_true")
+        transfer.add_argument("--json", action="store_true")
+
     for action in ("pin", "unpin"):
         action_parser = subparsers.add_parser(action, help=f"{action.title()} a session.")
         action_parser.add_argument("session_id")
@@ -113,11 +121,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     migrate = subparsers.add_parser(
         "migrate",
-        help="Copy and verify the workspace root, then update the checkout .env.",
+        help="Copy and verify, then cut over only explicitly selected client registrations; retain source.",
     )
     migrate.add_argument("--destination", required=True)
     migrate.add_argument("--delete-source", action="store_true")
+    migrate.add_argument("--client", action="append", default=[], help="Explicit affected client; repeat for shared workspaces.")
+    migrate.add_argument("--state", type=Path, action="append", default=[], help="Explicit setup state/profile; repeat as needed.")
+    migrate.add_argument("--project", type=Path)
     migrate.add_argument("--json", action="store_true")
+    retire = subparsers.add_parser("retire", help="Explicitly retire a previously migrated source after renewed verification.")
+    retire.add_argument("--references-reviewed", action="store_true", help="Confirm all custom/unlisted clients and old launchers were reviewed and no longer use the source.")
+    retire.add_argument("--json", action="store_true")
     return parser
 
 
@@ -125,6 +139,13 @@ def run(args: argparse.Namespace) -> dict[str, Any] | list[dict[str, Any]]:
     config, manager = _manager(args)
     if args.command == "list":
         return manager.list_sessions(running_jobs=_running_job_sessions(manager))
+    if args.command in {"import", "export"}:
+        importing = args.command == "import"
+        return manager.transfer(
+            args.session, args.destination if importing else args.source,
+            Path(args.source if importing else args.destination),
+            direction=args.command, overwrite=args.overwrite,
+        )
     if args.command in {"pin", "unpin"}:
         manifest = manager.pin(args.session_id, args.command == "pin")
         return {
@@ -143,20 +164,15 @@ def run(args: argparse.Namespace) -> dict[str, Any] | list[dict[str, Any]]:
             running_jobs=_running_job_sessions(manager),
         )
     if args.command == "migrate":
-        destination = Path(args.destination).expanduser().resolve()
-        result = manager.migrate(
-            destination,
-            delete_source=bool(args.delete_source),
-        )
-        if result.get("migrated"):
-            from hercules.core.config_io import upsert_dotenv
+        if args.delete_source:
+            raise ValueError("migration retains the original; run retire separately after reviewing references")
+        from hercules.setup.workspace_migration import migrate
 
-            upsert_dotenv(
-                config.project_root / ".env",
-                {"HERCULES_WORKSPACE_ROOT": os.fspath(destination)},
-            )
-            result["configuration_updated"] = str(config.project_root / ".env")
-        return result
+        return migrate(config, manager, Path(args.destination), states=args.state, clients=args.client, project=args.project)
+    if args.command == "retire":
+        from hercules.setup.workspace_migration import retire
+
+        return retire(config, manager, references_reviewed=args.references_reviewed)
     raise ValueError(f"unsupported workspace command: {args.command}")
 
 

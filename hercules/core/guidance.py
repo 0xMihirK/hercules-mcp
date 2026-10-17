@@ -20,6 +20,9 @@ Prefer structured tools; shell_exec, browser_cmd, raw_args, and extra_args are
 administrator escape hatches outside complete structured-target guarantees.
 The container starts only when you call system_start_container. Reuse it while
 Docker-backed work is active, then call system_stop_container when finished.
+Inspect files with workspace_inspect even while stopped. Keep challenge folders
+and dependency notes in the workspace; coordinate parallel workers before
+rotating or stopping. Confirm cleanup fields; retained workspaces are not containers.
 
 Use HTTP tools for direct requests and browser_open -> wait/snapshot ->
 act/read -> screenshot for JavaScript, session state, interaction, or visual
@@ -102,8 +105,8 @@ TOOL_DESCRIPTIONS = {
     "fuzz_dirs": _desc(
         "Discover web paths with gobuster or ffuf while preserving thread control.",
         "Content discovery after a live HTTP service is confirmed.",
-        "Requires target_url. tool defaults to gobuster; ffuf is selected with tool='ffuf'. threads controls native fuzzer concurrency. Missing wordlists return repair guidance and example paths. include_raw=True disables compact defaults.",
-        "fuzz_dirs(target_url='http://host', wordlist='/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt', threads=30)\nfuzz_dirs(target_url='http://host', tool='ffuf', extensions='php,txt')",
+        "ffuf accepts a base URL or one FUZZ placeholder. threads controls concurrency. Missing wordlists suggest only verified local paths; incomplete/empty output is not absence proof. include_raw=True disables compact defaults.",
+        "fuzz_dirs(target_url='http://host/api/FUZZ', tool='ffuf', threads=30)",
     ),
     "ncat": _desc(
         "Use ncat with action=connect|listen|interact for TCP/UDP connections and background listeners.",
@@ -114,7 +117,7 @@ TOOL_DESCRIPTIONS = {
     "network_curl": _desc(
         "Make HTTP requests with curl using methods, headers, cookies, data, redirects, and extra curl arguments.",
         "Manual web probing, proof collection, API testing, and exploit verification.",
-        "The URL is target-validated. Output is mostly raw aside from terminal cleanup and truncation. Use headers as comma-separated Header: value strings. Prefer nuclei_run or web_scan for repeatable template/scanner workflows.",
+        "headers is a string: use a JSON object or newline-separated Name: value headers to preserve commas. Unambiguous legacy pairs remain accepted. URL scope is validated; redirects are restricted when scoped.",
         "network_curl(url='http://host/path', method='POST', data='a=1', cookie='sid=1')",
     ),
     "network_hping3": _desc(
@@ -210,19 +213,19 @@ TOOL_DESCRIPTIONS = {
     "shell_exec": _desc(
         "Execute a non-interactive shell command inside the Kali container.",
         "Escape hatch for Linux commands, missing tools, package checks, custom validation, and artifact inspection.",
-        "raw=True disables semantic compaction but retains safety bounds and artifacts. This is non-interactive; use shell_exec_background or ncat/listeners for long-running jobs.",
+        "timeout defaults to 60 seconds; accepts 1-3600. Non-interactive root shell: custom tools/packages are allowed. Keep scripts/venvs in /opt/workspace; container-layer installs are temporary. raw=True retains bounds.",
         "shell_exec(command='id && pwd')\nshell_exec(command='apt-get update && apt-get install -y jq', timeout=600)",
     ),
     "shell_exec_background": _desc(
         "Start a long-running shell command as a background job.",
         "Listeners, servers, long scans, and commands that need periodic output checks.",
-        "Requires job_id. Use shell_check_job to read output and shell_kill_job to stop the process. Background jobs share the current container session.",
+        "Requires job_id. Use shell_check_job to read output and shell_kill_job to stop the process. Background jobs share the current container session. An incomplete launch identity means cleanup is unverified; never signal a PID guessed from stdout.",
         "shell_exec_background(command='python3 -m http.server 8000', job_id='http8000')",
     ),
     "shell_check_job": _desc(
         "Read status and tail output from a background shell job.",
         "Monitoring background listeners, long scans, and helper services.",
-        "Requires job_id. tail_lines controls how much recent output is returned. If output is too short, increase tail_lines or inspect artifacts with workspace_read_file/shell_exec.",
+        "Use the job_id from shell_exec_background, not a harness task ID. Check state/generation; tail_lines bounds output. Back off unchanged polls; use workspace_inspect for retained logs.",
         "shell_check_job(job_id='http8000', tail_lines=100)",
     ),
     "shell_kill_job": _desc(
@@ -236,6 +239,12 @@ TOOL_DESCRIPTIONS = {
         "Artifact review, custom script inspection, and result collection.",
         "Relative paths resolve under /opt/workspace. Paths outside it and symlink/reparse escapes are rejected. encoding='base64' reads binary data. For large files, continue with offset=next_offset and a bounded max_bytes until truncated=false.",
         "workspace_read_file(path='nuclei-templates/custom/check.yaml')\nworkspace_read_file(path='payload.exe', encoding='base64', offset=0, max_bytes=1048576)",
+    ),
+    "workspace_inspect": _desc(
+        "List, stat, or page-read current or retained owned workspace evidence without starting Docker.",
+        "File discovery and continuity before startup or after shutdown.",
+        "Use action=list|stat|read and session_id for retained evidence. Paths stay under /opt/workspace; retained sessions are not mounted in the current container. Reads are bounded.",
+        "workspace_inspect(action='list', path='/opt/workspace')",
     ),
     "workspace_write_file": _desc(
         "Atomically write content to a file in the owned container workspace.",
@@ -258,13 +267,13 @@ TOOL_DESCRIPTIONS = {
     "system_list_sessions": _desc(
         "List Hercules session workspaces on the host.",
         "Workspace audit, cleanup planning, and confirming active session state.",
-        "Returns active_session, total_sessions, and per-session metadata where available. Does not modify the container.",
+        "Reports current runtime/paths/owner and recorded job/session metadata without Docker inspection. Historical workspace states are not observed running containers. Does not modify the container.",
         "system_list_sessions()",
     ),
     "system_stop_container": _desc(
         "Stop and remove the current Hercules container while preserving workspace files.",
         "End-of-engagement cleanup when no further tools need to run.",
-        "After this tool succeeds, Docker-backed tools return runtime_not_started until system_start_container is called. It stops background jobs and container-side processes.",
+        "Check cleanup.confirmed, container disposition, ports and guardian settlement. Preserves evidence and PRESERVE_CONTAINER behavior. Coordinate parallel workers before stopping; restart explicitly to resume.",
         "system_stop_container()",
     ),
     "system_network_info": _desc(

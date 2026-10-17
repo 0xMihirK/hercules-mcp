@@ -554,6 +554,12 @@ def register_web_scanner_tools(mcp: FastMCP) -> None:
             }
         wl = wordlist or _DEFAULT_WORDLIST
 
+        if target_url.count("FUZZ") > 1 or (tool != "ffuf" and "FUZZ" in target_url):
+            return usage_error(
+                "fuzz_dirs", "invalid_target", "Use a base URL or exactly one FUZZ placeholder with ffuf.",
+                next_steps=["Use tool='ffuf' for a URL containing one FUZZ placeholder."],
+            )
+
         # Wordlist resolution
         if not wl.startswith("/"):
             if wl == "rockyou.txt":
@@ -565,30 +571,25 @@ def register_web_scanner_tools(mcp: FastMCP) -> None:
 
         # Verification Constraint
         check = await docker.exec_command(f"test -f {shlex.quote(wl)}", clean_output=False)
-        if check.exit_code != 0 and not wordlist:
-            for candidate in (_SECLISTS_DIRBUSTER_WORDLIST, _FALLBACK_WORDLIST):
+        verified_wordlists = []
+        if check.exit_code != 0:
+            for candidate in (_SECLISTS_DIRBUSTER_WORDLIST, _FALLBACK_WORDLIST, "/usr/share/wordlists/rockyou.txt"):
                 candidate_check = await docker.exec_command(
                     f"test -f {shlex.quote(candidate)}", clean_output=False
                 )
                 if candidate_check.exit_code == 0:
-                    wl = candidate
-                    check = candidate_check
-                    break
+                    verified_wordlists.append(candidate)
+                    if not wordlist and candidate != "/usr/share/wordlists/rockyou.txt":
+                        wl = candidate
+                        check = candidate_check
+                        break
         if check.exit_code != 0:
             return usage_error(
                 "fuzz_dirs",
                 "resource_missing",
                 f"Wordlist is unavailable in the container: {wl}",
                 received={"wordlist": wordlist or _DEFAULT_WORDLIST, "resolved_wordlist": wl},
-                expected=[
-                    "/usr/share/wordlists/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt",
-                    "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
-                    "/usr/share/wordlists/rockyou.txt",
-                ],
-                examples=[
-                    "fuzz_dirs(target_url='http://host', wordlist='/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt')",
-                    "fuzz_dirs(target_url='http://host', tool='ffuf', wordlist='directory-list-2.3-medium.txt')",
-                ],
+                expected=verified_wordlists or "Provision a verified wordlist; no suggested paths were found locally.",
                 next_steps=[
                     "Choose an existing wordlist path inside the container.",
                     "Complete the wordlist outcome in install.md for this capability, then retry.",
@@ -597,7 +598,7 @@ def register_web_scanner_tools(mcp: FastMCP) -> None:
             )
 
         if tool == "ffuf":
-            fuzz_url = target_url.rstrip("/") + "/FUZZ"
+            fuzz_url = target_url if "FUZZ" in target_url else target_url.rstrip("/") + "/FUZZ"
             parts = [
                 f"ffuf -u {shlex.quote(fuzz_url)} -w {shlex.quote(wl)} -t {threads}"
             ]

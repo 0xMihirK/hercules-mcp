@@ -21,6 +21,9 @@ dependencies = [
     "python-dotenv>=1.2,<2",
     "httpx>=0.28.1,<1",
     "defusedxml>=0.7.1,<1",
+    # Round-trip client configuration without discarding comments or settings.
+    "tomlkit>=0.13,<1",
+    "ruamel.yaml>=0.18,<1",
 ]
 
 [project.optional-dependencies]
@@ -31,6 +34,7 @@ dev = [
 [project.scripts]
 hercules = "hercules.main:main"
 hercules-workspace = "hercules.workspace_cli:main"
+hercules-setup = "hercules.setup_cli:main"
 
 [tool.hatch.build]
 # Tests and CI metadata are not included in published packages.
@@ -72,3 +76,6 @@ packages = ["hercules"]
 # must catch Exception without swallowing BaseException; all other Ruff rules
 # remain enabled.
 ignore = ["BLE001", "S110"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -66,6 +66,12 @@ Use `browser_session` to list, inspect, close, or close all sessions. A live str
 
 ## Escape hatch and recovery
 
+`browser_eval` takes `js`, not `script`, and evaluates a JavaScript expression.
+For example, `js="document.title"` or
+`js="(async () => { const value = await Promise.resolve(document.title); return value; })()"`.
+Use an IIFE for statements, `return`, or `await`; top-level `return`/`await`
+may be rejected. Do not repeatedly retry the same invalid syntax.
+
 Call `browser_skill(name="core", full=true)` before `browser_cmd` when the structured browser surface is insufficient. Treat `browser_cmd` arguments as raw trusted-administrator input.
 
 After container replacement or `system_start_new_session`, open the page again and rebuild browser state from workspace evidence. Do not assume old refs, daemons, cookies, or tabs survived.

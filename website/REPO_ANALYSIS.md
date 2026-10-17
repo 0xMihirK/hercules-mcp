@@ -12,7 +12,7 @@ binary assets, and SVG artwork. These conclusions drive the public copy.
 | Evidence | Docker manager and output parser: bounded inline results, structured records for supported backends, overflow files, distinct output/evidence completeness. |
 | Workspace | Host-backed session storage, bounded chunk reads, explicit writes, files retained beyond container stop. |
 | Capabilities | Tool catalog, capability runtime, Docker build: one catalog controls MCP tools, selected binaries, verified manifests. |
-| Surface | Full profile: 46 tools, 22 bundles, eight categories, seven resources. Without Metasploit: 41 tools. Three core bundles are mandatory. |
+| Surface | Full profile: 47 tools, 22 bundles, eight categories, seven resources. Without Metasploit: 42 tools. Three core bundles are mandatory. |
 | Installation | `install.md`, bootstrap/configuration code and tests: inspect existing state, preserve configuration/evidence, use an absolute STDIO launcher, verify locally, clean transaction-owned resources. |
 | Scope | Structured tools support checks. Permissive defaults and raw command escape hatches mean scope is not a universal boundary. |
 | Browser | agent-browser with CloakBrowser Chromium, named sessions, snapshots, actions, screenshots. Fingerprint injection is rejected. No bot-detection/CAPTCHA guarantee. |

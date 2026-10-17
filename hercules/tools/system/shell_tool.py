@@ -9,6 +9,7 @@ installing additional tools via apt, downloading scripts, etc.
 from __future__ import annotations
 
 import logging
+import hashlib
 import re
 import uuid
 from typing import TYPE_CHECKING
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING
 from fastmcp import Context
 
 from hercules.core.guidance import TOOL_DESCRIPTIONS
-from hercules.core.security import redact_secrets, safe_filename
+from hercules.core.security import safe_filename
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
@@ -62,12 +63,16 @@ def register_shell_tools(mcp: FastMCP) -> None:
                 "error": "timeout must be between 1 and 3600 seconds",
             }
 
-        # WARN-level audit log for every shell command, with common secrets hidden.
-        logger.warning("shell_exec invoked: %s", redact_secrets(command))
+        invocation_id = uuid.uuid4().hex
+        logger.warning(
+            "shell_exec invoked: id=%s sha256=%s session=%s generation=%s",
+            invocation_id, hashlib.sha256(command.encode()).hexdigest(),
+            docker.session_id, docker.generation,
+        )
 
         async with concurrency.acquire_light("shell_exec"):
             # Write to a per-call temp script to safely handle complex quotes/newlines.
-            script_path = f"/opt/workspace/tmp/shell_{uuid.uuid4().hex}.sh"
+            script_path = f"/opt/workspace/tmp/shell_{invocation_id}.sh"
             await docker.write_file(script_path, command, mode=0o755)
             try:
                 result = await docker.exec_command(
@@ -105,9 +110,9 @@ def register_shell_tools(mcp: FastMCP) -> None:
                 "error": str(exc),
             }
         logger.warning(
-            "shell_exec_background invoked: %s (job_id: %s)",
-            redact_secrets(command),
-            job_id,
+            "shell_exec_background invoked: id=%s sha256=%s session=%s generation=%s job_id=%s",
+            uuid.uuid4().hex, hashlib.sha256(command.encode()).hexdigest(),
+            docker.session_id, docker.generation, job_id,
         )
         
         try:

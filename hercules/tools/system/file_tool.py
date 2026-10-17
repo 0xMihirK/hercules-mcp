@@ -7,6 +7,7 @@ Provides granular control over files inside the container workspace.
 from __future__ import annotations
 
 import base64
+import asyncio
 import binascii
 import logging
 import posixpath
@@ -72,6 +73,58 @@ def _format_mode(mode: int) -> str:
 
 
 def register_file_tools(mcp: FastMCP) -> None:
+
+    @mcp.tool(description=TOOL_DESCRIPTIONS["workspace_inspect"])
+    async def workspace_inspect(
+        action: Literal["list", "stat", "read"] = "list",
+        path: str = "/opt/workspace",
+        session_id: str = "",
+        encoding: Literal["text", "base64"] = "text",
+        offset: int = 0,
+        max_bytes: int = 0,
+        max_entries: int = 100,
+        ctx: Context = None,
+    ) -> dict:
+        """Inspect current/retained owned evidence without starting Docker."""
+        docker = ctx.lifespan_context["docker"]
+        session_id = session_id or docker.session_id
+        try:
+            path = _resolve_path(path)
+            manager = docker._workspace
+            session_id = manager.session_path(session_id).name
+            response = {
+                "tool": "workspace_inspect", "status": "success", "action": action,
+                "session_id": session_id, "path": path,
+                "host_workspace": str(manager.session_path(session_id)),
+                "container_workspace": "/opt/workspace" if session_id == docker.session_id else None,
+                "container_accessible": session_id == docker.session_id and docker.container_running,
+                "container_access_source": "manager_attachment_not_docker_inspection",
+            }
+            if action == "read":
+                result = await asyncio.to_thread(
+                    manager.read_chunk, session_id, path, offset=offset,
+                    max_bytes=max_bytes, touch=False,
+                )
+                response.update({
+                    "encoding": encoding, "bytes": len(result.data),
+                    "total_bytes": result.total_bytes, "offset": result.offset,
+                    "truncated": result.truncated, "next_offset": result.next_offset,
+                })
+                if encoding == "base64":
+                    response["content_base64"] = base64.b64encode(result.data).decode("ascii")
+                else:
+                    response["content"] = result.data.decode("utf-8", errors="replace")
+            else:
+                response.update(await asyncio.to_thread(
+                    manager.inspect, session_id, path, action=action, offset=offset,
+                    max_entries=max_entries,
+                ))
+            return response
+        except (OSError, ValueError) as exc:
+            return usage_error(
+                "workspace_inspect", "workspace_access_error", str(exc),
+                next_steps=["Use an owned session from system_list_sessions and a path under /opt/workspace."],
+            )
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["workspace_read_file"])
     async def workspace_read_file(

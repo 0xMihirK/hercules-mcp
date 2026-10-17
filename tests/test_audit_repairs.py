@@ -1,0 +1,820 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import subprocess
+import tempfile
+import threading
+import sys
+from dataclasses import replace
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+from fastmcp import FastMCP
+
+from test_lifecycle_regressions import runtime as lifecycle_runtime
+from hercules.core.concurrency import ConcurrencyManager
+from hercules.core.config import HerculesConfig, _target_matches
+from hercules.core.config_io import read_dotenv_value, render_dotenv
+from hercules.core.docker_manager import DockerManager, ExecResult
+from hercules.core.instance_lock import workspace_lock
+from hercules.core.workspace import WorkspaceManager
+from hercules.output.sanitizer import render_terminal_result
+from hercules.setup import workspace_migration
+from hercules.setup.transaction import SetupError, Transaction, recover
+from hercules.tools.exploitation import metasploit_tool
+from hercules.tools.system.shell_tool import register_shell_tools
+
+
+@pytest.fixture
+def coordination(monkeypatch):
+    with tempfile.TemporaryDirectory(prefix="hc-coord-") as directory:
+        root = Path(directory)
+        monkeypatch.setattr(
+            "hercules.core.instance_lock._runtime_state_root", lambda: root
+        )
+        monkeypatch.setattr(
+            "hercules.core.instance_lock._persistent_state_root", lambda: root
+        )
+        yield root
+
+
+@pytest.fixture
+def runtime(monkeypatch, tmp_path, coordination):
+    return lifecycle_runtime.__wrapped__(monkeypatch, tmp_path)
+
+
+@pytest.mark.parametrize(
+    "target,blocked,expected",
+    [
+        ("10.0.0.0/24", "10.0.0.5", True),
+        ("10.0.0.0/24", "10.0.0.0/28", True),
+        ("10.0.0.0/25", "10.0.0.128/25", False),
+        ("10.0.0.64/26", "10.0.0.0/24", True),
+        ("10.0.0.5", "10.0.0.0/28", True),
+        ("2001:db8::/32", "2001:db8::5", True),
+        ("2001:db8::/32", "2001:db8:1::/48", True),
+        ("2001:db8::/48", "2001:db8:1::/48", False),
+        ("2001:db8::/32", "10.0.0.0/8", False),
+    ],
+)
+def test_blocked_scope_uses_intersection(target, blocked, expected):
+    assert _target_matches(target, blocked, blocked=True) is expected
+
+
+def test_cidr_cannot_bypass_blocked_host_or_subnet():
+    for blocked in ("10.0.0.5", "10.0.0.0/28"):
+        config = HerculesConfig(
+            allowed_targets=("10.0.0.0/24",), blocked_targets=(blocked,)
+        )
+        with pytest.raises(ValueError, match="blocked"):
+            config.validate_target("10.0.0.0/24")
+    assert not _target_matches("10.0.0.0/24", "10.0.0.0/28")
+
+
+def test_dotenv_grammar_and_runtime_interpolation(tmp_path, monkeypatch):
+    monkeypatch.setenv("AUDIT_BASE", "inherited")
+    path = tmp_path / ".env"
+    path.write_text(
+        'AUDIT_BASE=file\nROOT=C:/ctf # evidence\nQUOTED="space # keep"\nEXPANDED=${AUDIT_BASE}/child\nDUP=one\nDUP=two\nEMPTY=\n',
+        encoding="utf-8",
+    )
+    assert read_dotenv_value(path, "ROOT") == "C:/ctf"
+    assert read_dotenv_value(path, "QUOTED") == "space # keep"
+    assert read_dotenv_value(path, "EXPANDED") == "inherited/child"
+    assert read_dotenv_value(path, "DUP") == "two"
+    assert read_dotenv_value(path, "EMPTY") == ""
+    text = render_dotenv(path.read_text(), {"ROOT": "C:\\space 😀\\#notes"})
+    path.write_text(text, encoding="utf-8")
+    assert read_dotenv_value(path, "ROOT") == "C:\\space 😀\\#notes"
+    assert 'QUOTED="space # keep"' in text
+
+
+def test_shell_audit_logs_do_not_contain_commands_or_secrets(caplog):
+    manager = SimpleNamespace(
+        session_id="owned",
+        generation=2,
+        write_file=AsyncMock(),
+        exec_command=AsyncMock(return_value=ExecResult(0, "ok", "", 0, "script")),
+        exec_background=AsyncMock(return_value="owned-job"),
+    )
+    server = FastMCP("audit fixture")
+    register_shell_tools(server)
+    context = SimpleNamespace(
+        lifespan_context={"docker": manager, "concurrency": ConcurrencyManager()}
+    )
+
+    async def scenario():
+        foreground = await server.get_tool("shell_exec")
+        background = await server.get_tool("shell_exec_background")
+        for command in (
+            "sshpass -p FAKE_AUDIT_PASSWORD ssh local",
+            "hydra -p FAKE_AUDIT_PASSWORD local ssh",
+            "SSHPASS=FAKE_AUDIT_PASSWORD sshpass -e ssh local",
+        ):
+            await foreground.fn(command=command, ctx=context)
+            await background.fn(command=command, job_id="owned-job", ctx=context)
+
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(scenario())
+    assert "FAKE_AUDIT_PASSWORD" not in caplog.text
+    assert "sshpass" not in caplog.text and "hydra" not in caplog.text
+    assert caplog.text.count("invoked:") == 6
+    assert "sha256=" in caplog.text and "generation=2" in caplog.text
+
+
+def test_renderer_distinguishes_controls_from_hard_limits():
+    assert not render_terminal_result("hello\x1b").clipped
+    assert not render_terminal_result("hello\rworld\x1b[0m\n").clipped
+    assert render_terminal_result("x" * 40000).column_clipped
+    assert render_terminal_result("a\nb\nc", max_characters=3).character_clipped
+    assert render_terminal_result("😀" * 12, max_columns=10).clipped
+    assert not render_terminal_result("\x1b[999999G").clipped
+
+
+def test_fake_docker_render_clipping_keeps_complete_raw_evidence(runtime, caplog):
+    manager = runtime.manager
+    manager._config = replace(manager._config, max_inline_response_chars=100000)
+    runtime.client.api.exec_start.side_effect = lambda *args, **kw: iter(
+        [(b"x" * 40000, b"")]
+    )
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            result = await manager.exec_command(
+                "sshpass -p FAKE_AUDIT_PASSWORD ssh local",
+                max_output_chars=100000,
+                compact_output=False,
+            )
+            assert (
+                result.truncated
+                and result.stdout_truncated
+                and not result.output_complete
+            )
+            assert result.evidence_complete
+            assert any(
+                item["type"] == "terminal_limit" for item in result.output_transform
+            )
+            assert b"x" * 40000 in await manager.read_file_bytes(result.raw_artifact)
+        finally:
+            await manager.operator_stop()
+
+    with caplog.at_level(logging.DEBUG):
+        asyncio.run(scenario())
+    assert "FAKE_AUDIT_PASSWORD" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "uuid,session_uuid,expected",
+    [("own", "other", None), (None, "other", None), ("own", "own", "10")],
+)
+def test_metasploit_never_attributes_competing_session(
+    monkeypatch, uuid, session_uuid, expected
+):
+    module = SimpleNamespace(execute=lambda **kw: {"job_id": 1, "uuid": uuid})
+    msf = SimpleNamespace(
+        sessions=SimpleNamespace(list={"10": {"exploit_uuid": session_uuid}})
+    )
+    monkeypatch.setattr(metasploit_tool, "_get_msf", AsyncMock(return_value=msf))
+    monkeypatch.setattr(metasploit_tool, "_get_module", AsyncMock(return_value=module))
+    monkeypatch.setattr(metasploit_tool, "_set_options", AsyncMock())
+    monkeypatch.setattr(
+        metasploit_tool, "_validate_options", AsyncMock(return_value={})
+    )
+    monkeypatch.setattr(metasploit_tool, "EXPLOIT_POLL_TIMEOUT", 0.01)
+    monkeypatch.setattr(metasploit_tool, "EXPLOIT_POLL_INTERVAL", 0.001)
+
+    async def rpc(call, **kw):
+        return call()
+
+    monkeypatch.setattr(metasploit_tool, "_rpc", rpc)
+    server = FastMCP("attribution fixture")
+    metasploit_tool.register_metasploit_tools(server)
+    ctx = SimpleNamespace(lifespan_context={"concurrency": ConcurrencyManager()})
+
+    async def scenario():
+        tool = await server.get_tool("metasploit_run_module")
+        return await tool.fn(
+            module_type="exploit", module_name="fixture/local", options={}, ctx=ctx
+        )
+
+    result = asyncio.run(scenario())
+    assert result["session_id"] == expected
+    assert result["status"] == ("success" if expected else "warning")
+
+
+def test_incomplete_background_identity_never_signals_stdout_pid(runtime):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        manager.exec_command = AsyncMock(
+            return_value=ExecResult(0, "1234\n", "", 0, "launch")
+        )
+        manager.read_file = AsyncMock(side_effect=OSError("missing identity"))
+        with pytest.raises(RuntimeError, match="Cleanup is unverified"):
+            await manager.exec_background("true", "incomplete")
+        assert manager.exec_command.await_count == 1
+        metadata = manager._load_job_metadata("incomplete")
+        assert metadata["cleanup_confirmed"] is False
+        assert manager._workspace.read_chunk(
+            manager.session_id, "jobs/incomplete.wrapper.sh"
+        ).data
+        await manager.operator_stop()
+
+    asyncio.run(scenario())
+
+
+def test_background_wrapper_owns_identity_and_handles_fast_completion(runtime):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            manager.exec_command = AsyncMock(
+                return_value=ExecResult(0, "321\n", "", 0, "launch")
+            )
+            manager.read_file = AsyncMock(side_effect=["321", "321", "12345"])
+            assert await manager.exec_background("true", "fast") == "fast"
+            wrapper = manager._workspace.read_chunk(
+                manager.session_id, "jobs/fast.wrapper.sh"
+            ).data.decode()
+            assert wrapper.index("pid=$$") < wrapper.index(
+                "bash /opt/workspace/jobs/fast.command.sh"
+            )
+            launch = manager.exec_command.await_args.args[0]
+            assert "ps -o pgid=" not in launch and "pid=$!" not in launch
+            assert manager._load_job_metadata("fast")["start_ticks"] == "12345"
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())
+
+
+@pytest.fixture
+def migration(tmp_path, monkeypatch, coordination):
+    project = tmp_path / "project"
+    project.mkdir()
+    source = tmp_path / "original evidence"
+    destination = tmp_path / "new 😀 evidence"
+    manager = WorkspaceManager(source)
+    session = manager.allocate_session()
+    manager.atomic_write(session, "handout.bin", b"\x00\xffevidence", mode=0o600)
+    env = tmp_path / "external.env"
+    env.write_text(
+        f'# keep comment\nSECRET_KEEP=fixture-secret\nHERCULES_WORKSPACE_ROOT="{source.as_posix()}"\n'
+    )
+    monkeypatch.setenv("HERCULES_ENV_FILE", str(env))
+    monkeypatch.setattr(
+        workspace_migration, "setup_state_locations", lambda project: {}
+    )
+    # All maintenance tests remain Docker-free, including mount checks.
+    monkeypatch.setattr(
+        WorkspaceManager, "assert_quiescent", lambda self: _owners_only(self)
+    )
+    config = HerculesConfig(project_root=project, workspace_root=source)
+    return SimpleNamespace(
+        manager=manager,
+        session=session,
+        source=source,
+        destination=destination,
+        config=config,
+        env=env,
+        project=project,
+        tmp=tmp_path,
+    )
+
+
+def _owners_only(manager):
+    from hercules.core.process_identity import owner_state
+
+    for session in manager.list_sessions():
+        state = owner_state(manager.read_manifest(session["session_id"]))
+        if state != "dead":
+            raise ValueError(f"owner is {state}")
+
+
+def _registration(fixture, client="codex", *, state=None, env_override=None):
+    from hercules.setup.clients import resolve
+
+    path = fixture.tmp / f"{client}.json"
+    adapter = resolve(client, "user", fixture.project, path)
+    content, _ = adapter.render(
+        Path(sys.executable),
+        {
+            "HERCULES_ENV_FILE": str(fixture.env),
+            "HERCULES_WORKSPACE_ROOT": str(env_override or fixture.source),
+        },
+    )
+    path.write_bytes(content)
+    state = state or fixture.tmp / "managed/install.json"
+    state.parent.mkdir(parents=True, exist_ok=True)
+    data = (
+        json.loads(state.read_text())
+        if state.exists()
+        else {
+            "schema_version": 4,
+            "clients": [],
+            "registrations": {},
+            "unknown_field": "keep",
+        }
+    )
+    association = {
+        "checkout": str(fixture.project),
+        "scope": "user",
+        "env_file": str(fixture.env),
+        "workspace_root": str(fixture.source),
+        "config_path": str(path),
+    }
+    data["clients"].append(client)
+    data["registrations"][client] = association
+    state.write_text(json.dumps(data))
+    return state, adapter
+
+
+def test_migration_cuts_over_selected_client_and_external_dotenv(migration):
+    state, adapter = _registration(migration)
+    result = workspace_migration.migrate(
+        migration.config,
+        migration.manager,
+        migration.destination,
+        states=[state],
+        clients=["codex"],
+    )
+    assert not result["source_deleted"] and migration.source.exists()
+    assert (
+        migration.destination / migration.session / "handout.bin"
+    ).read_bytes() == b"\x00\xffevidence"
+    assert adapter.entry()["env"]["HERCULES_WORKSPACE_ROOT"] == str(
+        migration.destination
+    )
+    assert read_dotenv_value(migration.env, "HERCULES_WORKSPACE_ROOT") == str(
+        migration.destination
+    )
+    assert read_dotenv_value(migration.env, "SECRET_KEEP") == "fixture-secret"
+    assert "# keep comment" in migration.env.read_text()
+    assert not (migration.project / ".env").exists()
+    assert json.loads(state.read_text())["unknown_field"] == "keep"
+
+
+def test_migration_refuses_unselected_shared_client(migration):
+    state, _ = _registration(migration)
+    _registration(migration, "claude-code", state=state)
+    with pytest.raises(ValueError, match="include it with --client"):
+        workspace_migration.migrate(
+            migration.config,
+            migration.manager,
+            migration.destination,
+            states=[state],
+            clients=["codex"],
+        )
+    assert not migration.destination.exists()
+    result = workspace_migration.migrate(
+        migration.config,
+        migration.manager,
+        migration.destination,
+        states=[state],
+        clients=["codex", "claude-code"],
+    )
+    assert result["source_retained"]
+
+
+def test_live_cold_owner_blocks_copy_and_inline_deletion(migration):
+    owner = DockerManager(
+        replace(migration.config, project_root=Path(__file__).resolve().parents[1])
+    )
+    with pytest.raises(ValueError, match="owner is live"):
+        migration.manager.migrate(migration.destination)
+    assert owner.workspace_path.exists() and not migration.destination.exists()
+    with pytest.raises(ValueError, match="retains the source"):
+        migration.manager.migrate(migration.destination, delete_source=True)
+
+
+def test_migration_detects_source_changes_and_cleans_staging(migration, monkeypatch):
+    original = migration.manager._copy_anchor_tree
+
+    def changed(*args, **kwargs):
+        result = original(*args, **kwargs)
+        (migration.source / migration.session / "handout.bin").write_bytes(b"changed")
+        return result
+
+    monkeypatch.setattr(migration.manager, "_copy_anchor_tree", changed)
+    with pytest.raises(RuntimeError, match="source changed"):
+        migration.manager.migrate(migration.destination)
+    assert migration.source.exists() and not migration.destination.exists()
+    assert not list(migration.tmp.glob(".*.hercules-migrate-*"))
+
+
+def test_migration_rolls_back_cutover_on_interruption(migration, monkeypatch):
+    state, adapter = _registration(migration)
+    before = {path: path.read_bytes() for path in (state, adapter.path, migration.env)}
+    original = Transaction.write
+
+    def interrupted(self, path, *args, **kwargs):
+        if Path(path) == migration.env:
+            raise KeyboardInterrupt()
+        return original(self, path, *args, **kwargs)
+
+    monkeypatch.setattr(Transaction, "write", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        workspace_migration.migrate(
+            migration.config,
+            migration.manager,
+            migration.destination,
+            states=[state],
+            clients=["codex"],
+        )
+    assert all(path.read_bytes() == content for path, content in before.items())
+    assert migration.source.exists() and migration.destination.exists()
+
+
+def test_retirement_rechecks_evidence_and_prevents_old_root_recreation(migration):
+    workspace_migration.migrate(
+        migration.config, migration.manager, migration.destination
+    )
+    with pytest.raises(ValueError, match="references-reviewed"):
+        workspace_migration.retire(migration.config, migration.manager)
+    source_file = migration.source / migration.session / "handout.bin"
+    source_file.write_bytes(b"late evidence")
+    with pytest.raises(ValueError, match="every source file"):
+        workspace_migration.retire(
+            migration.config, migration.manager, references_reviewed=True
+        )
+    source_file.write_bytes(b"\x00\xffevidence")
+    result = workspace_migration.retire(
+        migration.config, migration.manager, references_reviewed=True
+    )
+    assert result["source_deleted"] and not migration.source.exists()
+    with pytest.raises(ValueError, match="retired"):
+        WorkspaceManager(migration.source)
+
+
+def test_workspace_lock_serializes_other_processes(tmp_path, monkeypatch):
+    monkeypatch.setenv(
+        "LOCALAPPDATA" if os.name == "nt" else "XDG_RUNTIME_DIR",
+        str(tmp_path / "runtime-state"),
+    )
+    root = tmp_path / "space 😀 root"
+    code = 'import sys; from pathlib import Path; from hercules.core.instance_lock import workspace_lock\nwith workspace_lock(Path(sys.argv[1])): print("acquired", flush=True)'
+    with workspace_lock(root):
+        process = subprocess.Popen(
+            [sys.executable, "-c", code, str(root)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+        try:
+            try:
+                stdout, stderr = process.communicate(timeout=0.3)
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                pytest.fail(
+                    f"lock child exited early ({process.returncode}): {stdout!r} {stderr!r}"
+                )
+        finally:
+            # Only this exact fixture subprocess is managed; release before waiting.
+            pass
+    try:
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stderr
+        assert stdout.strip() == "acquired"
+    finally:
+        if process.poll() is None:
+            process.terminate()
+            process.wait(timeout=5)
+
+
+def test_workspace_root_lock_is_reentrant(tmp_path):
+    manager = WorkspaceManager(tmp_path / "root")
+    with workspace_lock(manager.root):
+        session = manager.allocate_session()
+        manager.atomic_write(session, "a", b"a", mode=0o600)
+        assert manager.read_chunk(session, "a").data == b"a"
+
+
+def test_recovery_removes_only_identity_verified_migration_staging(tmp_path):
+    destination = tmp_path / "destination"
+    staging = tmp_path / ".destination.hercules-migrate-owned"
+    staging.mkdir()
+    (staging / "partial").write_bytes(b"owned")
+    details = staging.stat()
+    tx = Transaction(
+        tmp_path / "journal/transactions/one",
+        operation={"destination": str(destination)},
+    )
+    tx.data["workspace_staging"] = {
+        "path": str(staging),
+        "device": details.st_dev,
+        "inode": details.st_ino,
+    }
+    tx.save()
+    recover(tmp_path / "journal")
+    assert not staging.exists()
+    staging.mkdir()
+    (staging / "unrelated").write_bytes(b"keep")
+    tx.data["workspace_staging"]["inode"] = -1
+    tx.save()
+    with pytest.raises(SetupError, match="identity changed"):
+        tx.cleanup_temporaries()
+    assert (staging / "unrelated").exists()
+
+
+def test_unknown_owner_blocks_migration_without_docker(migration, monkeypatch):
+    from hercules.core.docker_manager import _process_start_token
+
+    migration.manager.update_manifest(
+        migration.session,
+        state="active",
+        owner_pid=os.getpid(),
+        owner_start_token=_process_start_token(os.getpid()),
+        container_started=False,
+    )
+    monkeypatch.setattr(
+        "hercules.core.docker_manager._process_start_token", lambda pid: ""
+    )
+    with pytest.raises(ValueError, match="owner is unknown"):
+        migration.manager.migrate(migration.destination)
+    assert not migration.destination.exists()
+
+
+def test_allocation_and_claim_cannot_race_workspace_copy(migration, monkeypatch):
+    original = migration.manager._copy_anchor_tree
+    started = threading.Event()
+    allocated = []
+    failures = []
+
+    def connect():
+        started.set()
+        try:
+            allocated.append(
+                DockerManager(
+                    replace(
+                        migration.config,
+                        project_root=Path(__file__).resolve().parents[1],
+                    )
+                )
+            )
+        except BaseException as exc:
+            failures.append(exc)
+
+    thread = threading.Thread(target=connect)
+
+    def copy(*args, **kwargs):
+        thread.start()
+        assert started.wait(timeout=5)
+        assert not allocated
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(migration.manager, "_copy_anchor_tree", copy)
+    try:
+        result = migration.manager.migrate(migration.destination)
+    finally:
+        if thread.ident is not None:
+            thread.join(timeout=10)
+    assert not thread.is_alive() and not failures
+    assert result["migrated"] and len(allocated) == 1
+    assert allocated[0]._client is None
+    assert len(list(migration.destination.iterdir())) == 1
+    assert len(migration.manager.list_sessions()) == 2
+
+
+def test_retirement_failure_is_fenced_and_exact_retry_is_possible(
+    migration, monkeypatch
+):
+    workspace_migration.migrate(
+        migration.config, migration.manager, migration.destination
+    )
+    remove = migration.manager._remove_tree_at
+    monkeypatch.setattr(
+        migration.manager,
+        "_remove_tree_at",
+        lambda *args: (_ for _ in ()).throw(OSError("locked fixture file")),
+    )
+    with pytest.raises(SetupError, match="Source cleanup was interrupted"):
+        workspace_migration.retire(
+            migration.config, migration.manager, references_reviewed=True
+        )
+    assert migration.source.exists() and migration.destination.exists()
+    with pytest.raises(ValueError, match="retired"):
+        WorkspaceManager(migration.source)
+    resumed = WorkspaceManager(migration.source, allow_retired=True)
+    monkeypatch.setattr(resumed, "_remove_tree_at", remove)
+    assert workspace_migration.retire(
+        migration.config, resumed, references_reviewed=True
+    )["source_deleted"]
+    absent = WorkspaceManager(migration.source, allow_retired=True)
+    assert not migration.source.exists()
+    assert workspace_migration.retire(
+        migration.config, absent, references_reviewed=True
+    )["already_retired"]
+
+
+def test_retirement_refuses_pinned_or_unowned_root_data(migration):
+    workspace_migration.migrate(
+        migration.config, migration.manager, migration.destination
+    )
+    migration.manager.pin(migration.session, True)
+    with pytest.raises(ValueError, match="pinned"):
+        workspace_migration.retire(
+            migration.config, migration.manager, references_reviewed=True
+        )
+    migration.manager.pin(migration.session, False)
+    (migration.source / "unrelated.txt").write_bytes(b"not-owned")
+    with pytest.raises(ValueError, match="unowned root entry"):
+        workspace_migration.retire(
+            migration.config, migration.manager, references_reviewed=True
+        )
+    assert migration.source.exists()
+
+
+def test_direct_metasploit_render_cap_keeps_raw_artifact():
+    manager = SimpleNamespace(write_file=AsyncMock())
+    ctx = SimpleNamespace(lifespan_context={"docker": manager})
+    result = asyncio.run(
+        metasploit_tool._session_output_result(
+            ctx, session_id=1, status="success", message="fixture", output="x" * 40000
+        )
+    )
+    assert not result["output_complete"] and result["evidence_complete"]
+    assert result["truncated"] and result["raw_artifact"]
+    assert any(item["type"] == "terminal_limit" for item in result["output_transform"])
+    assert manager.write_file.await_args.args[1] == "x" * 40000
+
+
+def test_real_renderer_character_cap():
+    from hercules.output.sanitizer import MAX_RENDERED_CHARACTERS
+
+    result = render_terminal_result("x\n" * (MAX_RENDERED_CHARACTERS // 2 + 10))
+    assert result.character_clipped
+    assert len(result.text) == MAX_RENDERED_CHARACTERS
+
+
+@pytest.mark.parametrize(
+    "identity", [("0", "0", "123"), ("321", "322", "123"), ("321", "321", "unknown")]
+)
+def test_invalid_background_group_identity_does_not_signal(runtime, identity):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            manager.exec_command = AsyncMock(
+                return_value=ExecResult(0, "321", "", 0, "fixture launch")
+            )
+            manager.read_file = AsyncMock(side_effect=identity)
+            with pytest.raises(RuntimeError, match="invalid process-group identity"):
+                await manager.exec_background("true", "invalid-group")
+            assert manager.exec_command.await_count == 1
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())
+
+
+def test_cancelled_background_launch_settles_then_uses_verified_termination(runtime):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def launch(*args, **kwargs):
+            entered.set()
+            await release.wait()
+            return ExecResult(0, "321", "", 0, "fixture launch")
+
+        manager.exec_command = AsyncMock(side_effect=launch)
+        manager.read_file = AsyncMock(side_effect=["321", "321", "123"])
+        manager.terminate_job = AsyncMock(return_value={"confirmed": True})
+        try:
+            task = asyncio.create_task(manager.exec_background("true", "cancelled"))
+            await asyncio.wait_for(entered.wait(), timeout=5)
+            task.cancel()
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            manager.terminate_job.assert_awaited_once_with("cancelled")
+            assert manager._load_job_metadata("cancelled")["start_ticks"] == "123"
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())
+
+
+def test_cancelled_duplicate_launch_does_not_terminate_existing_job(runtime):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        entered = asyncio.Event()
+        release = asyncio.Event()
+        metadata = {
+            "state": "running", "pid": 321, "pgid": 321, "start_ticks": "123",
+            "generation": manager.generation,
+        }
+        manager._save_job_metadata("existing", metadata)
+
+        async def status(_metadata):
+            entered.set()
+            await release.wait()
+            return {"running": True}
+
+        manager._job_process_status = AsyncMock(side_effect=status)
+        manager.terminate_job = AsyncMock()
+        try:
+            task = asyncio.create_task(manager.exec_background("true", "existing"))
+            await asyncio.wait_for(entered.wait(), timeout=5)
+            task.cancel()
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            manager.terminate_job.assert_not_awaited()
+            assert manager._load_job_metadata("existing") == metadata
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("suffix", [".lock", ".migration-state", ".migration.json", ".retired.json"])
+@pytest.mark.parametrize("custom_state", [False, True])
+def test_workspace_coordination_is_durable_across_runtime_directory_changes(
+    monkeypatch, tmp_path, suffix, custom_state,
+):
+    from hercules.core import instance_lock
+
+    monkeypatch.setattr(instance_lock.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    if custom_state:
+        monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+        base = tmp_path / "state"
+    else:
+        monkeypatch.delenv("XDG_STATE_HOME", raising=False)
+        base = tmp_path / "home/.local/state"
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "runtime-before"))
+    before = instance_lock.workspace_state_path(tmp_path / "evidence", suffix)
+    assert before.is_relative_to(base)
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "runtime-after"))
+    assert instance_lock.workspace_state_path(tmp_path / "evidence", suffix) == before
+    assert instance_lock._runtime_state_root().is_relative_to(tmp_path / "runtime-after")
+
+
+def test_explicit_state_selection_does_not_modify_other_scope(migration, monkeypatch):
+    selected, adapter = _registration(migration)
+    other, _ = _registration(
+        migration, state=migration.tmp / "other-scope/install.json"
+    )
+    monkeypatch.setattr(
+        workspace_migration,
+        "setup_state_locations",
+        lambda project: {"other": str(other)},
+    )
+    before = adapter.path.read_bytes()
+    with pytest.raises(ValueError, match="was not selected"):
+        workspace_migration.migrate(
+            migration.config,
+            migration.manager,
+            migration.destination,
+            states=[selected],
+            clients=["codex"],
+        )
+    assert adapter.path.read_bytes() == before and not migration.destination.exists()
+
+
+def test_migration_does_not_remove_preexisting_unowned_staging(migration, monkeypatch):
+    hex_id = "0" * 32
+    staging = migration.destination.with_name(f".{migration.destination.name}.hercules-migrate-{hex_id}")
+    staging.mkdir()
+    (staging / "keep.txt").write_bytes(b"unowned")
+    monkeypatch.setattr("hercules.core.workspace.uuid.uuid4", lambda: SimpleNamespace(hex=hex_id))
+    with pytest.raises(FileExistsError):
+        migration.manager.migrate(migration.destination)
+    assert (staging / "keep.txt").read_bytes() == b"unowned"
+
+
+def test_empty_destination_race_cannot_delete_new_user_file(migration, monkeypatch):
+    migration.destination.mkdir()
+    original = migration.manager._list_anchor_names
+    def raced(anchor):
+        names = original(anchor)
+        (migration.destination / "late-user-file.txt").write_bytes(b"retain")
+        return names
+    monkeypatch.setattr(migration.manager, "_list_anchor_names", raced)
+    with pytest.raises(OSError):
+        migration.manager.migrate(migration.destination)
+    assert (migration.destination / "late-user-file.txt").read_bytes() == b"retain"
+    assert migration.source.exists()
+
+
+def test_migration_can_replace_an_empty_destination(migration):
+    migration.destination.mkdir()
+    assert migration.manager.migrate(migration.destination)["migrated"]
+    assert (migration.destination / migration.session / "handout.bin").read_bytes() == b"\x00\xffevidence"

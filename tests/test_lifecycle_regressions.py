@@ -76,7 +76,7 @@ def runtime(monkeypatch, tmp_path):
     manager._wait_for_host_ports_available = AsyncMock()
     manager._wait_for_ready = AsyncMock()
     manager._start_orphan_guardian = Mock()
-    manager._settle_orphan_guardian = AsyncMock()
+    manager._settle_orphan_guardian = AsyncMock(return_value=True)
     return SimpleNamespace(
         manager=manager, container=container, client=client,
         containers=containers, lock=lock,
@@ -271,7 +271,7 @@ def test_core_profile_stdio_matches_setup_facts(monkeypatch, tmp_path):
             tools = await client.list_tools()
             resources = await client.list_resources()
             assert {tool.name for tool in tools} == set(facts["mcp_surface"]["tool_names"])
-            assert len(tools) == facts["mcp_surface"]["tools"] == 11
+            assert len(tools) == facts["mcp_surface"]["tools"] == 12
             assert len(resources) == facts["mcp_surface"]["resources"] == 7
 
     asyncio.run(scenario())
@@ -371,5 +371,68 @@ def test_generation_resets_cached_metasploit_client_and_session_state(runtime, m
             assert metasploit_tool._module_cache == {}
             assert metasploit_tool._module_cache_time == 0
             assert runtime.manager.container_running is False
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("preserve", [False, True])
+def test_cleanup_confirmation_distinguishes_preserved_containers(runtime, preserve):
+    manager = runtime.manager
+    manager._config = replace(manager._config, preserve_container=preserve)
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            await manager.operator_stop()
+            assert manager._last_cleanup == {
+                "container_disposition": "stopped_preserved" if preserve else "removed",
+                "ports_released": True, "guardian_settled": True, "confirmed": True,
+            }
+            assert bool(runtime.containers) == preserve
+        finally:
+            if preserve:
+                manager._container = runtime.container
+                await manager.stop_container(force_remove=True)
+
+    asyncio.run(scenario())
+
+
+def test_failed_or_unverified_cleanup_never_claims_confirmation(runtime):
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        remove = runtime.container.remove.side_effect
+        runtime.container.remove.side_effect = RuntimeError("fixture failure")
+        with pytest.raises(RuntimeError, match="Could not stop"):
+            await manager.operator_stop()
+        assert manager._last_cleanup["confirmed"] is False
+        runtime.container.remove.side_effect = remove
+        manager._settle_orphan_guardian.return_value = False
+        await manager.operator_stop()
+        assert manager._last_cleanup["container_disposition"] == "removed"
+        assert manager._last_cleanup["ports_released"] is True
+        assert manager._last_cleanup["confirmed"] is False
+        assert not runtime.containers
+        await manager.operator_stop()
+        assert manager._last_cleanup["container_disposition"] == "not_attached"
+        assert manager._last_cleanup["confirmed"] is False
+
+    asyncio.run(scenario())
+
+
+def test_binary_notice_is_not_complete_inline_output(runtime):
+    payload = b"\x00\xffbinary-evidence"
+    runtime.client.api.exec_start.side_effect = lambda *args, **kwargs: iter([(payload, None)])
+
+    async def scenario():
+        await runtime.manager.operator_start()
+        try:
+            result = await runtime.manager.exec_command("local-fixture", clean_output=False)
+            assert result.output_complete is False
+            assert result.evidence_complete is True
+            assert await runtime.manager.read_file_bytes(result.raw_artifacts["stdout"]) == payload
+        finally:
+            await runtime.manager.operator_stop()
 
     asyncio.run(scenario())

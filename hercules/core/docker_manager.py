@@ -63,7 +63,7 @@ from hercules.core.wordlists import provision_wordlists
 from hercules.core.workspace import WorkspaceManager, utc_now
 from hercules.output.banners import strip_known_banners
 from hercules.output.filters import apply_tool_filter
-from hercules.output.sanitizer import escape_display_controls, sanitize
+from hercules.output.sanitizer import escape_display_controls, render_terminal_result
 from hercules.output.truncator import truncate_output
 
 if TYPE_CHECKING:
@@ -479,21 +479,7 @@ class DockerManager:
             config.resolved_workspace_root,
             max_inline_bytes=config.max_inline_file_bytes,
         )
-        self._session_id: str = self._workspace.allocate_session()
-        try:
-            self._claim_workspace(self._session_id, 0, container_started=False)
-        except Exception:
-            try:
-                self._workspace.cleanup_empty_owned(
-                    active_session="",
-                    only_session=self._session_id,
-                )
-            except (OSError, ValueError) as cleanup_error:
-                logger.warning(
-                    "Failed to clean unclaimed workspace: %s",
-                    cleanup_error,
-                )
-            raise
+        self._session_id: str = self._allocate_owned_session(0)
         self._container_name: str = f"hercules-{self._session_id}"
         self._generation: int = 0
         # MCP connections expose schemas and host-side resources without
@@ -720,6 +706,22 @@ class DockerManager:
     def register_generation_callback(self, callback) -> None:
         """Register a process-local cache reset callback."""
         self._generation_callbacks.append(callback)
+
+    def _allocate_owned_session(self, generation: int) -> str:
+        from hercules.core.instance_lock import workspace_lock
+
+        with workspace_lock(self._workspace.root):
+            session = self._workspace.allocate_session(generation=generation)
+            try:
+                self._claim_workspace(session, generation, container_started=False)
+            except BaseException:
+                try:
+                    self._workspace.mark_inactive(session, generation)
+                    self._workspace.cleanup_empty_owned(active_session="", only_session=session)
+                except (OSError, ValueError) as exc:
+                    logger.warning("Unclaimed session %s retained after cleanup failure: %s", session, type(exc).__name__)
+                raise
+            return session
 
     def _claim_workspace(
         self,
@@ -1107,25 +1109,28 @@ class DockerManager:
         except OSError as exc:
             logger.warning("Could not start the Hercules orphan guardian: %s", exc)
 
-    async def _settle_orphan_guardian(self) -> None:
+    async def _settle_orphan_guardian(self) -> bool:
         """Confirm the guardian exits after ordinary container cleanup."""
         process = getattr(self, "_orphan_guardian", None)
-        self._orphan_guardian = None
         if process is None:
-            return
-        if process.poll() is None:
-            process.terminate()
+            return True
         try:
-            await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=3)
-        except TimeoutError:
-            process.kill()
+            if process.poll() is None:
+                process.terminate()
             try:
                 await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=3)
             except TimeoutError:
-                logger.warning(
-                    "Orphan guardian PID %s did not terminate promptly.",
-                    process.pid,
-                )
+                process.kill()
+                try:
+                    await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=3)
+                except TimeoutError:
+                    logger.warning("Orphan guardian PID %s did not terminate promptly.", process.pid)
+                    return False
+        except OSError as exc:
+            logger.warning("Could not settle orphan guardian PID %s: %s", process.pid, exc)
+            return False
+        self._orphan_guardian = None
+        return True
 
     async def _start_container_locked(self) -> None:
         """Full startup: verify setup → create container → wait for ready."""
@@ -1451,6 +1456,10 @@ class DockerManager:
         release_workspace: bool = False,
     ) -> None:
         """Stop and remove the container. Workspace files on host are preserved."""
+        self._last_cleanup = {
+            "container_disposition": "unverified", "guardian_settled": False,
+            "ports_released": False, "confirmed": False,
+        }
         if self._container is None:
             self._host_port_bindings = {}
             workspace = getattr(self, "_workspace", None)
@@ -1463,7 +1472,11 @@ class DockerManager:
                     )
                 except ValueError:
                     pass
-            await self._settle_orphan_guardian()
+            settled = await self._settle_orphan_guardian()
+            self._last_cleanup.update({
+                "container_disposition": "not_attached", "guardian_settled": settled,
+                "ports_released": None, "confirmed": False,
+            })
             return
 
         task = getattr(self, "_ready_task", None)
@@ -1475,15 +1488,14 @@ class DockerManager:
                 pass
 
         stop_error: Exception | None = None
+        released_bindings = {
+            **getattr(self, "_host_port_bindings", {}),
+            **self._container_host_bindings(self._container),
+        }
         if force_remove or not self._config.preserve_container:
             try:
                 logger.info("Force-removing container '%s'...", self._container_name)
-                released_bindings = {
-                    **getattr(self, "_host_port_bindings", {}),
-                    **self._container_host_bindings(self._container),
-                }
                 await asyncio.to_thread(self._container.remove, force=True)
-                await self._wait_for_host_ports_available(released_bindings)
             except NotFound:
                 pass
             except Exception as exc:
@@ -1503,12 +1515,20 @@ class DockerManager:
                 f"Could not stop Hercules container '{self._container_name}': {stop_error}"
             ) from stop_error
 
+        self._last_cleanup["container_disposition"] = (
+            "removed" if force_remove or not self._config.preserve_container else "stopped_preserved"
+        )
+        await self._wait_for_host_ports_available(released_bindings)
+        self._last_cleanup["ports_released"] = True
+
         self._container = None
         self._bootstrapped = False
         self._ready = False
         self._ready_task = None
         self._host_port_bindings = {}
-        await self._settle_orphan_guardian()
+        settled = await self._settle_orphan_guardian()
+        self._last_cleanup["guardian_settled"] = settled
+        self._last_cleanup["confirmed"] = settled
         workspace = getattr(self, "_workspace", None)
         if release_workspace and workspace is not None:
             try:
@@ -1549,14 +1569,7 @@ class DockerManager:
             async def prepare_session() -> None:
                 nonlocal new_session_id
                 new_session_id = await asyncio.to_thread(
-                    self._workspace.allocate_session,
-                    generation=new_generation,
-                )
-                await asyncio.to_thread(
-                    self._claim_workspace,
-                    new_session_id,
-                    new_generation,
-                    container_started=False,
+                    self._allocate_owned_session, new_generation,
                 )
                 self._operator_stopped = True
                 self._shutting_down = True
@@ -1904,6 +1917,40 @@ class DockerManager:
             active_running=self._container is not None,
         )
 
+    def job_inventory(self, *, limit: int = 100) -> dict:
+        """Bounded, cached job metadata; do not poll Docker or imply liveness."""
+        jobs = []
+        try:
+            listing = self._workspace.inspect(
+                self._session_id, "/opt/workspace/jobs", action="list", max_entries=1000
+            )
+        except FileNotFoundError:
+            return {"jobs": [], "truncated": False, "state_source": "recorded_metadata"}
+        except (OSError, ValueError):
+            return {"jobs": [], "truncated": True, "state_source": "recorded_metadata",
+                    "error": "Job metadata could not be safely inspected; no liveness conclusion is available."}
+        for entry in listing["entries"]:
+            if entry["type"] != "file" or not entry["name"].endswith(".json"):
+                continue
+            job_id = entry["name"][:-5]
+            try:
+                safe_filename(job_id, label="job_id", maximum=64)
+            except ValueError:
+                continue
+            metadata = self._load_job_metadata(job_id)
+            if metadata is None:
+                continue
+            jobs.append({
+                "job_id": job_id, "state": metadata.get("state", "unknown"),
+                "generation": metadata.get("generation"),
+                "stale": metadata.get("generation") != self._generation,
+                "log_path": f"/opt/workspace/jobs/{job_id}.log",
+            })
+            if len(jobs) >= limit:
+                break
+        return {"jobs": jobs, "truncated": listing["truncated"] or len(jobs) >= limit,
+                "state_source": "recorded_metadata"}
+
     def require_runtime_started(self) -> None:
         """Reject intentional stopped states without inspecting or recovering Docker."""
         if getattr(self, "_operator_stopped", False) or getattr(
@@ -2243,7 +2290,11 @@ class DockerManager:
                 },
             )
 
-        logger.debug("exec_command: %s (timeout=%ds)", safe_cmd[:120], effective_timeout)
+        logger.debug(
+            "exec_command: sha256=%s session=%s generation=%s timeout=%ds",
+            hashlib.sha256(cmd.encode()).hexdigest(), self.session_id,
+            self.generation, effective_timeout,
+        )
 
         try:
             (
@@ -2275,7 +2326,7 @@ class DockerManager:
         stderr_bytes = int(stream_meta.get("stderr_total_bytes", len(stderr_raw or b"")))
         duration = round(time.monotonic() - start, 2)
         if exit_code != 0:
-            logger.debug("Command exited %d: %s", exit_code, safe_cmd[:120])
+            logger.debug("Command exited %d: sha256=%s", exit_code, hashlib.sha256(cmd.encode()).hexdigest())
 
         stdout_stream_truncated = bool(stream_meta["stdout_stream_truncated"])
         stderr_stream_truncated = bool(stream_meta["stderr_stream_truncated"])
@@ -2381,7 +2432,7 @@ class DockerManager:
         if timed_out:
             timeout_message = f"Command timed out after {effective_timeout}s"
             stderr = f"{stderr.rstrip()}\n{timeout_message}".lstrip()
-            logger.warning("%s: %s", timeout_message, safe_cmd[:120])
+            logger.warning("%s: sha256=%s", timeout_message, hashlib.sha256(cmd.encode()).hexdigest())
 
         def _record_transform(
             stream_name: str,
@@ -2415,19 +2466,32 @@ class DockerManager:
                 }
             )
 
+        render_clipped = {"stdout": False, "stderr": False}
         if clean_output:
             # Terminal rendering is safety sanitation, not semantic deletion.
             before_stdout, before_stderr = stdout, stderr
             if not stdout_binary:
-                stdout = sanitize(stdout)
+                rendered = render_terminal_result(stdout)
+                stdout = rendered.text
+                render_clipped["stdout"] = rendered.clipped
             if not stderr_binary:
-                stderr = sanitize(stderr)
+                rendered = render_terminal_result(stderr)
+                stderr = rendered.text
+                render_clipped["stderr"] = rendered.clipped
             _record_transform(
                 "stdout", "terminal_render", before_stdout, stdout, semantic=False
             )
             _record_transform(
                 "stderr", "terminal_render", before_stderr, stderr, semantic=False
             )
+            for stream_name, clipped in render_clipped.items():
+                if clipped:
+                    transforms.append({
+                        "stream": stream_name, "type": "terminal_limit",
+                        "semantic": False, "removed_lines": 0,
+                        "removed_chars": 0, "filter_version": 1,
+                    })
+                    filter_notes.append(f"{stream_name} clipped by terminal safety limits; raw evidence retained")
 
             if tool_name:
                 before_stdout = stdout
@@ -2558,13 +2622,13 @@ class DockerManager:
         stderr, stderr_truncated = truncate_output(
             stderr, max_chars=stderr_limit, artifact_path=stderr_artifact
         )
-        stdout_truncated = stdout_truncated or stdout_stream_truncated
-        stderr_truncated = stderr_truncated or stderr_stream_truncated
+        stdout_truncated = stdout_truncated or stdout_stream_truncated or render_clipped["stdout"]
+        stderr_truncated = stderr_truncated or stderr_stream_truncated or render_clipped["stderr"]
         truncated = stdout_truncated or stderr_truncated
         artifact_path = stdout_artifact or stderr_artifact
-        if stdout_truncated:
+        if stdout_truncated and not render_clipped["stdout"]:
             filter_notes.append("stdout truncated with head/tail preservation")
-        if stderr_truncated:
+        if stderr_truncated and not render_clipped["stderr"]:
             filter_notes.append("stderr truncated with head/tail preservation")
 
         evidence_complete = not timed_out and not capture_failed
@@ -2591,7 +2655,7 @@ class DockerManager:
             filter_notes=filter_notes,
             output_transform=transforms,
             output_filtered=output_filtered,
-            output_complete=not semantic_filtered and not truncated and not timed_out and not capture_failed,
+            output_complete=not semantic_filtered and not stdout_binary and not stderr_binary and not truncated and not timed_out and not capture_failed,
             evidence_complete=evidence_complete,
             stdout_truncated=stdout_truncated,
             stderr_truncated=stderr_truncated,
@@ -2816,7 +2880,19 @@ class DockerManager:
     ) -> str:
         """Execute a managed background process group with durable metadata."""
         async with self._get_job_lock():
-            return await self._exec_background_locked(cmd, job_id, workdir, env)
+            task = asyncio.create_task(self._exec_background_locked(cmd, job_id, workdir, env))
+            try:
+                return await asyncio.shield(task)
+            except asyncio.CancelledError:
+                with CancelScope(shield=True):
+                    try:
+                        await task
+                    except Exception:
+                        pass
+                    else:
+                        # A rejected duplicate belongs to another invocation.
+                        await self.terminate_job(job_id)
+                raise
 
     async def _exec_background_locked(
         self,
@@ -2912,10 +2988,19 @@ class DockerManager:
         ticks_file = f"{base}.start_ticks"
         exit_file = f"{base}.exit"
         finished_file = f"{base}.finished"
+        ready_file = f"{base}.ready"
         await self.write_file(command_path, cmd, mode=0o700)
         wrapper = (
             "#!/usr/bin/env bash\n"
             "set +e\n"
+            "pid=$$\n"
+            "pgid=$(ps -o pgid= -p \"$$\" | tr -d '[:space:]')\n"
+            "ticks=$(awk '{print $22}' /proc/\"$$\"/stat)\n"
+            "[ \"$pgid\" = \"$pid\" ] && [ -n \"$ticks\" ] || exit 125\n"
+            f"printf '%s\\n' \"$pid\" > {shlex.quote(pid_file)}\n"
+            f"printf '%s\\n' \"$pgid\" > {shlex.quote(pgid_file)}\n"
+            f"printf '%s\\n' \"$ticks\" > {shlex.quote(ticks_file)}\n"
+            f"printf 'ready\\n' > {shlex.quote(ready_file)}\n"
             "child=0\n"
             "terminate_group() {\n"
             "  trap '' TERM INT\n"
@@ -2966,14 +3051,12 @@ class DockerManager:
         await asyncio.to_thread(self._save_job_metadata, job_id, metadata)
 
         launch = (
-            f"rm -f -- {shlex.quote(exit_file)} {shlex.quote(finished_file)}; "
+            f"rm -f -- {shlex.quote(exit_file)} {shlex.quote(finished_file)} "
+            f"{shlex.quote(pid_file)} {shlex.quote(pgid_file)} {shlex.quote(ticks_file)} {shlex.quote(ready_file)}; "
             f"nohup setsid bash {shlex.quote(wrapper_path)} "
             f"> {shlex.quote(log_file)} 2>&1 < /dev/null & "
-            "pid=$!; "
-            f"printf '%s\\n' \"$pid\" > {shlex.quote(pid_file)}; "
-            f"ps -o pgid= -p \"$pid\" | tr -d ' ' > {shlex.quote(pgid_file)}; "
-            f"awk '{{print $22}}' /proc/\"$pid\"/stat > {shlex.quote(ticks_file)}; "
-            "printf '%s\\n' \"$pid\""
+            f"for _ in $(seq 1 100); do test -f {shlex.quote(ready_file)} && break; sleep 0.05; done; "
+            f"test -f {shlex.quote(ready_file)} || exit 125; cat {shlex.quote(pid_file)}"
         )
         result = await self.exec_command(
             launch,
@@ -2989,6 +3072,7 @@ class DockerManager:
                     "state": "start_failed",
                     "updated_at": utc_now(),
                     "error": result.stderr or "background launch failed",
+                    "cleanup_confirmed": False,
                 }
             )
             await asyncio.to_thread(self._save_job_metadata, job_id, metadata)
@@ -2997,30 +3081,18 @@ class DockerManager:
             pid = int((await self.read_file(pid_file, max_bytes=64)).strip())
             pgid = int((await self.read_file(pgid_file, max_bytes=64)).strip())
             start_ticks = (await self.read_file(ticks_file, max_bytes=128)).strip()
+            if pid <= 1 or pgid != pid or not start_ticks.isdigit():
+                raise ValueError("invalid process-group identity")
         except (OSError, ValueError) as exc:
             metadata.update(
                 {
                     "state": "start_failed",
                     "updated_at": utc_now(),
-                    "error": f"background process metadata was incomplete: {exc}",
+                    "error": f"background process metadata was incomplete: {exc}. Cleanup is unverified; inspect this job or stop its owned container explicitly.",
+                    "cleanup_confirmed": False,
                 }
             )
-            launch_pid = next(
-                (
-                    int(line)
-                    for line in reversed(result.stdout.splitlines())
-                    if line.strip().isdigit() and int(line) > 0
-                ),
-                0,
-            )
-            if launch_pid:
-                await self.exec_command(
-                    f"kill -TERM -- -{launch_pid} 2>/dev/null || "
-                    f"kill -TERM {launch_pid} 2>/dev/null || true",
-                    clean_output=False,
-                    timeout=15,
-                )
-            await self._cleanup_job_control_files(job_id)
+            # Retain controls as evidence; stdout alone cannot prove PID ownership.
             await asyncio.to_thread(self._save_job_metadata, job_id, metadata)
             raise RuntimeError(metadata["error"]) from exc
         metadata.update(
@@ -3044,6 +3116,7 @@ class DockerManager:
                 self._session_id,
                 self._job_metadata_path(job_id),
                 max_bytes=1024 * 1024,
+                touch=False,
             )
             if result.truncated:
                 return None
@@ -3070,6 +3143,7 @@ class DockerManager:
             ".pid",
             ".pgid",
             ".start_ticks",
+            ".ready",
         )
 
         def _unlink() -> None:
@@ -3131,6 +3205,11 @@ class DockerManager:
                 "stale": False,
                 "output": "",
                 "log_path": f"/opt/workspace/jobs/{job_id}.log",
+                "known_job_ids": [item["job_id"] for item in (await asyncio.to_thread(self.job_inventory))["jobs"]],
+                "next_steps": [
+                    "Use the job_id supplied to shell_exec_background, not a harness task ID.",
+                    "For harness-deferred calls use that harness's task completion interface.",
+                ],
             }
         process = await self._job_process_status(metadata)
         is_running = process["running"]
@@ -3671,6 +3750,7 @@ class DockerManager:
             "test -x /entrypoint.sh",
             "! head -n 1 /entrypoint.sh | od -An -tx1 | grep -qi '0d'",
             "test -s /opt/hercules-capabilities.txt",
+            "python3 -c 'import venv, ensurepip'",
             "test -s /opt/hercules-capability-manifest.spec",
             (
                 f"printf '%s  %s\\n' '{capability_manifest_sha256(capabilities)}' "

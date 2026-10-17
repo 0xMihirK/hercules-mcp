@@ -48,6 +48,11 @@ Read result fields before interpreting stdout:
 - `filter_notes` or `output_transform`: what changed.
 - `parsed`, `matches`, `results`, `summary`: prefer these over duplicate text.
 
+Binary artifact notices are not complete inline output even when the retained
+binary evidence is complete. Completeness covers the executed command's emitted
+streams, not data removed upstream by its own filters/pipelines. Inspect
+`ignored_arguments`: dropped options were not applied, regardless of exit code.
+
 Empty compact stdout is not proof of absence. Check stderr, exit state,
 completeness fields, and artifacts. Preserve explicit no-finding messages and
 scanner capability warnings in the report.

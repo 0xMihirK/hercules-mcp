@@ -7,6 +7,24 @@ description: Route authorized penetration testing, security research, CTF, foren
 
 Use Hercules as a staged security workflow, not as a bag of unrelated commands.
 
+## Install, update, or recover
+
+Use the repository's `install.md` and absolute `hercules-setup` launcher.
+Identify the current client explicitly; never infer it from installed executables.
+Run `status` first, then the authorized `install`, `repair`, or `resume` operation
+for only that client. Preserve existing capabilities, configuration, and evidence.
+New installs default to full capabilities. Do not move a live virtual environment.
+
+Host setup and cold `verify` never start a container or call `shell_exec`.
+Ask separately before `runtime prepare` downloads/builds or `verify --runtime`.
+If a harness denies an operation, stop that action and name the blocked phase;
+do not change permission modes, add blanket allow rules, or retry another tool.
+Resume only after the user resolves the denial through the harness's own controls.
+
+Report host revision, selected-client registration/reload, runtime preparation,
+host/runtime verification, and cleanup separately. A registered server may still
+need a client reload; a cold connection does not establish runtime readiness.
+
 ## Establish authorization and scope
 
 1. Confirm the target, permitted techniques, and stopping conditions before active work.
@@ -19,6 +37,8 @@ Use Hercules as a staged security workflow, not as a bag of unrelated commands.
 
 - Call `system_start_container` only immediately before the first Docker-backed
   operation. Reuse the active container, and stop it when the work is complete.
+- Inspect current or retained files with `workspace_inspect` before startup.
+  Keep related challenge folders together; coordinate workers before rotation or shutdown.
 - Prefer a structured Hercules tool. Use `shell_exec` only when the typed surface cannot express the operation.
 - Check the tools currently exposed before planning. Optional capabilities may be uninstalled or independently hidden; do not invent a missing tool or assume its binary exists. Use an available structured alternative. Use the administrator escape hatch only when the necessary backend is installed and the raw operation is authorized.
 - Use `network_curl` for deterministic HTTP requests. Use browser tools when JavaScript, authentication state, DOM interaction, or visual evidence matters.
@@ -48,6 +68,7 @@ Parallelize independent passive or light probes within advertised concurrency li
 - For interactive or visual web work, read [browser.md](references/browser.md).
 - For Metasploit, payloads, listeners, background jobs, and recovery, read [exploitation-and-sessions.md](references/exploitation-and-sessions.md).
 - For workspace selection, paged evidence reads, retention, jobs, artifacts, and recovery, read [workspace-and-evidence.md](references/workspace-and-evidence.md).
+- For CTF objectives, continuity notes, candidate validation, rate coordination, or custom tools, read [ctf-workflow.md](references/ctf-workflow.md).
 - For LinPEAS, WinPEAS, PowerUp, GTFOBins, or LOLBAS selection and handling, read [post-exploitation-resources.md](references/post-exploitation-resources.md).
 - For token-efficient execution, output completeness, `include_raw`, artifacts, polling, and result interpretation, read [efficiency-and-output.md](references/efficiency-and-output.md).
 
@@ -59,3 +80,6 @@ Parallelize independent passive or light probes within advertised concurrency li
 - After container recovery or `system_start_new_session`, assume browser daemons, Metasploit clients/channels, and background processes were reset; workspace files persist.
 - `runtime_not_started` means no container was created; call `system_start_container`, then retry the Docker-backed tool.
 - After `system_stop_container`, call `system_start_container` to resume the same workspace. Use `system_start_new_session` only for a clean workspace.
+- Before completing or abandoning work, save notes and artifacts, resolve owned jobs,
+  and stop the container when no parallel worker needs it. Check `cleanup` confirmation;
+  report failed/unverified cleanup, preserved stopped containers, and retained evidence separately.

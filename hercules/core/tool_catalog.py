@@ -8,8 +8,8 @@ Single source of truth shared by:
   * Hercules' read-only setup-information surface and selective image metadata;
   * the server ([hercules/main.py]) — to decide which tools to register, honoring
     the operator's selection while NEVER hiding the *core* tools the agent
-    depends on. ``shell_exec`` remains the raw-command escape hatch, but it
-    cannot invoke a backend binary from an omitted capability.
+    depends on. ``shell_exec`` remains the privileged raw-command escape hatch;
+    omitted capabilities are not preinstalled, not a sandbox against root.
 
 **Opt-out granularity is the capability, not the individual MCP tool.** Opting
 out of (say) ``metasploit`` automatically opts out of every ``metasploit_*``
@@ -111,7 +111,7 @@ CATEGORIES: tuple[ToolCategory, ...] = (
                        ("system_start_container", "system_start_new_session", "system_list_sessions",
                         "system_stop_container", "system_network_info")),
             Capability("workspace", "Workspace file I/O", "host bind-mount",
-                       ("workspace_read_file", "workspace_write_file")),
+                       ("workspace_read_file", "workspace_write_file", "workspace_inspect")),
         ),
     ),
     ToolCategory(
@@ -194,7 +194,7 @@ CATEGORIES: tuple[ToolCategory, ...] = (
 # public catalog remains readable while image/runtime checks use exact command
 # names. Core commands are supplied by the base image and are always present.
 CAPABILITY_INSTALL: dict[str, CapabilityInstall] = {
-    "shell": CapabilityInstall(("bash", "python3")),
+    "shell": CapabilityInstall(("bash", "python3", "ssh", "unzip")),
     "session": CapabilityInstall(("ip", "ps")),
     "workspace": CapabilityInstall(("base64", "sha256sum")),
     "dns": CapabilityInstall(("dig", "dnsx")),
@@ -272,10 +272,10 @@ OPTIONAL_CAPABILITIES: frozenset[str] = ALL_CAPABILITIES - CORE_CAPABILITIES
 FULL_TOOL_COUNT = len(all_tool_names())
 LIGHT_TOOL_COUNT = FULL_TOOL_COUNT - len(METASPLOIT_TOOLS)
 
-if (FULL_TOOL_COUNT, LIGHT_TOOL_COUNT) != (46, 41):
+if (FULL_TOOL_COUNT, LIGHT_TOOL_COUNT) != (47, 42):
     raise RuntimeError(
         "Hercules public tool catalog changed unexpectedly: "
-        f"{FULL_TOOL_COUNT}/{LIGHT_TOOL_COUNT}, expected 46/41"
+        f"{FULL_TOOL_COUNT}/{LIGHT_TOOL_COUNT}, expected 47/42"
     )
 
 # Structured selectors that installable agent guidance must describe.
@@ -297,6 +297,7 @@ TOOL_SELECTORS: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "ctf_steghide": {"action": ("info", "extract")},
     "workspace_read_file": {"encoding": ("text", "base64")},
+    "workspace_inspect": {"action": ("list", "stat", "read"), "encoding": ("text", "base64")},
     "metasploit_run_module": {
         "module_type": ("exploit", "auxiliary", "post"),
     },

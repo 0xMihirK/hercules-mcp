@@ -20,7 +20,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG HERCULES_CAPABILITIES=shell,session,workspace,dns,whois,amass,nmap,curl,ncat,hping3,whatweb,fuzz,webvuln,nuclei,sqlmap,searchsploit,metasploit,hydra,john,binwalk,steghide,browser
 ARG HERCULES_BUILD_FINGERPRINT=unknown
 ARG HERCULES_BUILD_CA_SHA256=
-ARG HERCULES_CAPABILITY_MANIFEST_SHA256=b6b85ee48c40298e79e2d42568a34d28cdbec6392df7be10cd16f2e5daaddbfb
+ARG HERCULES_CAPABILITY_MANIFEST_SHA256=ed224ba949c69fffa5d5519b09d9aeffe81db5e75243f766d13ccf233ab72ebb
 ARG TARGETPLATFORM
 ARG HERCULES_TARGET_PLATFORM=${TARGETPLATFORM}
 
@@ -50,7 +50,7 @@ RUN --mount=type=secret,id=hercules_build_ca \
     ! grep -RqsE 'Suites:[[:space:]]+kali-rolling|[[:space:]]kali-rolling[[:space:]]' /etc/apt/sources.list.d; \
     printf '%s\n' 'Acquire::https::CaInfo "/etc/ssl/certs/ca-certificates.crt";' > /etc/apt/apt.conf.d/79-hercules-ca; \
     printf '%s\n' 'Acquire::Retries "5";' 'Acquire::http::Timeout "60";' 'Acquire::https::Timeout "60";' > /etc/apt/apt.conf.d/80-hercules-retries; \
-    packages="python3 python3-pip ca-certificates curl unzip jq iproute2 net-tools procps"; \
+    packages="python3 python3-pip python3-venv openssh-client ca-certificates curl unzip jq iproute2 net-tools procps"; \
     has_cap dns && packages="$packages dnsutils" || true; \
     has_cap whois && packages="$packages whois" || true; \
     has_cap nmap && packages="$packages nmap" || true; \
@@ -139,7 +139,6 @@ RUN set -eux; \
       if printf '%s\n' "$removals" | grep -qxF "$helper" && [ -z "$unexpected" ]; then apt-get purge -y -qq "$helper"; printf '%s=removed\n' "$helper" >> "$cleanup_manifest"; \
       else printf '%s=retained-required-by-installed-packages\n' "$helper" >> "$cleanup_manifest"; fi; \
     }; \
-    safe_purge unzip; \
     has_cap curl || safe_purge curl; \
     apt-get clean; rm -rf /var/lib/apt/lists/*
 
@@ -148,13 +147,14 @@ RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,
 # Validate exactly the backends selected by the catalog and persist evidence.
 RUN set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
-    required="bash python3 ip ps base64 sha256sum"; \
+    required="bash python3 ssh unzip ip ps base64 sha256sum"; \
     has_cap dns && required="$required dig dnsx" || true; has_cap whois && required="$required whois" || true; has_cap amass && required="$required amass" || true; \
     has_cap nmap && required="$required nmap" || true; has_cap curl && required="$required curl" || true; has_cap ncat && required="$required ncat" || true; has_cap hping3 && required="$required hping3" || true; \
     has_cap whatweb && required="$required httpx whatweb wafw00f nikto wpscan arjun" || true; has_cap fuzz && required="$required ffuf gobuster" || true; has_cap webvuln && required="$required dalfox commix" || true; has_cap nuclei && required="$required nuclei" || true; has_cap sqlmap && required="$required sqlmap" || true; \
     has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; \
     if has_cap browser; then required="$required agent-browser"; has_cap ncat || required="$required ncat"; fi; \
     test -n "$HERCULES_CAPABILITY_MANIFEST_SHA256"; \
+    python3 -m venv /tmp/hercules-venv-check; /tmp/hercules-venv-check/bin/python -m pip --version >/dev/null; rm -rf /tmp/hercules-venv-check; \
     spec=/opt/hercules-capability-manifest.spec; printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > "$spec"; for tool in $required; do printf 'binary=%s\n' "$tool" >> "$spec"; done; \
     printf '%s  %s\n' "$HERCULES_CAPABILITY_MANIFEST_SHA256" "$spec" | sha256sum -c -; \
     printf 'capabilities=%s\nplatform=%s\napt_suite=kali-last-snapshot\nmanifest_sha256=%s\n' "$HERCULES_CAPABILITIES" "$HERCULES_TARGET_PLATFORM" "$HERCULES_CAPABILITY_MANIFEST_SHA256" > /opt/hercules-capabilities.txt; \

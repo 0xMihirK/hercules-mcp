@@ -49,6 +49,7 @@ from hercules.core.build_info import (
 from hercules.core.config_io import (
     SETUP_STATE_SCHEMA_VERSION,
     dotenv_value_status,
+    dotenv_path,
     load_setup_state,
     read_dotenv_value,
 )
@@ -97,8 +98,8 @@ def validate_source_association(root: Path) -> None:
     if package_root.parent != source or any(not path.is_file() for path in required):
         raise SourceAssociationError(
             "The Hercules launcher is not associated with a complete durable "
-            "source checkout. Install it as a locked editable tool from the "
-            "checkout, then verify that the imported hercules package resolves "
+            "source checkout. Use hercules-setup or uv sync --locked in the "
+            "permanent checkout, then verify that the imported hercules package resolves "
             "inside that same checkout before building."
         )
 
@@ -414,6 +415,9 @@ def _python_environment_facts(root: Path) -> dict[str, Any]:
     uv_bin = _run_read_only([uv, "tool", "dir", "--bin"]) if uv else ""
     launcher_name = "hercules.exe" if os.name == "nt" else "hercules"
     launcher = str(Path(uv_bin) / launcher_name) if uv_bin else ""
+    local_launcher = root / '.venv' / ('Scripts' if os.name == 'nt' else 'bin') / launcher_name
+    if local_launcher.is_file():
+        launcher = str(local_launcher)
     return {
         "requires_python": requires_python,
         "recommended_python": "3.12",
@@ -436,7 +440,7 @@ def _failure_diagnostics() -> list[dict[str, Any]]:
             "retryable": False,
             "resolution": (
                 "associate the absolute launcher with the complete durable "
-                "checkout through a locked editable tool environment"
+                "checkout through its own locked uv environment (hercules-setup)"
             ),
         },
         {
@@ -646,10 +650,10 @@ def setup_information(
     manifest_sha256 = capability_manifest_sha256(selected)
     surface = capture_surface()
     skill_validation = validate_skill_routing(root, surface)
-    dotenv_path = root / ".env"
+    environment_file = dotenv_path(root)
     configured_rpc_text = os.getenv("MSF_RPC_PORT")
     if configured_rpc_text is None:
-        configured_rpc_text = read_dotenv_value(dotenv_path, "MSF_RPC_PORT")
+        configured_rpc_text = read_dotenv_value(environment_file, "MSF_RPC_PORT")
     try:
         configured_rpc_port = int(configured_rpc_text or "15553")
     except ValueError:
@@ -659,7 +663,7 @@ def setup_information(
     automatic_text = os.getenv("HERCULES_AUTO_ALLOCATE_PORTS")
     if automatic_text is None:
         automatic_text = read_dotenv_value(
-            dotenv_path,
+            environment_file,
             "HERCULES_AUTO_ALLOCATE_PORTS",
         )
     automatic_ports = str(automatic_text or "true").strip().lower() in {
@@ -678,9 +682,9 @@ def setup_information(
         "HERCULES_AUTO_ALLOCATE_PORTS": "true" if automatic_ports else "false",
         "MSF_RPC_PORT": str(configured_rpc_port),
     }
-    msf_secret = dotenv_value_status(dotenv_path, "MSF_PASSWORD")
-    proxy_secret = dotenv_value_status(dotenv_path, "BROWSER_PROXY_URL")
-    legacy_proxy_secret = dotenv_value_status(dotenv_path, "BROWSER_PROXY")
+    msf_secret = dotenv_value_status(environment_file, "MSF_PASSWORD")
+    proxy_secret = dotenv_value_status(environment_file, "BROWSER_PROXY_URL")
+    legacy_proxy_secret = dotenv_value_status(environment_file, "BROWSER_PROXY")
     return {
         "schema_version": SETUP_INFORMATION_SCHEMA_VERSION,
         "read_only": True,
@@ -884,6 +888,17 @@ def setup_information(
         },
         "transaction_cleanup": {
             "mandatory_on_success_and_failure": True,
+            "workspace_migration": {
+                "selected_client_cutover": True,
+                "effective_dotenv_and_registration_overrides": True,
+                "live_or_unknown_owners_block_migration": True,
+                "source_retained_by_default": True,
+                "source_retirement_is_separate": True,
+                "custom_reference_review_required": True,
+            },
+            "candidate_workers_use_candidate_environment": True,
+            "pending_guidance_destination_is_persisted": True,
+            "execution_audit_logs": "invocation metadata only; no full commands",
             "track": [
                 "temporary paths",
                 "background processes",
@@ -907,6 +922,18 @@ def setup_information(
             ],
         },
         "diagnostics": _failure_diagnostics(),
+        "setup_workflow": {
+            "command": "hercules-setup",
+            "commands": ["status", "install", "repair", "runtime prepare", "verify", "resume"],
+            "explicit_client_required": True,
+            "host_setup_starts_container": False,
+            "runtime_preparation_is_separate": True,
+            "runtime_verification_flag": "--runtime",
+            "dotenv_file_variable": "HERCULES_ENV_FILE",
+            "version_directories_are_permanent": True,
+            "diagnostics_are_reference_not_active_errors": True,
+            "on_harness_denial": "Stop the action; use the harness permission interface before resuming. Never bypass the denial.",
+        },
         "state": {
             "schema_version": SETUP_STATE_SCHEMA_VERSION,
             "locations": setup_state_locations(project_dir),

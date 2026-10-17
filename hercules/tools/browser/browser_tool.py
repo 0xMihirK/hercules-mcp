@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import posixpath
@@ -1027,9 +1028,8 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 "error": str(exc),
             }
         logger.warning(
-            "browser_cmd invoked (session=%s): %s",
-            session_key,
-            escape_display_controls(redact_secrets(args)),
+            "browser_cmd invoked: id=%s session=%s sha256=%s",
+            uuid.uuid4().hex, session_key, hashlib.sha256(args.encode()).hexdigest(),
         )
         prepared = await _backend(ctx, "browser_cmd")
         if isinstance(prepared, dict):

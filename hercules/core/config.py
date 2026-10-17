@@ -19,6 +19,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from dotenv import load_dotenv
+from hercules.core.config_io import dotenv_path
 
 from hercules.core.build_info import (
     CLOAKBROWSER_VERSION,
@@ -38,7 +39,7 @@ _EXTERNAL_LISTENER_BIND = "0.0.0.0"  # nosec B104
 # Load .env from project root (two levels up from this file)
 # ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_ENV_PATH = _PROJECT_ROOT / ".env"
+_ENV_PATH = dotenv_path(_PROJECT_ROOT)
 if _ENV_PATH.exists():
     load_dotenv(_ENV_PATH)
 
@@ -439,8 +440,8 @@ class HerculesConfig:
         # Check blocked list first — always takes priority
         if self.blocked_targets:
             for pattern in self.blocked_targets:
-                if _target_matches(clean, pattern) or any(
-                    _target_matches(address, pattern) for address in policy_targets
+                if _target_matches(clean, pattern, blocked=True) or any(
+                    _target_matches(address, pattern, blocked=True) for address in policy_targets
                 ):
                     raise ValueError(
                         f"Target '{target}' is blocked by safety controls "
@@ -606,7 +607,7 @@ def _normalize_pattern(pattern: str) -> str:
     return _extract_host(clean)
 
 
-def _target_matches(target: str, pattern: str) -> bool:
+def _target_matches(target: str, pattern: str, *, blocked: bool = False) -> bool:
     """
     Check if a target matches a pattern. Supports:
     - Exact hostname / IP match
@@ -624,6 +625,13 @@ def _target_matches(target: str, pattern: str) -> bool:
         target_network = ipaddress.ip_network(target, strict=False)
     except ValueError:
         pass
+
+    if blocked and target_network is not None:
+        try:
+            policy_network = ipaddress.ip_network(normalized_pattern, strict=False)
+        except ValueError:
+            return False
+        return target_network.version == policy_network.version and target_network.overlaps(policy_network)
 
     if normalized_pattern.startswith("*."):
         if target_network is not None:

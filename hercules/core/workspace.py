@@ -20,6 +20,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
+from functools import wraps
+
+from hercules.core.instance_lock import workspace_lock, workspace_state_path
+
+
+def _root_locked(method):
+    @wraps(method)
+    def locked(self, *args, **kwargs):
+        with workspace_lock(self.root):
+            self.assert_not_retired()
+            return method(self, *args, **kwargs)
+    return locked
 
 SESSION_ID_RE = re.compile(r"^[0-9a-f]{8}$")
 MANIFEST_NAME = ".hercules-session.json"
@@ -315,12 +327,12 @@ def _win_handle_to_fd(handle: int, flags: int) -> int:
         raise
 
 
-def _win_rename_at(file_handle: int, parent: int, name: str) -> None:
+def _win_rename_at(file_handle: int, parent: int, name: str, *, overwrite: bool = True) -> None:
     encoded = name.encode("utf-16-le")
-    size = _FileRenameInfo.FileName.offset + len(encoded)
+    size = max(ctypes.sizeof(_FileRenameInfo), _FileRenameInfo.FileName.offset + len(encoded))
     raw = ctypes.create_string_buffer(size)
     info = _FileRenameInfo.from_buffer(raw)
-    info.ReplaceIfExists = 1
+    info.ReplaceIfExists = int(overwrite)
     info.RootDirectory = parent
     info.FileNameLength = len(encoded)
     ctypes.memmove(
@@ -438,11 +450,19 @@ class WorkspaceRead:
 class WorkspaceManager:
     """Manage Hercules-owned session directories under one host root."""
 
-    def __init__(self, root: Path, *, max_inline_bytes: int = 8 * 1024 * 1024) -> None:
+    def __init__(self, root: Path, *, max_inline_bytes: int = 8 * 1024 * 1024, allow_retired: bool = False) -> None:
         self.root = Path(root).expanduser().resolve()
         self.max_inline_bytes = max(1, int(max_inline_bytes))
         self._manifest_lock = threading.RLock()
-        self.root.mkdir(parents=True, exist_ok=True)
+        with workspace_lock(self.root):
+            if not allow_retired:
+                self.assert_not_retired()
+            if not (allow_retired and workspace_state_path(self.root, ".retired.json").exists() and not self.root.exists()):
+                self.root.mkdir(parents=True, exist_ok=True)
+
+    def assert_not_retired(self) -> None:
+        if workspace_state_path(self.root, ".retired.json").exists():
+            raise ValueError("workspace root was retired; update the client to its verified destination")
 
     @staticmethod
     def _close_anchor(anchor: int) -> None:
@@ -516,7 +536,7 @@ class WorkspaceManager:
                 delete=delete,
             )
         flags = os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
-        flags |= os.O_WRONLY | os.O_CREAT | os.O_EXCL if write else os.O_RDONLY
+        flags |= os.O_WRONLY | os.O_CREAT | os.O_EXCL if write else os.O_RDONLY | os.O_NONBLOCK
         handle = os.open(name, flags, mode, dir_fd=parent)
         if not stat.S_ISREG(os.fstat(handle).st_mode):
             os.close(handle)
@@ -706,6 +726,7 @@ class WorkspaceManager:
         descriptor = self._fd_from_handle(handle, os.O_WRONLY)
         return os.fdopen(descriptor, "wb", buffering=0)
 
+    @_root_locked
     def unlink(self, session_id: str, container_path: str, *, missing_ok: bool = False) -> None:
         """Remove one file relative to a verified, pinned workspace parent."""
         try:
@@ -732,6 +753,7 @@ class WorkspaceManager:
     def session_path(self, session_id: str) -> Path:
         return self.root / _validate_session_id(session_id)
 
+    @_root_locked
     def allocate_session(self, *, generation: int = 0) -> str:
         """Atomically reserve an unused eight-character session directory."""
         for _ in range(256):
@@ -793,6 +815,7 @@ class WorkspaceManager:
         finally:
             self._close_anchor(anchor)
 
+    @_root_locked
     def update_manifest(self, session_id: str, **changes: Any) -> dict[str, Any]:
         with self._manifest_lock:
             anchor = self._open_session_anchor(session_id)
@@ -868,6 +891,7 @@ class WorkspaceManager:
             return str(CONTAINER_WORKSPACE)
         return str(CONTAINER_WORKSPACE / relative)
 
+    @_root_locked
     def atomic_write(
         self,
         session_id: str,
@@ -891,6 +915,7 @@ class WorkspaceManager:
             *self._relative_parts(normalized)
         )
 
+    @_root_locked
     def ensure_directory(
         self,
         session_id: str,
@@ -969,6 +994,7 @@ class WorkspaceManager:
         *,
         offset: int = 0,
         max_bytes: int = 0,
+        touch: bool = True,
     ) -> WorkspaceRead:
         if offset < 0:
             raise ValueError("offset must be zero or greater")
@@ -990,7 +1016,8 @@ class WorkspaceManager:
         data, total = self._read_handle(handle, offset=offset, limit=limit)
         consumed = offset + len(data)
         truncated = consumed < total
-        self.update_manifest(session_id)
+        if touch:
+            self.update_manifest(session_id)
         return WorkspaceRead(
             data=data,
             total_bytes=total,
@@ -1006,6 +1033,184 @@ class WorkspaceManager:
             with os.scandir(path) as entries:
                 return sorted(entry.name for entry in entries)
         return sorted(os.listdir(anchor))
+
+    def inspect(
+        self, session_id: str, container_path: str, *, action: str,
+        offset: int = 0, max_entries: int = 100,
+    ) -> dict[str, Any]:
+        """Read bounded metadata through verified directory/file anchors."""
+        if offset < 0 or not 1 <= max_entries <= 1000:
+            raise ValueError("offset must be nonnegative and max_entries must be 1-1000")
+        parts = self._relative_parts(container_path)
+        anchor = self._open_session_anchor(session_id)
+        try:
+            for index, part in enumerate(parts):
+                try:
+                    child = self._open_directory_at(anchor, part)
+                except NotADirectoryError:
+                    if action != "stat" or index != len(parts) - 1:
+                        raise
+                    return self._file_stat_at(anchor, part)
+                self._close_anchor(anchor)
+                anchor = child
+            if action == "stat":
+                return {"type": "directory", "size_bytes": None}
+            if action != "list":
+                raise ValueError("metadata action must be list or stat")
+            names = [name for name in self._list_anchor_names(anchor) if name != MANIFEST_NAME]
+            entries = []
+            for name in names[offset:offset + max_entries]:
+                try:
+                    child = self._open_directory_at(anchor, name)
+                except NotADirectoryError:
+                    details = self._file_stat_at(anchor, name)
+                else:
+                    self._close_anchor(child)
+                    details = {"type": "directory", "size_bytes": None}
+                entries.append({"name": name, **details})
+            consumed = offset + len(entries)
+            return {
+                "entries": entries, "total_entries": len(names), "offset": offset,
+                "truncated": consumed < len(names),
+                "next_offset": consumed if consumed < len(names) else None,
+            }
+        finally:
+            self._close_anchor(anchor)
+
+    @classmethod
+    def _file_stat_at(cls, parent: int, name: str) -> dict[str, Any]:
+        descriptor = cls._fd_from_handle(cls._open_file_at(parent, name), os.O_RDONLY)
+        try:
+            details = os.fstat(descriptor)
+            if not stat.S_ISREG(details.st_mode):
+                raise ValueError("workspace entry is not a regular file")
+            return {"type": "file", "size_bytes": details.st_size,
+                    "modified_at": datetime.fromtimestamp(details.st_mtime, UTC).isoformat()}
+        finally:
+            os.close(descriptor)
+
+    @classmethod
+    def _external_parent(cls, path: Path) -> tuple[int, str]:
+        """Walk an explicit host path without resolving away links/reparse points."""
+        if os.name == "nt" and str(path).startswith(("\\\\.\\", "\\\\?\\")):
+            raise ValueError("transfer paths must not use Windows device namespaces")
+        path = Path(os.path.abspath(path.expanduser()))
+        if not path.name:
+            raise ValueError("transfer requires a regular-file path")
+        if os.name == "nt" and any(
+            ":" in part or part.endswith((".", " "))
+            or part.casefold().split(".", 1)[0] in WINDOWS_RESERVED_NAMES
+            for part in path.parts[1:]
+        ):
+            raise ValueError("transfer paths must not use device names or alternate data streams")
+        anchor = _win_open_root(Path(path.anchor)) if os.name == "nt" else os.open(
+            path.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC
+        )
+        try:
+            for part in path.parts[1:-1]:
+                child = cls._open_directory_at(anchor, part)
+                cls._close_anchor(anchor)
+                anchor = child
+            return anchor, path.name
+        except BaseException:
+            cls._close_anchor(anchor)
+            raise
+
+    @_root_locked
+    def transfer(
+        self, session_id: str, container_path: str, host_path: Path, *,
+        direction: str, overwrite: bool = False,
+    ) -> dict[str, Any]:
+        """Stream and verify one file, then atomically publish it; never move evidence."""
+        if direction not in {"import", "export"}:
+            raise ValueError("direction must be import or export")
+        normalized = self.normalize_container_path(container_path)
+        if self._relative_parts(normalized) == (MANIFEST_NAME,):
+            raise ValueError("transfers cannot replace or export the ownership manifest")
+        workspace_parent, workspace_name = self._open_parent_anchor(
+            session_id, normalized, create_directories=direction == "import"
+        )
+        external_parent = None
+        source_fd = destination_fd = -1
+        temporary = ""
+        published = False
+        try:
+            external_parent, external_name = self._external_parent(host_path)
+            if direction == "import":
+                source_parent, source_name = external_parent, external_name
+                destination_parent, destination_name = workspace_parent, workspace_name
+            else:
+                source_parent, source_name = workspace_parent, workspace_name
+                destination_parent, destination_name = external_parent, external_name
+            try:
+                self._file_stat_at(destination_parent, destination_name)
+            except FileNotFoundError:
+                pass
+            else:
+                if not overwrite:
+                    raise FileExistsError("destination exists; use --overwrite explicitly")
+            source_fd = self._fd_from_handle(
+                self._open_file_at(source_parent, source_name), os.O_RDONLY
+            )
+            before = os.fstat(source_fd)
+            if not stat.S_ISREG(before.st_mode):
+                raise ValueError("transfer source must be a regular file")
+            temporary = f".hercules-transfer-{uuid.uuid4().hex}.tmp"
+            destination_fd = self._fd_from_handle(self._open_file_at(
+                destination_parent, temporary, write=True, exclusive=True, delete=True,
+                mode=before.st_mode & 0o777,
+            ), os.O_WRONLY)
+            digest = hashlib.sha256()
+            total = 0
+            while chunk := os.read(source_fd, 1024 * 1024):
+                digest.update(chunk)
+                total += len(chunk)
+                view = memoryview(chunk)
+                while view:
+                    written = os.write(destination_fd, view)
+                    if written <= 0:
+                        raise OSError("transfer write made no progress")
+                    view = view[written:]
+            os.fsync(destination_fd)
+            after = os.fstat(source_fd)
+            if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                raise OSError("transfer source changed during copy")
+            verification_fd = self._fd_from_handle(
+                self._open_file_at(destination_parent, temporary), os.O_RDONLY
+            )
+            with os.fdopen(verification_fd, "rb") as stream:
+                verified = hashlib.file_digest(stream, "sha256").hexdigest()
+            if verified != digest.hexdigest():
+                raise OSError("transfer checksum verification failed")
+            if os.name == "nt":
+                _win_rename_at(msvcrt.get_osfhandle(destination_fd), destination_parent,
+                               destination_name, overwrite=overwrite)
+            elif overwrite:
+                os.replace(temporary, destination_name, src_dir_fd=destination_parent,
+                           dst_dir_fd=destination_parent)
+            else:
+                os.link(temporary, destination_name, src_dir_fd=destination_parent,
+                        dst_dir_fd=destination_parent, follow_symlinks=False)
+                os.unlink(temporary, dir_fd=destination_parent)
+            published = True
+            if os.name != "nt":
+                os.fsync(destination_parent)
+            return {"session_id": session_id, "path": normalized, "direction": direction,
+                    "host_path": str(host_path.absolute()), "bytes": total, "sha256": verified,
+                    "checksum_verified": True}
+        finally:
+            for descriptor in (source_fd, destination_fd):
+                if descriptor >= 0:
+                    os.close(descriptor)
+            if temporary and not published:
+                with suppress(OSError, ValueError):
+                    if os.name == "nt":
+                        _win_delete_at(destination_parent, temporary)
+                    else:
+                        os.unlink(temporary, dir_fd=destination_parent)
+            if external_parent is not None:
+                self._close_anchor(external_parent)
+            self._close_anchor(workspace_parent)
 
     @staticmethod
     def _copy_regular_at(
@@ -1154,7 +1359,8 @@ class WorkspaceManager:
     @classmethod
     def _remove_open_tree(cls, parent: int, name: str, directory: int) -> None:
         expected = os.fstat(directory) if os.name != "nt" else None
-        for child_name in cls._list_anchor_names(directory):
+        # A failed cleanup must leave ownership available for an exact retry.
+        for child_name in sorted(cls._list_anchor_names(directory), key=lambda name: name == MANIFEST_NAME):
             try:
                 child = cls._open_directory_at(
                     directory,
@@ -1277,6 +1483,7 @@ class WorkspaceManager:
             )
         return sessions
 
+    @_root_locked
     def cleanup_empty_owned(
         self,
         *,
@@ -1325,6 +1532,7 @@ class WorkspaceManager:
                 self._close_anchor(root_anchor)
         return removed
 
+    @_root_locked
     def prune(
         self,
         *,
@@ -1425,7 +1633,49 @@ class WorkspaceManager:
             "preserved": len(sessions) - len(removed),
         }
 
-    def migrate(self, destination: Path, *, delete_source: bool = False) -> dict[str, Any]:
+    def migrate(self, destination: Path, *, delete_source: bool = False, staging_callback=None) -> dict[str, Any]:
+        if delete_source:
+            raise ValueError("migration retains the source; use a separate explicit retirement after verified cutover")
+        from contextlib import ExitStack
+
+        with ExitStack() as locks:
+            for root in sorted({self.root, Path(destination).expanduser().resolve()}, key=lambda path: os.path.normcase(str(path))):
+                locks.enter_context(workspace_lock(root))
+            self.assert_not_retired()
+            self.assert_quiescent()
+            return self._migrate_locked(destination, staging_callback=staging_callback)
+
+    def assert_quiescent(self) -> None:
+        from hercules.core.process_identity import owner_state
+
+        sessions = self.list_sessions()
+        for session in sessions:
+            manifest = self.read_manifest(session["session_id"])
+            if not manifest:
+                raise ValueError(f"workspace session {session['session_id']} has unknown ownership")
+            state = owner_state(manifest)
+            if state != "dead":
+                raise ValueError(f"workspace session {session['session_id']} owner is {state}; close its MCP connection before migration")
+        try:
+            import docker
+
+            client = docker.from_env()
+            try:
+                for container in client.containers.list(all=True):
+                    for mount in container.attrs.get("Mounts", []):
+                        source = mount.get("Source")
+                        if not source:
+                            continue
+                        mounted = Path(source).resolve()
+                        if mounted == self.root or self.root in mounted.parents or mounted in self.root.parents:
+                            raise ValueError(f"container {container.id} still mounts this workspace; resolve that container explicitly")
+            finally:
+                client.close()
+        except docker.errors.DockerException as exc:
+            if any((self.read_manifest(session["session_id"]) or {}).get("container_started") for session in sessions):
+                raise ValueError("container mounts cannot be verified while Docker is unavailable") from exc
+
+    def _migrate_locked(self, destination: Path, *, staging_callback=None) -> dict[str, Any]:
         requested = Path(destination).expanduser()
         target_parent = requested.absolute().parent.resolve()
         target = target_parent / requested.name
@@ -1473,6 +1723,8 @@ class WorkspaceManager:
         staging_anchor = 0
         migrated = False
         try:
+            if staging_callback:
+                staging_callback(target_parent / staging_name, created=False)
             staging_anchor = self._open_directory_at(
                 parent_anchor,
                 staging_name,
@@ -1481,6 +1733,8 @@ class WorkspaceManager:
                 delete=os.name == "nt",
                 mode=0o700,
             )
+            if staging_callback:
+                staging_callback(target_parent / staging_name, created=True)
             source_inventory = self._copy_anchor_tree(
                 source_anchor,
                 staging_anchor,
@@ -1488,16 +1742,21 @@ class WorkspaceManager:
             target_inventory = self._inventory_anchor(staging_anchor)
             if source_inventory != target_inventory:
                 raise RuntimeError("workspace migration verification failed")
+            if self._inventory_anchor(source_anchor) != source_inventory:
+                raise RuntimeError("workspace source changed during migration; original retained")
             if target.exists():
-                existing = self._open_directory_at(parent_anchor, target.name)
+                existing = self._open_directory_at(parent_anchor, target.name, delete=os.name == "nt")
                 try:
                     if self._list_anchor_names(existing):
                         raise ValueError(
                             "migration destination became non-empty during copy"
                         )
+                    if os.name == "nt":
+                        _win_mark_delete(existing)
+                    else:
+                        os.rmdir(target.name, dir_fd=parent_anchor)
                 finally:
                     self._close_anchor(existing)
-                self._remove_tree_at(parent_anchor, target.name)
             if os.name == "nt":
                 _win_rename_at(staging_anchor, parent_anchor, target.name)
             else:
@@ -1510,42 +1769,20 @@ class WorkspaceManager:
                 os.fsync(parent_anchor)
             migrated = True
         finally:
+            if staging_anchor and not migrated:
+                with suppress(OSError, ValueError):
+                    self._remove_open_tree(parent_anchor, staging_name, staging_anchor)
             if staging_anchor:
                 self._close_anchor(staging_anchor)
             self._close_anchor(source_anchor)
-            if not migrated:
-                with suppress(OSError, ValueError):
-                    self._remove_tree_at(parent_anchor, staging_name)
             self._close_anchor(parent_anchor)
 
-        source_deleted = False
-        source_delete_error = ""
-        if delete_source:
-            source_parent = self.root.parent
-            source_parent_anchor = (
-                _win_open_root(source_parent)
-                if os.name == "nt"
-                else os.open(
-                    source_parent,
-                    os.O_RDONLY
-                    | os.O_DIRECTORY
-                    | os.O_CLOEXEC
-                    | getattr(os, "O_NOFOLLOW", 0),
-                )
-            )
-            try:
-                self._remove_tree_at(source_parent_anchor, self.root.name)
-                source_deleted = True
-            except (OSError, ValueError) as exc:
-                source_delete_error = str(exc)
-            finally:
-                self._close_anchor(source_parent_anchor)
         return {
             "source": str(self.root),
             "destination": str(target),
             "migrated": True,
-            "source_deleted": source_deleted,
-            "source_delete_error": source_delete_error,
+            "source_deleted": False,
+            "source_delete_error": "",
             "files": source_inventory[0],
             "bytes": source_inventory[1],
         }

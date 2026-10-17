@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import platform
 import socket
 import subprocess
@@ -152,6 +153,15 @@ def _host_network_snapshot() -> dict:
 
 def register_system_tools(mcp: FastMCP) -> None:
 
+    def runtime_fields(docker) -> dict:
+        return {
+            "host_workspace": str(docker.workspace_path),
+            "container_workspace": "/opt/workspace",
+            "session_id": docker.session_id,
+            "generation": docker.generation,
+            "container_running": docker.container_running,
+        }
+
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_container"])
     async def system_start_container(ctx: Context = None) -> dict:
         """Explicitly start or reattach the active Hercules container."""
@@ -178,6 +188,7 @@ def register_system_tools(mcp: FastMCP) -> None:
                 "container_running": docker.container_running,
                 "start_mode": "failed",
                 "message": "Container startup failed; the workspace was preserved.",
+                **runtime_fields(docker),
             }
         return {
             "tool": "system_start_container",
@@ -187,6 +198,7 @@ def register_system_tools(mcp: FastMCP) -> None:
             "container_running": docker.container_running,
             "start_mode": start_mode,
             "message": f"Session '{docker.session_id}' container is ready.",
+            **runtime_fields(docker),
         }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_start_new_session"])
@@ -232,6 +244,7 @@ def register_system_tools(mcp: FastMCP) -> None:
                     "Failed to create a new session. See active_session_id and "
                     "container_running for the exact recovery state."
                 ),
+                **runtime_fields(docker),
             }
 
         return {
@@ -243,6 +256,7 @@ def register_system_tools(mcp: FastMCP) -> None:
             "container_running": False,
             "next_steps": ["Call system_start_container before using Docker-backed tools."],
             "message": f"New session '{new_session}' created and stopped. Previous session '{old_session}' data preserved on host.",
+            **runtime_fields(docker),
         }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_list_sessions"])
@@ -265,6 +279,12 @@ def register_system_tools(mcp: FastMCP) -> None:
             "active_session": docker.session_id,
             "total_sessions": len(sessions),
             "sessions": sessions,
+            **runtime_fields(docker),
+            "runtime_state": "attached" if docker.container_running else "stopped",
+            "runtime_state_source": "manager_attachment_not_docker_inspection",
+            "workspace_state_source": "recorded_manifest",
+            "current_owner": {"pid": os.getpid(), "instance_id": getattr(docker, "_instance_id", "")},
+            "job_inventory": await asyncio.to_thread(docker.job_inventory),
         }
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["system_stop_container"])
@@ -300,6 +320,9 @@ def register_system_tools(mcp: FastMCP) -> None:
                 if docker._config.preserve_container
                 else "stopped and removed"
             )
+            cleanup = getattr(docker, "_last_cleanup", {"confirmed": False})
+            if cleanup.get("container_disposition") == "not_attached":
+                disposition = "not attached; external Docker state was not inspected"
             return {
                 "tool": "system_stop_container",
                 "status": "success",
@@ -308,12 +331,16 @@ def register_system_tools(mcp: FastMCP) -> None:
                     f"Session '{session_id}' container {disposition}. Workspace files "
                     "are preserved; call system_start_container to resume."
                 ),
+                **runtime_fields(docker),
+                "cleanup": cleanup,
             }
         except Exception as exc:
             return {
                 "tool": "system_stop_container",
                 "status": "error",
                 "error": str(exc),
+                **runtime_fields(docker),
+                "cleanup": getattr(docker, "_last_cleanup", {"confirmed": False}),
                 "container_running": docker.container_running,
                 "operator_stopped": bool(
                     getattr(docker, "_operator_stopped", False)

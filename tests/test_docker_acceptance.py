@@ -4,6 +4,8 @@ import asyncio
 import os
 import socket
 import sys
+import signal
+import subprocess
 import threading
 from pathlib import Path
 
@@ -13,9 +15,22 @@ from fastmcp.client.transports import StdioTransport
 
 import docker
 from hercules.core.tool_catalog import ALL_CAPABILITIES, format_capabilities
+from hercules.core.workspace import WorkspaceManager
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUN_ACCEPTANCE = os.getenv("HERCULES_RUN_DOCKER_ACCEPTANCE") == "1"
+
+
+@pytest.fixture
+def cached_runtime():
+    from hercules.core.setup_info import setup_information
+    from hercules.setup.runtime import assets_ready, image_status
+
+    state = image_status(setup_information(PROJECT_ROOT, capabilities="all"))
+    if state != "ready":
+        pytest.skip(f"Docker/Windows runtime checks blocked: matching image is {state}; no build/download authorized")
+    if not assets_ready(PROJECT_ROOT / "wordlists", list(ALL_CAPABILITIES)):
+        pytest.skip("Docker runtime checks blocked: verified assets unavailable; no downloads authorized")
 
 
 @pytest.fixture
@@ -175,7 +190,7 @@ def _assert_ports_released(network_info: dict) -> None:
     not RUN_ACCEPTANCE,
     reason="set HERCULES_RUN_DOCKER_ACCEPTANCE=1 for the real Docker test",
 )
-def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows) -> None:
+def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime, console_windows) -> None:
     """Exercise cold, running, stopped, resumed, and fresh-session states."""
     initial_containers = _project_containers()
     test_sessions: set[str] = set()
@@ -184,7 +199,19 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows
         async with Client(_transport(tmp_path)) as client:
             tools = await client.list_tools()
             resources = await client.list_resources()
-            assert (len(tools), len(resources)) == (46, 7)
+            assert (len(tools), len(resources)) == (47, 7)
+            assert _project_containers() == initial_containers
+
+            inventory = (await client.call_tool("system_list_sessions")).structured_content
+            cold_session = inventory["session_id"]
+            manager = WorkspaceManager(tmp_path)
+            source = tmp_path / "local-handout.bin"
+            source.write_bytes(b"\x00\xfflocal-evidence")
+            manager.transfer(cold_session, "challenge/handout.bin", source, direction="import")
+            offline = (await client.call_tool("workspace_inspect", {
+                "action": "read", "path": "challenge/handout.bin", "encoding": "base64",
+            })).structured_content
+            assert offline["status"] == "success" and not offline["container_accessible"]
             assert _project_containers() == initial_containers
 
             cold = await client.call_tool(
@@ -234,6 +261,20 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows
             assert command["exit_code"] == 0
             assert command["stdout"] == "hercules-local-ok"
             assert _exact_container(session_id) == (container_id, "running")
+
+            custom = (await client.call_tool("shell_exec", {"command": (
+                "python3 -m venv /opt/workspace/challenge/.venv && "
+                "/opt/workspace/challenge/.venv/bin/python -m pip --version && "
+                "printf '%s\\n' 'from pathlib import Path' "
+                "'assert Path(\"/opt/workspace/challenge/handout.bin\").read_bytes() == bytes([0,255])+b\"local-evidence\"' "
+                "'Path(\"/opt/workspace/challenge/result.txt\").write_text(\"custom-tool-ok\")' "
+                "> /opt/workspace/challenge/custom.py && "
+                "/opt/workspace/challenge/.venv/bin/python /opt/workspace/challenge/custom.py"
+            ), "timeout": 120})).structured_content
+            assert custom["exit_code"] == 0
+            exported = tmp_path / "local-result.txt"
+            manager.transfer(session_id, "challenge/result.txt", exported, direction="export")
+            assert exported.read_text() == "custom-tool-ok"
 
             fixture = (
                 await client.call_tool(
@@ -302,7 +343,7 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows
             # neither create a container nor disturb this live exact-owned one.
             before_second = _project_containers()
             async with Client(_transport(tmp_path)) as second:
-                assert len(await second.list_tools()) == 46
+                assert len(await second.list_tools()) == 47
                 second_cold = await second.call_tool(
                     "shell_exec",
                     {"command": "true"},
@@ -319,8 +360,13 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows
                 await client.call_tool("system_stop_container")
             ).structured_content
             assert stopped["status"] == "success"
+            assert stopped["cleanup"]["confirmed"] is True
             assert container_id not in _project_containers()
             _assert_ports_released(network_info)
+            retained = (await client.call_tool("workspace_inspect", {
+                "action": "read", "path": "challenge/result.txt",
+            })).structured_content
+            assert retained["content"] == "custom-tool-ok" and not retained["container_accessible"]
             after_stop = await client.call_tool(
                 "shell_exec",
                 {"command": "true"},
@@ -372,3 +418,60 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, console_windows
         asyncio.run(scenario())
     finally:
         _remove_exact_test_containers(test_sessions)
+
+
+def _guardian_pids(container_id: str) -> list[int]:
+    if os.name == "nt":
+        result = subprocess.run([
+            "powershell", "-NoProfile", "-Command",
+            "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*hercules.core.orphan_guardian*' "
+            f"-and $_.CommandLine -like '*{container_id}*' }} | Select-Object -ExpandProperty ProcessId",
+        ], capture_output=True, text=True, check=True, timeout=15,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+        return [int(value) for value in result.stdout.split()]
+    result = subprocess.run(["ps", "-eo", "pid,args"], capture_output=True, text=True, check=True)
+    return [int(line.split()[0]) for line in result.stdout.splitlines()
+            if "hercules.core.orphan_guardian" in line and container_id in line]
+
+
+@pytest.mark.skipif(not RUN_ACCEPTANCE, reason="set HERCULES_RUN_DOCKER_ACCEPTANCE=1 for exact-owned Docker tests")
+def test_force_terminated_stdio_owner_is_cleaned_by_guardian(tmp_path, cached_runtime, console_windows):
+    from hercules.core.docker_manager import _process_start_token, _project_hash
+
+    initial = _project_containers()
+    sessions = set()
+
+    async def scenario():
+        async with Client(_transport(tmp_path)) as client:
+            started = (await client.call_tool("system_start_container")).structured_content
+            assert started["status"] == "success"
+            session = started["session_id"]
+            sessions.add(session)
+            container_id, _ = _exact_container(session)
+            network = (await client.call_tool("system_network_info")).structured_content
+            assert await asyncio.to_thread(_guardian_pids, container_id), "exact test guardian did not start"
+            docker_client = docker.from_env()
+            try:
+                labels = docker_client.containers.get(container_id).attrs["Config"]["Labels"]
+                assert labels["hercules.workspace_root_hash"] == _project_hash(tmp_path)
+                pid = int(labels["hercules.owner_pid"])
+                assert _process_start_token(pid) == labels["hercules.owner_start_token"]
+                os.kill(pid, signal.SIGTERM if os.name == "nt" else signal.SIGKILL)
+            finally:
+                docker_client.close()
+            for _ in range(150):
+                if container_id not in _project_containers():
+                    break
+                await asyncio.sleep(0.2)
+            assert _project_containers() == initial
+            _assert_ports_released(network)
+            for _ in range(30):
+                if not await asyncio.to_thread(_guardian_pids, container_id):
+                    break
+                await asyncio.sleep(0.2)
+            assert not await asyncio.to_thread(_guardian_pids, container_id)
+
+    try:
+        asyncio.run(scenario())
+    finally:
+        _remove_exact_test_containers(sessions)

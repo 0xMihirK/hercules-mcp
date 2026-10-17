@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
+import json
 import re
 import shlex
 import uuid
@@ -21,6 +22,7 @@ from hercules.core.guidance import (
     missing_param_error,
     selector_error,
     target_error,
+    usage_error,
 )
 from hercules.core.security import (
     redact_url,
@@ -33,6 +35,42 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 logger = logging.getLogger("hercules.tools.network")
+
+
+def _parse_headers(headers: str) -> list[str]:
+    """Keep commas in values; split legacy pairs only at a valid header name."""
+    if not headers.strip():
+        return []
+    if headers.lstrip().startswith("{"):
+        def unique_pairs(pairs):
+            result = {}
+            for name, value in pairs:
+                if name in result:
+                    raise ValueError("duplicate JSON header name")
+                result[name] = value
+            return result
+        decoded = json.loads(headers, object_pairs_hook=unique_pairs)
+        if not isinstance(decoded, dict) or not all(isinstance(v, str) for v in decoded.values()):
+            raise ValueError("JSON headers must be an object with string values")
+        candidates = [f"{name}: {value}" for name, value in decoded.items()]
+    elif "\n" in headers:
+        candidates = headers.replace("\r\n", "\n").split("\n")
+    else:
+        candidates = re.split(r",\s*(?=[!#$%&'*+.^_`|~0-9A-Za-z-]+\s*:)", headers)
+    result = []
+    for header in candidates:
+        if any(ord(character) < 32 or ord(character) == 127 for character in header):
+            raise ValueError("headers must not contain control characters")
+        header = header.strip()
+        if not header:
+            continue
+        name, separator, value = header.partition(":")
+        if not separator or not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name):
+            raise ValueError("each header requires a valid name followed by ':'")
+        if any(ord(character) < 32 or ord(character) == 127 for character in value):
+            raise ValueError("header values must not contain control characters")
+        result.append(f"{name}: {value.lstrip()}")
+    return result
 
 
 def register_network_tools(mcp: FastMCP) -> None:
@@ -74,10 +112,16 @@ def register_network_tools(mcp: FastMCP) -> None:
         if follow_redirects and not scoped:
             parts.append("-L")
 
-        if headers:
-            for h in headers.split(","):
-                if h.strip():
-                    parts.extend(["-H", shell_quote(h.strip(), label="HTTP header")])
+        try:
+            parsed_headers = _parse_headers(headers)
+        except ValueError:
+            return usage_error(
+                "network_curl", "invalid_headers", "Invalid HTTP header representation.",
+                expected="A JSON object of string values, newline-separated Name: value headers, or unambiguous legacy pairs.",
+                next_steps=["Use JSON headers to preserve commas in values; do not include control characters."],
+            )
+        for header in parsed_headers:
+            parts.extend(["-H", shell_quote(header, label="HTTP header")])
 
         if data:
             parts.extend(["-d", shell_quote(data, label="request data")])

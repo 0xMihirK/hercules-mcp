@@ -14,7 +14,7 @@
 
 ## Routing rules
 
-Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 46 tools with Metasploit and 41 without it; operator opt-outs can make fewer tools available.
+Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 47 tools with Metasploit and 42 without it; operator opt-outs can make fewer tools available. Core-only exposes 12 tools and all profiles retain seven resources.
 
 Inspect the tools the client actually exposes before planning. If an optional
 tool is absent, prefer another structured capability. Do not assume an omitted

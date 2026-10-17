@@ -169,9 +169,10 @@ def test_reattach_restarts_an_exact_owned_preserved_container() -> None:
     assert claim.kwargs["container_started"] is True
 
 
-def test_new_session_rotates_workspace_without_starting() -> None:
+def test_new_session_rotates_workspace_without_starting(tmp_path) -> None:
     manager = _manager()
     workspace = Mock()
+    workspace.root = tmp_path / "workspace"
     workspace.allocate_session.return_value = "bbbbbbbb"
     workspace.cleanup_empty_owned.return_value = []
     manager._workspace = workspace
@@ -193,9 +194,10 @@ def test_new_session_rotates_workspace_without_starting() -> None:
     generation_changed.assert_called_once_with(1)
 
 
-def test_new_session_stop_failure_preserves_the_old_session() -> None:
+def test_new_session_stop_failure_preserves_the_old_session(tmp_path) -> None:
     manager = _manager()
     workspace = Mock()
+    workspace.root = tmp_path / "workspace"
     workspace.allocate_session.return_value = "bbbbbbbb"
     workspace.cleanup_empty_owned.return_value = ["bbbbbbbb"]
     manager._workspace = workspace
@@ -379,7 +381,7 @@ def test_existing_mcp_input_schemas_match_captured_baseline() -> None:
     async def collect() -> dict[str, str]:
         hashes = {}
         for tool in await main.mcp.list_tools():
-            if tool.name == "system_start_container":
+            if tool.name in {"system_start_container", "workspace_inspect"}:
                 continue
             schema = json.dumps(tool.parameters, sort_keys=True, separators=(",", ":"))
             hashes[tool.name] = hashlib.sha256(schema.encode()).hexdigest()
@@ -411,7 +413,7 @@ def test_cold_mcp_connection_starts_no_container(monkeypatch, tmp_path) -> None:
             )
 
     tools, resource_count, result, rotated = asyncio.run(scenario())
-    assert len(tools) == 46
+    assert len(tools) == 47
     assert resource_count == 7
     assert "system_start_container" in tools
     assert result["error_type"] == "runtime_not_started"
@@ -482,7 +484,7 @@ def test_real_stdio_cold_connection_starts_no_container(tmp_path) -> None:
             )
 
     tool_count, resource_count, result, first_sessions = asyncio.run(scenario())
-    assert (tool_count, resource_count) == (46, 7)
+    assert (tool_count, resource_count) == (47, 7)
     assert result["error_type"] == "runtime_not_started"
     assert len(first_sessions) == 1
 
@@ -558,17 +560,19 @@ def test_install_update_contract_is_documented() -> None:
     install = (project_root / "install.md").read_text(encoding="utf-8")
     install_text = " ".join(install.split())
 
-    assert readme.count("Install or update Hercules MCP from") == 1
+    assert readme.count("Install or update Hercules MCP using") == 1
     for phrase in (
-        "Update in place",
-        "Reinstall",
+        "hercules-setup",
+        "--reinstall",
         "fast-forward only",
         "dirty or diverged",
-        "fresh staged checkout",
-        "atomic",
-        "Preserve .env",
-        "finally-equivalent cleanup",
+        "permanent path",
+        "Activation changes only the selected client's entry",
+        "Preserve `.env`",
+        "fingerprinted backups",
         "success, failure, cancellation, and interruption",
         "Never perform a broad Docker",
+        "Host setup never calls `shell_exec`",
+        "cold connection does not prove Kali is ready",
     ):
         assert phrase in install_text

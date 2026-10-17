@@ -22,6 +22,7 @@ import logging
 
 from fastmcp.server.middleware.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
+from fastmcp.exceptions import ValidationError as ToolValidationError
 
 from hercules.core.guidance import backend_unavailable, usage_error
 from hercules.core.tool_catalog import all_tool_names
@@ -34,6 +35,7 @@ _HOST_ONLY_TOOLS = frozenset(
         "system_start_container",
         "system_start_new_session",
         "system_stop_container",
+        "workspace_inspect",
     }
 )
 _DOCKER_BACKED_TOOLS = frozenset(all_tool_names()) - _HOST_ONLY_TOOLS
@@ -71,6 +73,20 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
     """
     name = type(exc).__name__
     msg = str(exc)
+
+    if isinstance(exc, ToolValidationError):
+        cause = exc.__cause__
+        details = []
+        if hasattr(cause, "errors"):
+            details = [
+                {"parameter": ".".join(map(str, item["loc"])), "message": item["msg"]}
+                for item in cause.errors(include_input=False, include_context=False, include_url=False)
+            ]
+        return usage_error(
+            tool, "invalid_parameters", "Tool arguments do not match the advertised input schema.",
+            recoverable=True, expected=details or "Use the tool's live input schema.",
+            next_steps=["Check required parameters and allowed selector values in the live tool schema, then retry."],
+        )
 
     runtime_not_started = (
         _is(exc, RuntimeNotStarted)
@@ -185,8 +201,8 @@ class ToolExceptionFirewall(Middleware):
         except Exception as exc:  # NOT BaseException: let CancelledError/SystemExit propagate
             try:
                 payload = classify_exception(exc, tool_name)
-                if payload.get("error_type") == "runtime_not_started":
-                    logger.info("Docker-backed tool '%s' called while stopped.", tool_name)
+                if payload.get("error_type") in {"runtime_not_started", "invalid_parameters"}:
+                    logger.info("Tool '%s' rejected: %s.", tool_name, payload["error_type"])
                 else:
                     logger.exception("Firewall caught exception in tool '%s'", tool_name)
                 return ToolResult(structured_content=payload)
@@ -216,6 +232,7 @@ class ParameterFilterMiddleware(Middleware):
         arguments = getattr(message, "arguments", None) or {}
         fastmcp_context = getattr(context, "fastmcp_context", None)
         server = getattr(fastmcp_context, "fastmcp", None)
+        meaningful_dropped = []
         if server is not None and tool_name:
             try:
                 tool = await server.get_tool(tool_name)
@@ -223,6 +240,7 @@ class ParameterFilterMiddleware(Middleware):
                 filtered = {key: value for key, value in arguments.items() if key in expected}
                 dropped = set(arguments) - set(filtered)
                 if dropped:
+                    meaningful_dropped = sorted(dropped - {"description"})
                     logger.debug(
                         "Stripped unknown injected parameters from '%s': %s",
                         tool_name,
@@ -231,4 +249,16 @@ class ParameterFilterMiddleware(Middleware):
                     message.arguments = filtered
             except Exception as exc:
                 logger.debug("Parameter filter failed for '%s': %s", tool_name, exc)
-        return await call_next(context)
+        result = await call_next(context)
+        if meaningful_dropped and isinstance(result.structured_content, dict):
+            payload = dict(result.structured_content)
+            payload["ignored_arguments"] = meaningful_dropped
+            payload["usage_warnings"] = [
+                *payload.get("usage_warnings", []),
+                "Ignored unsupported arguments: " + ", ".join(meaningful_dropped)
+                + ". Use the live tool schema; these options were not applied.",
+            ]
+            annotated = ToolResult(structured_content=payload, meta=result.meta, is_error=result.is_error)
+            annotated.content.extend(block for block in result.content if block.type != "text")
+            return annotated
+        return result

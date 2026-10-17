@@ -106,11 +106,11 @@ def test_concurrency_cancellation_does_not_leak_slots(kind, phase):
 @pytest.mark.parametrize(
     "profile,skip,disabled,count",
     [
-        ("all", "false", "", 46),
-        ("all", "true", "", 41),
-        ("core", "false", "", 11),
-        ("all", "false", "nmap_scan,metasploit_search,shell_exec", 44),
-        ("all", "false", "removed_tool,nmap_scan,shell_exec", 45),
+        ("all", "false", "", 47),
+        ("all", "true", "", 42),
+        ("core", "false", "", 12),
+        ("all", "false", "nmap_scan,metasploit_search,shell_exec", 45),
+        ("all", "false", "removed_tool,nmap_scan,shell_exec", 46),
     ],
 )
 def test_native_visibility_matches_stdio_and_setup(

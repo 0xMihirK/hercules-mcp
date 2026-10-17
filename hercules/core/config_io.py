@@ -10,6 +10,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from dotenv.main import DotEnv
+
 SETUP_STATE_SCHEMA_VERSION = 4
 SECRET_KEY = re.compile(
     r"(?:^|_)(?:password|passwd|token|secret|cookie|proxy_url|api_key|"
@@ -19,6 +21,19 @@ SECRET_KEY = re.compile(
 DOTENV_ASSIGNMENT = re.compile(
     r"^\s*(?P<key>[A-Za-z_][A-Za-z0-9_]*)\s*=(?P<value>.*)$"
 )
+
+
+def dotenv_path(project_root: Path) -> Path:
+    """Managed installs can retain configuration outside immutable releases."""
+    supplied = os.getenv("HERCULES_ENV_FILE", "").strip()
+    if not supplied:
+        return project_root / ".env"
+    path = Path(supplied).expanduser()
+    if not path.is_absolute():
+        raise ValueError("HERCULES_ENV_FILE must be an absolute path")
+    if not path.is_file():
+        raise ValueError("HERCULES_ENV_FILE does not name an existing file")
+    return path
 
 
 def atomic_write_private_bytes(path: Path, content: bytes) -> None:
@@ -56,25 +71,11 @@ def atomic_write_private_text(path: Path, text: str) -> None:
 
 
 def read_dotenv_value(path: Path, key: str) -> str | None:
-    """Read one dotenv assignment while accepting whitespace and quotes."""
+    """Use the same dotenv grammar and interpolation as runtime configuration."""
     if not path.is_file():
         return None
-    found: str | None = None
-    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        match = DOTENV_ASSIGNMENT.fullmatch(line)
-        if match is None or match.group("key") != key:
-            continue
-        raw_value = match.group("value").strip()
-        if (
-            len(raw_value) >= 2
-            and raw_value[0] == raw_value[-1]
-            and raw_value[0] in {"'", '"'}
-        ):
-            raw_value = raw_value[1:-1]
-        found = raw_value
-    return found
+    # Runtime load_dotenv does not override inherited environment values.
+    return DotEnv(path, override=False, encoding="utf-8").dict().get(key)
 
 
 def dotenv_value_status(path: Path, key: str) -> dict[str, bool]:
@@ -88,18 +89,19 @@ def dotenv_value_status(path: Path, key: str) -> dict[str, bool]:
 
 def upsert_dotenv(path: Path, updates: dict[str, str]) -> None:
     """Update selected dotenv keys without changing unrelated assignments."""
-    lines = (
-        path.read_text(encoding="utf-8", errors="replace").splitlines()
-        if path.is_file()
-        else []
-    )
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    atomic_write_private_text(path, render_dotenv(text, updates))
+
+
+def render_dotenv(text: str, updates: dict[str, str]) -> str:
+    lines = text.splitlines()
     remaining = dict(updates)
     output: list[str] = []
     for line in lines:
         match = DOTENV_ASSIGNMENT.fullmatch(line)
         key = match.group("key") if match is not None else ""
         if key in updates:
-            output.append(f"{key}={updates[key]}")
+            output.append(f"{key}={json.dumps(updates[key], ensure_ascii=False)}")
             remaining.pop(key, None)
         else:
             output.append(line)
@@ -107,8 +109,8 @@ def upsert_dotenv(path: Path, updates: dict[str, str]) -> None:
         if output and output[-1].strip():
             output.append("")
         output.append("# Agent-maintained Hercules preferences")
-        output.extend(f"{key}={value}" for key, value in remaining.items())
-    atomic_write_private_text(path, "\n".join(output).rstrip("\n") + "\n")
+        output.extend(f"{key}={json.dumps(value, ensure_ascii=False)}" for key, value in remaining.items())
+    return "\n".join(output).rstrip("\n") + "\n"
 
 
 def _secret_paths(value: Any, prefix: str = "") -> list[str]:

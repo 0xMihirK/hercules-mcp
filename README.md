@@ -54,40 +54,31 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or update Hercules MCP from https://github.com/0xMihirK/hercules-mcp by following https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Before changing anything, inspect for an existing managed checkout, setup state, skill, and active-client registration. If Hercules is already installed, summarize its revision and non-secret configuration, then ask me to choose Update in place or Reinstall; do not mutate until I answer. Preserve configuration, secrets, capabilities, scope, assets, workspaces, and evidence unless I explicitly request deletion. Configure only the active client with an absolute secret-free STDIO launcher, run local-only verification including explicit container start and stop, and always clean transaction-owned temporary files, processes, containers, backups, and ports on success, failure, or interruption. Never contact an external target, use a bare-PATH launcher, silently make privileged changes, reset a dirty checkout, run a broad Docker/filesystem prune, or report success before cleanup. Finally tell me whether an MCP reload, new agent session, or IDE restart is required.
+Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md and its hercules-setup CLI. Identify the current client explicitly; configure only that client. Run read-only status first, explain the proposed changes, then perform the authorized host install/update or repair. Preserve existing preferences, secrets, evidence, and other clients; offer full capabilities for a new install. Ask separately before runtime image/assets downloads or container testing. If a harness denies an action, stop it and report the exact blocked operation; never change permission modes or retry through another tool. Use the CLI's recovery and exact-owned cleanup. Report host revision, registration/reload, runtime preparation, actual verification results, cleanup, and one next action separately. A cold connection is not runtime verification.
 ```
 
-The authoritative installation contract is [install.md](install.md). It defines
-required outcomes and safety boundaries without assuming a package manager,
-shell, init system, CPU architecture, Docker context, or client configuration
-format. The active agent inspects the real environment, uses its native tooling
-knowledge, and consults current vendor documentation before acting.
+The shared [setup workflow](install.md) handles discovery, install/update,
+repair, and recovery. `status` is read-only; `install` prepares a permanent
+version and registers an absolute launcher for just the selected client.
+Repeated installation preserves your configuration without asking you to
+choose update versus reinstall. An explicit `--reinstall` remains available.
 
-On a first install, the agent:
+Host setup needs Git and [`uv`](https://docs.astral.sh/uv/), but not Docker.
+Use `scripts/setup.ps1` on Windows or `scripts/setup.sh` on macOS/Linux to
+bootstrap once, then reuse the absolute `hercules-setup` launcher. Supported
+clients include Claude Code/Desktop, Codex, Cursor, VS Code, Gemini CLI,
+OpenCode, Windsurf, and Hermes; other local STDIO clients can use a generic export.
 
-- asks what Hercules will be used for and recommends the smallest useful
-  capability set;
-- confirms user-wide or project-local scope;
-- asks about a browser proxy only when browser support is selected;
-- prepares a durable, non-synced checkout and locked Python tool environment;
-- resolves its absolute launcher and reads the matching setup facts;
-- builds and validates the selected stable-snapshot image before committing state;
-- installs the provider-neutral portable skill independently from an MCP-only
-  native plugin adapter; and
-- registers one secret-free absolute STDIO launcher in the active client.
+`runtime prepare` separately builds/reuses the image and provisions verified
+assets. `verify` checks cold STDIO; `verify --runtime` explicitly tests a local
+container. New installs default to full capabilities; existing selections,
+secrets, workspaces, assets, scope, and unrelated settings are preserved.
+An update needing a new image stays pending while the old version remains active.
+Running environments are never moved or replaced, and no broad cleanup is used.
 
-Upgrades preserve the selected capabilities, `.env`, secrets, workspace
-evidence, verified assets, scope, proxy preference, and unrelated client
-settings unless the operator explicitly changes them. Hercules does not provide
-a mutating setup executable: the installing agent owns the transaction and uses
-Hercules' read-only setup facts to avoid guessing.
-
-Host prerequisites are Git, [`uv`](https://docs.astral.sh/uv/), and a working
-Docker Engine, Docker Desktop, or compatible Docker context with local STDIO
-MCP support in the active client. Missing privileged
-prerequisites require the operator's involvement; setup must not silently alter
-system packages, services, groups, or daemon configuration. Docker-specific
-agents can consult [Docker's complete LLM context](https://docs.docker.com/llms-full.txt).
+For Claude Code auto mode, a denied action stays stopped until you resolve it
+through Claude's permission interface. Setup does not change permission modes
+or approval rules. Missing privileged prerequisites also require operator action.
 
 ## Capabilities and MCP surface
 
@@ -97,8 +88,8 @@ workspace services are mandatory.
 
 | Profile | Registered tools | Resources |
 | --- | ---: | ---: |
-| Full, including Metasploit | 46 | 7 |
-| Full, with `SKIP_METASPLOIT=true` | 41 | 7 |
+| Full, including Metasploit | 47 | 7 |
+| Full, with `SKIP_METASPLOIT=true` | 42 | 7 |
 | Custom selection | Fewer, according to selected and hidden tools | 7 |
 
 The catalog groups these stable capability keys:
@@ -119,6 +110,13 @@ includes template authoring, and browser includes every `browser_*` tool.
 SecLists and rockyou are required only by profiles that use them.
 `HERCULES_DISABLED_TOOLS` can independently hide an installed tool, but it
 cannot add a binary omitted from the image.
+
+Capability selection controls preinstalled packages, not a sandbox against the
+privileged container shell. After explicit startup, agents may deliberately
+install/use custom tools through `shell_exec`; keep scripts, dependency notes,
+and Python virtual environments under `/opt/workspace`. Container-layer installs
+are temporary and are never replayed automatically. The small baseline includes
+SSH, unzip, and Python virtual-environment support.
 
 ## How Hercules works
 
@@ -144,6 +142,12 @@ Container replacement resets browser daemons, Metasploit clients, channels,
 jobs, and other generation-bound state while preserving host evidence. An
 operator-requested stop stays terminal until `system_start_container` is called.
 `system_start_new_session` creates a clean workspace and leaves it stopped.
+
+Use related challenge folders or choose an isolated workspace when necessary;
+coordinate parallel workers before rotation or shutdown. There is no idle
+auto-stop. At completion/abandonment, save progress, resolve owned jobs, stop the
+current runtime, and check its `cleanup` confirmation. Report preserved stopped
+containers and unverified cleanup separately; never prune another live owner.
 
 Target policies apply to structured DNS, WHOIS, HTTP, scanners, redirects,
 browser navigation, and Metasploit routes. Scoped hostnames are normalized and
@@ -207,9 +211,19 @@ reads support `offset` and `max_bytes` paging.
 Workspace paths reject traversal, alternate drives, device paths, and symlink
 or reparse-point escapes. Evidence retention is disabled by default; non-empty
 evidence is never silently deleted. `hercules-workspace` exposes list, pin,
-unpin, prune, and migrate operations. Pruning is report-only without `--apply`
+unpin, prune, migrate, retire, and explicit regular-file import/export operations. Pruning is report-only without `--apply`
 and protects active, pinned, unowned, and running-job sessions. Migration stages
-and verifies the copy, retaining the source unless deletion is explicit.
+and verifies the copy, cuts over explicitly selected client registrations and
+their effective dotenv, and always retains the source. Close all source MCP
+connections first, including cold ones. Source retirement is a separate explicit
+operation that rechecks references and evidence; see the workspace guide below.
+
+`workspace_inspect` lists, stats, and page-reads current or retained owned files
+without starting Docker. Lifecycle responses distinguish `host_workspace` from
+`container_workspace`; native host tools cannot read `/opt/workspace` directly.
+Retained evidence is not mounted in the current container. Explicit transfers
+verify SHA-256 and refuse existing destinations without `--overwrite`; see the
+portable [workspace guide](skills/hercules-mcp/references/workspace-and-evidence.md).
 
 ## MCP resources and agent guidance
 
@@ -253,8 +267,8 @@ JSON reports:
 - local acceptance assertions.
 
 The mode does not build, download, install, write, modify `PATH`, register a
-client, or update Docker. The active agent chooses suitable host-native actions
-from these facts and [install.md](install.md).
+client, or update Docker. `hercules-setup` consumes these facts to implement
+the shared workflow in [install.md](install.md).
 
 Repository MCP files are templates and must be rendered before installation;
 their bare `hercules` command is never a finished registration. An effective
@@ -279,7 +293,8 @@ honors `OPENCODE_CONFIG` and XDG paths,
 preserves JSONC comments, supports the installed client's direct or nested MCP
 layout, uses its current local-command form with an absolute command array and
 `timeout: 120000`, and places the independent skill at
-`.agents/skills/hercules-mcp`.
+its own OpenCode skills directory. Shared directories recorded for another
+client are not silently overwritten.
 
 Multiple coding agents and IDEs may connect at the same time. Hercules assigns
 each live STDIO server a separate workspace session but creates no container
@@ -297,6 +312,7 @@ Runtime values remain in the protected `.env`. See
 
 | Variable | Purpose |
 | --- | --- |
+| `HERCULES_ENV_FILE` | Absolute dotenv path for shared configuration outside version directories; defaults to checkout `.env` |
 | `HERCULES_INSTALLED_CAPABILITIES` | Agent-maintained capability selection |
 | `HERCULES_DISABLED_TOOLS` | Independently hide an installed MCP tool |
 | `ALLOWED_TARGETS` / `BLOCKED_TARGETS` | Structured target policy; deny rules win |
@@ -355,7 +371,7 @@ hercules/
 skills/hercules-mcp/         # Canonical provider-neutral portable skill
 docker/entrypoint.sh         # Container readiness and loopback-only services
 Dockerfile                   # Deterministic capability-specific Kali image
-install.md                   # Agent-directed installation contract
+install.md                   # Shared setup CLI workflow and recovery guide
 ```
 
 Before submitting changes, compile the package, run the unit suite, validate

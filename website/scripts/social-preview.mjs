@@ -51,7 +51,7 @@ ctx.fillStyle = "#D87950";
 ctx.fillText("AI agent.", 405, 382);
 ctx.fillStyle = "#A6AFBA";
 ctx.font = "15px Plex Mono";
-ctx.fillText("46 tools     22 capability bundles     7 resources", 64, 504);
+ctx.fillText("47 tools     22 capability bundles     7 resources", 64, 504);
 ctx.strokeStyle = "#343b44";
 ctx.beginPath();
 ctx.moveTo(64, 550);

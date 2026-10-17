@@ -1,195 +1,220 @@
 ---
 name: hercules-setup-contract
-description: Safe install, update, and reinstall contract for Hercules MCP
+description: Install, update, repair, and verify Hercules through its shared setup CLI
 ---
 
 # Install or update Hercules MCP
 
-This is an ordered contract for a terminal-capable agent. Adapt commands to the
-host, Docker context, CPU architecture, shell, security policy, and active AI
-client. Do not assume a package manager, inherited PATH, or client config
-format.
+Use `hercules-setup`, not an agent-written installer or acceptance script.
+Configure **only the current agent**, unless the user explicitly names others.
+Never infer the active agent from installed executables.
 
-Hercules requires Git, uv, a working Docker-compatible daemon, and a client
-that supports local STDIO MCP servers. Stop and report the missing prerequisite
-when fulfilling it needs privileged changes; never silently alter system
-packages, services, groups, or Docker daemon configuration.
+## Bootstrap once; reuse on updates
 
-Installation and verification are local-only. Do not scan, exploit, browse to,
-or test public egress against an external target.
+Host installation requires Git and uv. Docker is required only for runtime
+preparation and use. Missing privileged prerequisites need operator action;
+never alter system packages, services, groups, permissions, or Docker settings.
 
-## 1. Detect the current state and ask before mutation
+If installed, use the absolute `hercules-setup` launcher beside the client's
+recorded `hercules` launcher. Otherwise obtain the official repository, review
+the bootstrap, and run one of:
 
-Inspect, without changing anything:
+```powershell
+.\scripts\setup.ps1 install --client claude-code --yes
+```
 
-- managed Hercules checkouts and their current commits/working-tree state;
-- schema-4 setup state and its recorded scope, capabilities, platform, paths,
-  active client, and image identity;
-- the protected .env, reporting only whether required values are present;
-- installed portable skills and native MCP adapters;
-- the active client's effective Hercules registration; and
-- matching images, verified wordlists, workspace evidence, and live containers.
+```sh
+sh scripts/setup.sh install --client claude-code --yes
+```
 
-If no complete installation exists, run the first-install flow. Ask the user to
-confirm intended authorized use, the smallest useful capability set, user-wide
-or project-local scope, the active client, and a browser proxy only when browser
-support is selected.
+Both bootstraps prepare source and its locked Python environment at a permanent,
+non-synced path, print the exact revision, then delegate to the same Python CLI.
+They do not prepare Kali or call MCP execution tools. Failed bootstraps report
+their retained path; reuse its launcher once its locked environment is ready.
+Do not repeatedly clone successful bootstrap environments.
 
-If an installation exists, summarize its revision and non-secret configuration,
-then ask the user to choose **Update in place** or **Reinstall**. Do not mutate
-anything until they answer. Preserve the existing capability set, scope, proxy
-preference, paths, and client unless the user explicitly changes them.
+From a development checkout use `uv run --locked hercules-setup ...`.
+Registrations always use the absolute release launcher, never `uv run`, a bare
+PATH command, or a temporary checkout. Never globally replace a live editable
+tool with `uv tool install --editable --force`.
 
-An update may fetch and fast-forward only a clean managed checkout. If it is
-dirty or diverged, stop and report the exact condition; never reset, overwrite,
-or rewrite history. Reuse matching locked environments, images, assets, skills,
-and client entries.
+## Commands and separate phases
 
-A reinstall uses a fresh staged checkout and locked environment. Preserve .env,
-generated secrets, setup state, workspaces, evidence, wordlists, valid image
-cache, and unrelated client settings. Validate the replacement before an atomic
-swap. If the old checkout contains uncommitted work, retain it and report its
-path instead of deleting it.
+Examples abbreviate the absolute setup launcher as `hercules-setup`:
 
-## 2. Track one reversible transaction
-
-Before the first write, create a transaction ledger containing every temporary
-path, process, redirected stream, marker, backup, container ID and ownership
-label, and port binding created by this run. Snapshot only the existing Hercules
-client entry and non-secret setup state needed for rollback.
-
-Use a finally-equivalent cleanup path on success, failure, cancellation, and
-interruption. Serialize writes to .env, setup state, the skill destination, and
-client configuration. Staged independent checks may run concurrently, but only
-one image build and one large asset transfer should consume local resources at
-a time.
-
-## 3. Prepare source, launcher, and setup facts
-
-Place the managed checkout in a durable, non-synced user-data directory. Use
-the repository's default branch and record the exact commit. Create or refresh
-the persistent Python tool environment from pyproject.toml and uv.lock; the
-lockfile is the only dependency lock. Resolve the installed hercules launcher
-to an absolute path and prove that it imports this complete checkout.
-
-Run the launcher's read-only --setup-info-json mode with the confirmed
-capabilities and platform. Stop on source_association_invalid or when the
-reported revision, lock hash, capability selection, image identity, platform,
-or expected MCP counts do not match the intended installation.
-
-Hercules supports linux/amd64 and linux/arm64. Cross-architecture use needs an
-operator-approved Docker context with working emulation. Do not infer the
-runtime platform from the host alone.
-
-## 4. Build or reuse the exact runtime
-
-Reuse an existing image only when its complete setup-facts identity, labels,
-platform, capability manifest, required binaries, and readiness checks match.
-Otherwise build the exact reported image from the durable checkout.
-
-Keep TLS and hostname verification enabled. In an authorized intercepted-TLS
-environment, pass only an approved bounded certificate PEM as a BuildKit secret
-and record only its SHA-256; never copy certificate contents into source, state,
-or logs. Retry transient registry EOF, reset, timeout, or retryable 5xx failures
-at most twice with unchanged inputs. Do not retry deterministic Dockerfile,
-platform, checksum, package, or capability failures unchanged.
-
-For browser capability, use the exact official CloakBrowser artifact and
-checksum reported by setup facts. For required SecLists or rockyou assets,
-verify archives before atomic extraction into HERCULES_WORDLIST_ROOT. Never
-remove a selected capability to hide a build or asset failure.
-
-Preserve all existing .env values. Generate a strong URL-safe Metasploit RPC
-secret only when missing and needed. Store secrets and proxy URLs only in the
-protected .env; never display, log, echo, or place them in client config or
-non-secret state. Rotate any secret that reaches output.
-
-Prepare the schema-4 non-secret success state privately, preserving unknown
-fields. Record the exact revision, launcher, scope, capabilities, platform,
-image identity, paths, asset fingerprints, skill destination, active client,
-and expected MCP counts. Do not commit success state yet.
-
-## 5. Install the skill and active-client entry
-
-Install the canonical skills/hercules-mcp directory in the active client's
-documented skill location when supported. Keep it provider-neutral and separate
-from native plugin adapters. Validate content, not just directory presence.
-
-Configure only the confidently active client. Prefer its native MCP management
-interface; otherwise atomically replace only its Hercules entry while preserving
-unrelated servers, comments, and settings. The entry must use STDIO, the absolute
-launcher, no secrets, no checkout-relative working directory, and the client's
-current local-command shape. A bare hercules command is invalid.
-
-Repository MCP JSON files are templates, not finished registrations. For an
-unsupported client without local STDIO MCP, stop rather than inventing a proxy
-or remote transport.
-
-## 6. Run local acceptance
-
-Validate through a real disposable STDIO connection with
-PRESERVE_CONTAINER=false for the verification instance:
-
-1. A cold connection lists the tools and resources reported by the selected
-   profile's --setup-info-json mcp_surface, while creating no Docker container.
-   A full profile exposes 46 tools, or 41 with Metasploit disabled; custom
-   capability selections and hidden tools reduce that count. Every profile
-   exposes seven resources.
-2. A Docker-backed tool returns runtime_not_started and tells the agent to call
-   system_start_container; it must not create a container.
-3. system_start_container creates exactly one exact-owned container, waits for
-   readiness, and is idempotent when called again.
-4. One harmless local command succeeds. If browser capability is selected, use
-   a transaction-owned HTTP fixture inside the container and container loopback;
-   do not contact a public page.
-5. system_network_info reports the effective ports only after startup.
-6. system_stop_container removes the verification container, preserves its
-   workspace, and releases every RPC, listener, fixture, and stream port.
-7. A second cold STDIO connection creates no container and does not disturb any
-   already-running Hercules client.
-
-Also verify all resource reads, image labels, setup facts, skill content, the
-secret-free effective client entry, and exact-owner guardian cleanup after a
-disposable forced disconnect. Never stop another live client's container or use
-a broad Docker prune to make acceptance pass.
-
-## 7. Clean up, commit success, and activate
-
-Always execute cleanup before reporting success:
-
-- terminate transaction-owned background processes and confirm they exited;
-- stop and remove only containers whose exact ID and full Hercules ownership
-  labels match this transaction, then verify their ports are released;
-- remove transaction-owned scripts, logs, markers, staging directories, empty
-  verification workspaces, and obsolete backups; and
-- verify no secret entered logs, setup state, or client configuration.
-
-On failure, restore only the prior Hercules client entry and non-secret setup
-state. Preserve the committed checkout, protected .env, generated secrets,
-installed skill, selected image and valid Docker cache, verified wordlists,
-non-empty workspace evidence, and unrelated configuration. Report every item
-that could not be cleaned. Never perform a broad Docker, temporary-directory,
-or filesystem prune.
-
-After cleanup passes, atomically commit schema-4 success state as the final
-mutation. Then determine whether the active client needs an MCP reload, a new
-agent session, or an IDE restart, and ask for the smallest required action.
-Do not repeat installation merely to activate already-written settings.
-
-Print this line once only after a successful, fully cleaned transaction:
-
-~~~text
-Remember, with great power comes great responsibility ;)
-~~~
-
-## Failure classification
-
-| Failure | Action |
+| Command | Effect |
 | --- | --- |
-| Missing Git, uv, Docker, permissions, or STDIO support | Stop for operator action |
-| Dirty or diverged update checkout | Preserve it and ask; never reset |
-| Source/launcher mismatch | Repair the locked source association before building |
-| Deterministic image, checksum, platform, or capability failure | Fix the cause; do not retry unchanged inputs |
-| Transient registry transport failure | Retry at most twice with identical identity |
-| Client registration or acceptance failure | Restore the prior Hercules entry and setup state |
-| Partial cleanup | Report exact leftovers; do not claim success |
+| `status --client claude-code --json` | Read-only discovery; no downloads, Docker start, or config writes |
+| `install --client claude-code --yes` | Install/update/repair this client, with cold STDIO validation |
+| `repair --client claude-code --yes` | Repair the recorded version without upgrading |
+| `install --client claude-code --reinstall --yes` | Fresh replacement; retain the old checkout |
+| `runtime prepare --client claude-code --yes` | Explicit image build/reuse and verified asset downloads |
+| `resume --client claude-code --yes` | Recover unfinished writes and activate retained work when ready |
+| `verify --client claude-code` | Cold STDIO checks without execution-tool calls |
+| `verify --client claude-code --runtime` | Explicit local container start, harmless tools, and stop |
+| `install --client generic --yes` | Export a secret-free STDIO entry without editing a client |
+
+Use the same selectors on later commands. `--root` isolates managed storage and
+state; `--state` selects an existing schema-4 file. `--project` identifies the
+project without relying on the caller's current directory. Fresh installs
+default to user scope and full capabilities; use `--scope project` or
+`--capabilities shell,session,workspace,nmap` for a deliberate alternative.
+Existing preferences are preserved. Reinstall is never a mandatory question
+on an ordinary update.
+
+`--yes` confirms only the named setup operation, not harness permissions.
+Ask separately before large runtime downloads or container testing. A host-only
+installation can succeed with runtime preparation still required.
+
+## Client adapters
+
+Supported identifiers: `claude-code`, `claude-desktop`, `codex`, `cursor`,
+`vscode`, `gemini`, `opencode`, `windsurf`, `hermes`, and `generic`.
+
+Adapters preserve unrelated settings, comments, servers, environment overrides,
+and disabled/approval policy. Available Claude/Codex native CLIs validate the
+command in a disposable private profile before only the Hercules entry is
+merged into the real file. Other adapters use round-trip document edits.
+A failed native invocation is not retried through another method.
+
+Use `--config-path` for an explicitly selected non-default profile/config and
+`--skill-path` for a custom portable-skill destination. The adapters honor
+`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HERMES_HOME`, XDG paths, and OpenCode's disk
+config overrides. OpenCode supports direct `mcp.hercules` and nested
+`mcp.servers.hercules`. Conflicting files/layouts and inline config overrides
+require explicit resolution. VS Code profiles require the actual config path.
+Claude Desktop, Windsurf, and Hermes use their supported user scope.
+For a migrated Windsurf/Devin installation, explicitly select the active
+Cascade configuration and skill path; do not guess which agent is running.
+
+Duplicate Hercules entries/plugins are reported, not deleted or silently
+enabled. Unknown clients use the generic export. Clients without local STDIO
+support need manual resolution; never invent a remote proxy. Install the
+portable skill independently from native plugin adapters.
+Prefer client-specific skill directories. When a recorded skill path is shared
+with another client, setup refuses to overwrite different guidance there;
+select an independent `--skill-path` for the client being updated.
+
+Client entries contain no secrets. Move existing secret-bearing client values
+to the protected dotenv file before setup; never print them.
+`HERCULES_ENV_FILE` is an absolute file path. Without it, an existing checkout
+continues loading its original `.env`.
+
+## Safe updates and recovery
+
+Each version keeps its permanent path. Never move or copy its `.venv`, replace
+a running launcher, or kill a live user MCP process to complete an update.
+Activation changes only the selected client's entry. Other clients and existing
+sessions continue using their original versions.
+
+Updates are fast-forward only and refuse dirty or diverged source. Explicit
+reinstall retains modified old source. Preserve `.env`, generated secrets,
+capabilities, scope, proxy preference, image cache, verified wordlists, workspaces,
+and non-empty evidence. Legacy evidence paths are adopted without relocation.
+
+If a new image is required, keep the working installation active and report the
+replacement as pending. Run `runtime prepare`, then `resume`, when the user
+chooses to proceed.
+
+An installation lock serializes writers. A private journal records owned paths,
+process identities, and fingerprinted backups. Recovery restores unfinished
+activation before resuming. Unrelated concurrent client edits survive rollback;
+conflicting edits to the Hercules entry retain a private backup for review.
+
+Cleanup runs on success, failure, cancellation, and interruption. Hard process
+termination cannot execute a finally block; the next mutating command recovers
+the journal. Still-running processes are identified, not indiscriminately killed.
+Remove only owned temporary files/profiles and exact-owned verification containers.
+Retain useful verification evidence and recorded resumable candidates.
+Newly generated dotenv secrets are journaled, fingerprint-checked durable
+progress and retained for resume, not regenerated or deleted on failure.
+Locked/referenced versions remain available. Never perform a broad Docker or
+filesystem prune.
+
+## Runtime preparation and local verification
+
+Reuse images only when identity, labels, and platform match setup facts.
+Use checksum-pinned assets and never drop capabilities to mask failures.
+Preserve the Docker producer's exit status. Keep TLS and hostname verification
+enabled. `--build-ca-bundle` accepts only an approved certificate-only PEM;
+record its fingerprint, not certificate contents.
+
+Cold verification compares actual STDIO tools/resources with setup facts and
+reads bundled skill resources. Remote resource catalogs are listed but not
+fetched during local-only verification.
+
+Explicit runtime verification uses a disposable workspace and
+`PRESERVE_CONTAINER=false`: pre-start guard, explicit/idempotent start,
+harmless local command, optional container-loopback browser fixture, an actual
+second cold connection, stop, and port release. Never contact a public target or
+perform an egress test. Never stop another client's container.
+
+## Claude Code auto mode
+
+Keep discovery, host setup, registration, image preparation, and runtime
+verification distinct. Host setup never calls `shell_exec` or
+`system_start_container`.
+
+If Claude denies a command, stop that action and report its exact scope and
+retained transaction. Wait for the user to resolve it through Claude's supported
+permission interface. Never change permission modes, add blanket allow rules,
+install approval hooks, conceal operations, or retry through another tool.
+A user-approved resume does not guarantee every classifier or organization
+policy will approve. See [Claude's permission documentation](https://code.claude.com/docs/en/permission-modes).
+
+Scripted demos and blanket MCP approvals do not prove real auto-mode compatibility.
+Record live classifier checks separately with actual version, outcome, and
+blocked steps.
+
+## Report precisely
+
+Report host revision, selected-client registration, runtime preparation, actual
+host/runtime verification results, cleanup, retained items, and one next action.
+A cold connection does not prove Kali is ready. `current_session_loaded: unknown`
+means an MCP reload, new session, or IDE restart may still be needed.
+Do not reinstall merely to activate settings.
+
+Runtime images include the small SSH, unzip, and Python virtual-environment
+baseline. Image changes are prepared separately; an existing working client
+stays on its version until the candidate runtime is ready. Custom packages are
+installed only deliberately inside an explicitly started container through
+`shell_exec`, never as part of host setup or automatically during startup.
+Container-layer installs are temporary; keep custom scripts and dependency
+records in the workspace.
+
+Agents can use `workspace_inspect` without starting Docker. Use the installed
+absolute `hercules-workspace` launcher for explicit regular-file `import` and
+`export` with `--session`, `--source`, and `--destination`; checksum verification
+is mandatory and replacement requires `--overwrite`. Stop only the current
+owned runtime when work is complete, confirm its cleanup fields, and retain
+evidence. There is no idle auto-stop or broad cleanup.
+
+`--json` emits one non-secret report on stdout; progress goes to stderr.
+Failed subprocess diagnostics stay in a private transaction log; the report
+names its path without echoing potentially secret-bearing stderr.
+Only actual error/status fields indicate failures. Setup facts' diagnostic
+catalog is reference information, not a list of active errors.
+
+Candidate verification and asset preparation run in that candidate's own locked
+Python environment. Pending updates retain their selected guidance destination;
+resume refuses changed guidance or a conflicting `--skill-path`.
+
+For host file transfers and maintenance, pass the explicit host workspace root:
+the harness shell does not inherit MCP registration environment overrides.
+Workspace migration honors `HERCULES_ENV_FILE` and requires explicit affected
+`--client`/`--state` selections. It refuses live/uncertain owners, including cold
+connections, verifies a copy, updates selected configuration transactionally,
+and retains the original. `--delete-source` is refused during migration; use
+the separately verified `retire --references-reviewed` operation only after
+reviewing every custom/unlisted reference and resolving pinned evidence.
+
+## Development checks
+
+Run `uv sync --locked --extra dev --inexact`, then `uv run --locked pytest`.
+The default suite uses fixtures, not real client registrations.
+Opt into `HERCULES_RUN_SETUP_ACCEPTANCE=1` for disposable real installs/native
+registration, and `HERCULES_RUN_DOCKER_ACCEPTANCE=1` for cached-image lifecycle
+checks including Windows console events. `HERCULES_RUN_CLAUDE_AUTO=1` additionally
+uses a signed-in Claude session for an actual auto-mode fixture installation;
+it has no approval allowlist, permission hooks, or mocked classifier. A blocked
+or unavailable live check is reported separately, never counted as a pass.
