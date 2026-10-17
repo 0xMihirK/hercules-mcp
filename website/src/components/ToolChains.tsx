@@ -14,26 +14,30 @@ import { TerminalWindow } from "@phosphor-icons/react/TerminalWindow";
 const evidence=(path:string)=>import.meta.env.BASE_URL+"assets/recordings/evidence/"+path;
 const demoAsset=(path:string)=>import.meta.env.BASE_URL+"assets/demos/"+path;
 
+// `visible` tracks the viewport so the looping keyframes stop when the section
+// scrolls away; `entered` latches once so the entrance plays a single time.
 function useSectionMotion(root:React.RefObject<HTMLElement|null>, reduced:boolean){
   const [visible,setVisible]=useState(reduced);
+  const [entered,setEntered]=useState(reduced);
   useEffect(()=>{
-    if(reduced||!root.current){setVisible(true);return;}
+    if(reduced||!root.current){setVisible(true);setEntered(true);return;}
     const observer=new IntersectionObserver(entries=>{
-      if(entries.some(entry=>entry.isIntersecting)){setVisible(true);observer.disconnect();}
+      const showing=entries.some(entry=>entry.isIntersecting);
+      setVisible(showing);
+      if(showing)setEntered(true);
     },{threshold:.12});
     observer.observe(root.current);
     return()=>observer.disconnect();
   },[reduced,root]);
   useEffect(()=>{
-    if(!visible||reduced||!root.current)return;
+    if(!entered||reduced||!root.current)return;
     const context=gsap.context(()=>{
       const timeline=gsap.timeline({defaults:{ease:"power3.out"}});
       timeline.fromTo(".demo-main",{y:24,clipPath:"inset(0 0 9% 0)"},{y:0,clipPath:"inset(0 0 0 0)",duration:.7})
-        .fromTo(".demo-secondary",{y:18,opacity:.35},{y:0,opacity:1,duration:.55,stagger:.12},"-=.42")
-        .fromTo(".demo-wire",{scaleX:0},{scaleX:1,duration:.5,stagger:.09,transformOrigin:"left center"},"-=.35");
+        .fromTo(".demo-secondary",{y:18,opacity:.35},{y:0,opacity:1,duration:.55,stagger:.12},"-=.42");
     },root);
     return()=>context.revert();
-  },[visible,reduced,root]);
+  },[entered,reduced,root]);
   return visible;
 }
 
@@ -72,38 +76,38 @@ function WorkspacesVisual(){
   </div>;
 }
 
-export default function ToolChains({reduced}:{reduced:boolean}){
+export default function ToolChains({reduced,paused}:{reduced:boolean;paused:boolean}){
   const root=useRef<HTMLElement>(null);
   const video=useRef<HTMLVideoElement>(null);
   const visible=useSectionMotion(root,reduced);
   const [videoFailed,setVideoFailed]=useState(false);
   useEffect(()=>{
     const element=video.current;
-    if(!element||reduced||videoFailed)return;
+    if(!element||reduced||paused||videoFailed)return;
     let inView=false;
     const sync=()=>{if(inView&&!document.hidden)void element.play().catch(()=>{});else element.pause();};
     const observer=new IntersectionObserver(entries=>{inView=entries[0]?.isIntersecting??false;sync();},{threshold:.05});
     observer.observe(element);
     document.addEventListener("visibilitychange",sync);
     return()=>{observer.disconnect();document.removeEventListener("visibilitychange",sync);element.pause();};
-  },[reduced,videoFailed]);
+  },[reduced,paused,videoFailed]);
   return <section id="tools" ref={root} className={`chapter wrap capabilities-section${visible?" is-visible":""}`} aria-labelledby="capability-title">
-    <div className="feature-heading capability-heading"><h2 id="capability-title">From page to proof.</h2><p>See how an agent can inspect a real web app, map a lab, keep long checks moving, and separate workspaces.</p></div>
+    <div className="feature-heading capability-heading feature-heading--rule"><h2 id="capability-title">From page to proof.</h2><p>See how an agent can inspect a real web app, map a lab, keep long checks moving, and separate workspaces.</p></div>
     <div className="capability-gallery">
       <article className="demo-card demo-main demo-browser" aria-labelledby="juice-title">
           <div className="demo-card-topline"><span className="demo-status"><i/>Real browser session</span><span>Juice Shop · private lab</span></div>
         <div className="juice-browser-frame">
           <div className="juice-browser-bar"><div className="browser-dots" aria-hidden="true"><i/><i/><i/></div><span>Local test app</span><span className="browser-local-chip">Docker network</span></div>
           <div className="juice-video-stage">
-            {!reduced&&!videoFailed
+            {!reduced&&!paused&&!videoFailed
               ? <video ref={video} key="juice-session" aria-label="Looping recording of Hercules driving a local OWASP Juice Shop browser walkthrough" src={demoAsset("juice-shop-session.mp4")} muted loop playsInline preload="metadata" poster={demoAsset("juice-shop-poster.png")} onError={()=>setVideoFailed(true)}/>
               : <img src={demoAsset("juice-shop-poster.png")} alt="Juice Shop confirms Login Admin and Score Board, with 2 of 186 challenges completed" width="1280" height="600"/>}
-            <span className="juice-recording-stamp"><i/>Edited local-lab capture · 2.5×</span>
           </div>
+          <span className="juice-recording-stamp"><i/>Edited local-lab capture · 2.5×</span>
         </div>
         <div className="demo-browser-copy">
           <div><h3 id="juice-title">Test a local challenge. Keep the proof.</h3><p>Hercules checks the private service, follows the login path in CloakBrowser, and writes the report. Juice Shop confirms Login Admin and Score Board. The narration is scripted.</p></div>
-          <div className="juice-proof-steps" aria-label="Walkthrough stages">
+          <div className="juice-proof-steps" role="group" aria-label="Walkthrough stages">
             <span className="proof-step"><b>Private lab</b><small>network ready</small></span><ArrowRight size={15}/>
             <span className="proof-step"><b>Browser check</b><small>login path tested</small></span><ArrowRight size={15}/>
             <span className="proof-step"><b>Verified result</b><small>report retained</small></span>

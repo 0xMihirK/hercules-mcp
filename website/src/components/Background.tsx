@@ -60,14 +60,22 @@ export default function Background({
     } else {
       renderer = createThreadLight(canvas, recipe);
       let stopped = false;
+      // Rescheduling outside the guard kept a frame queued for the lifetime of
+      // the page even while stopped. Park the loop instead, and restart it when
+      // motion is allowed again.
       const tick = (time: number) => {
-        if (!stopped) renderer?.update(time);
+        if (stopped) {
+          frame = 0;
+          return;
+        }
+        renderer?.update(time);
         frame = requestAnimationFrame(tick);
       };
       frame = requestAnimationFrame(tick);
       control.current = (paused, reduced) => {
         stopped = paused || reduced || document.hidden;
         if (reduced) renderer?.renderAt(0);
+        if (!stopped && !frame) frame = requestAnimationFrame(tick);
       };
     }
     const pointer = (event: PointerEvent) => {

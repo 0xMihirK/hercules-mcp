@@ -31,8 +31,8 @@ export default function ArchitectureScene({reduced,paused}:{reduced:boolean;paus
     return()=>context.revert();
   },[phase,reduced,paused]);
   const running=phase===1 || phase===2;
-  return <section id="architecture" ref={root} className="chapter architecture">
-    <div className="wrap"><div className="feature-heading"><h2>Powerful tools.<br/>A separate workspace.</h2><p>Hercules runs on your computer. Its security tools run in a session-owned Kali Docker container.</p></div>
+  return <section id="architecture" ref={root} className="chapter architecture" aria-labelledby="architecture-title">
+    <div className="wrap"><div className="feature-heading feature-heading--split"><h2 id="architecture-title">Kali in a container.<br/>A separate workspace.</h2><p>Hercules runs on your computer. Its security tools run in a session-owned Kali Docker container.</p></div>
       <div ref={scene} className={"sandbox-demonstration phase-"+phase}>
         <div className="sandbox-controls" role="group" aria-label="Explore the illustrated session lifecycle">{phases.map((item,i)=><button key={item.label} aria-pressed={phase===i} onClick={()=>setPhase(i)}>{item.label}</button>)}</div>
         <div className="software-flow" role="group" aria-label="Your agent connects to Hercules on your computer. Hercules manages a separate Kali Docker container containing the security tools.">
@@ -46,8 +46,8 @@ export default function ArchitectureScene({reduced,paused}:{reduced:boolean;paus
             <footer><span className="container-status">{running?"Running for session A":"Container stopped"}</span><span>Separate from your host tools</span></footer>
           </div>
         </div>
-        <div className="second-session" aria-hidden={phase<2}>{phase>=2?<div className="secondary-flow"><span><TerminalWindow size={20}/>Another agent</span><ArrowRight size={18} aria-hidden="true"/><span>Hercules session B</span><ArrowRight size={18} aria-hidden="true"/><span><img src={asset("brands/docker.svg")} width="25" height="25" alt=""/>Container B · running</span></div>:<p>Another session gets its own container, working files, and allocated ports.</p>}</div>
-        <div className="sandbox-caption"><h3>{phases[phase].title}</h3><p>{phases[phase].text}</p></div>
+        <div className="second-session">{phase>=2?<div className="secondary-flow"><span><TerminalWindow size={20}/>Another agent</span><ArrowRight size={18} aria-hidden="true"/><span>Hercules session B</span><ArrowRight size={18} aria-hidden="true"/><span><img src={asset("brands/docker.svg")} width="25" height="25" alt=""/>Container B · running</span></div>:<p>Another session gets its own container, working files, and allocated ports.</p>}</div>
+        <div className="sandbox-caption" aria-live="polite"><h3>{phases[phase].title}</h3><p>{phases[phase].text}</p></div>
       </div>
       <p className="sandbox-scope">You control networking, permissions, and target scope. Container isolation depends on those settings.</p>
       <div className="portability-band"><div><h3>Bring your agent.<br/>Choose your system.</h3><p>Any agent, worker, or custom integration with STDIO MCP support can connect. MCP means Model Context Protocol.</p><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp#install-with-your-ai-agent">See setup options <ArrowUpRight size={18}/></a></div><div className="platform-line"><span><WindowsLogo size={38} weight="fill"/>Windows</span><span><AppleLogo size={38} weight="fill"/>macOS</span><span><LinuxLogo size={38} weight="fill"/>Linux</span><p>Same Hercules. Docker on each system.</p></div></div>
