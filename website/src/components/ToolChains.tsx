@@ -99,16 +99,17 @@ export default function ToolChains({reduced}:{reduced:boolean}){
           <div className="juice-video-stage">
             {!reduced&&!videoFailed
               ? <video ref={video} key="juice-session" aria-label="Looping recording of Hercules driving a local OWASP Juice Shop browser walkthrough" src={demoAsset("juice-shop-session.mp4")} muted loop playsInline preload="metadata" poster={demoAsset("juice-shop-poster.png")} onError={()=>setVideoFailed(true)}/>
-              : <img src={demoAsset("juice-shop-poster.png")} alt="Juice Shop confirms the Score Board challenge is solved, with 1 of 186 challenges completed" width="1280" height="600"/>}
-            <span className="juice-recording-stamp"><i/>Real Hercules browser capture · 2.5×</span>
+              : <img src={demoAsset("juice-shop-poster.png")} alt="Juice Shop confirms Login Admin and Score Board, with 2 of 186 challenges completed" width="1280" height="600"/>}
+            <span className="juice-recording-stamp"><i/>Edited local-lab capture · 2.5×</span>
           </div>
         </div>
         <div className="demo-browser-copy">
-          <div><h3 id="juice-title">Solve a challenge. Verify it in the app.</h3><p>Hercules maps and checks the local service, then opens Juice Shop’s hidden Score Board in a real CloakBrowser session. The app confirms the challenge and updates progress to 1 of 186. A screenshot and report are retained; the narration is scripted.</p></div>
-          <div className="juice-proof-steps" aria-label="Walkthrough stages"><span><b>01</b> Start a private lab</span><ArrowRight size={15}/><span><b>02</b> Find the hidden board</span><ArrowRight size={15}/><span><b>03</b> Confirm it is solved</span></div>
+          <div><h3 id="juice-title">Test a local challenge. Keep the proof.</h3><p>Hercules checks the private service, tests a normal login path, then drives the deliberately vulnerable Juice Shop fixture in CloakBrowser. Juice Shop confirms Login Admin and Score Board; Hercules preserves the local report. The narration is scripted.</p></div>
+          <div className="juice-proof-steps" aria-label="Walkthrough stages"><span><b>01</b> Start a private lab</span><ArrowRight size={15}/><span><b>02</b> Check the login path</span><ArrowRight size={15}/><span><b>03</b> Confirm two results</span></div>
         </div>
         <details className="demo-transcript"><summary>What the recording shows</summary><p>The app runs on a private Docker network with no published port. Hercules starts its own Kali runtime when asked, drives the browser through MCP, and writes a report that remains readable after the runtime stops. <a href={demoAsset("juice-shop-walkthrough.md")} target="_blank" rel="noreferrer">Read the verified walkthrough.</a> <a href={demoAsset("juice-shop-session.mp4")} target="_blank" rel="noreferrer">Open the full-size recording.</a></p></details>
         <p className="browser-limitation">CloakBrowser reduces common automation signals; it does not guarantee CAPTCHA or bot-detection bypass.</p>
+        <div className="demo-outcome"><div className="demo-outcome-count">2<span>/ 186</span></div><div><strong><Check size={16} aria-hidden="true"/>Two local challenges verified</strong><p>Juice Shop’s own challenge tracker confirms Login Admin and Score Board.</p><a href={demoAsset("juice-shop-walkthrough.md")} target="_blank" rel="noreferrer">Read the walkthrough <ArrowUpRight size={15} aria-hidden="true"/></a></div></div>
       </article>
 
       <article className="demo-card demo-secondary demo-recon" aria-labelledby="recon-title">

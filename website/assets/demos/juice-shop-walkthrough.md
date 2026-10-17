@@ -1,18 +1,21 @@
-# OWASP Juice Shop local walkthrough
+# Local Juice Shop training-lab review
 
-The Hercules MCP runtime inspected only this transaction-owned Juice Shop on a Docker internal network.
-No host port was published and no public target was contacted. The model narration is scripted; Hercules tool results are real.
+## Scope
+- Target: `http://172.30.78.10:3000/`
+- Scope: private disposable Juice Shop fixture only
+- Runtime: Hercules-owned Kali container, session `4b7f0886`
 
-## Verified sequence
+## Verified observations
+1. TCP port 3000 accepted connections from the owned runtime.
+2. The homepage responded and was inspected in the CloakBrowser session `juice-shop-review`.
+3. A normal local test login remained on the login form.
+4. The fixture confirmed the **Login Admin** training challenge after the authorized local authentication exercise.
+5. The fixture confirmed the **Score Board** training challenge. The live board showed **2/186 challenges solved**.
 
-- Nmap identified the scoped Juice Shop service on port 3000.
-- A separate HTTP request confirmed the application response and retained the page under `artifacts/juice-shop-home.html`.
-- Hercules opened the application in its CloakBrowser-backed browser session and inspected the accessibility snapshot.
-- The welcome banner and cookie overlay were dismissed; opening the application's hidden challenge board solved the Score Board challenge, confirmed by Juice Shop itself.
-- Juice Shop reported 1 of 186 challenges solved in the captured state.
-- Browser evidence is retained at `artifacts/juice-shop-scoreboard.png`.
+## Evidence
+- `browser/juice-shop-review/juice-shop-scoreboard.png` - challenge confirmation and scoreboard capture.
+- `artifacts/juice-shop-session.mp4` - native browser recording.
+- Hercules call journal - startup, scan, HTTP inspection, browser actions, and this report write.
 
-## Scope and limits
-
-This recording shows an authorized walkthrough of the deliberately vulnerable local training app. It does not claim CAPTCHA bypass or exploitation of an external site.
-CloakBrowser reduces common automation signals; bot-detection outcomes are not guaranteed.
+## Recommendation
+Treat the observations as training-lab evidence only. Reproduce remediation and regression checks against the owned fixture before applying lessons to any separately authorized environment.

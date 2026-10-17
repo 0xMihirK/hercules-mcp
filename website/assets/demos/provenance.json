@@ -1,12 +1,13 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "capturedAt": "2026-10-17",
+  "captureRun": "juice-shop-advanced-1792253481054432200",
   "source": "Real Hercules MCP tools and CloakBrowser in a transaction-owned local lab",
   "scripted": "Investigation narration and tool-call pacing",
   "juiceShopImage": "bkimminich/juice-shop@sha256:8739101ade29358abb5469ee66ae78e582c97ed0a5543a4ad102e5fa5193526b",
-  "verifiedChallenge": "Score Board",
-  "challengeProgress": "1/186",
-  "toolCalls": 21,
+  "verifiedChallenges": ["Login Admin", "Score Board"],
+  "challengeProgress": "2/186",
+  "toolCalls": 28,
   "reportRetainedAfterStop": true,
   "cleanupComplete": true,
   "publishedAppPorts": false,
@@ -15,19 +16,22 @@
   "outputFrameRateFps": 30,
   "width": 1280,
   "height": 600,
-  "sourceMasterSha256": "986feabc9a9c71476e95d1d1cb937885ed44cfffccd52eaa1b6ca42563982eb7",
+  "sourceDurationSeconds": 350.2,
+  "deliveryDurationSeconds": 27.6,
+  "deliveryEdit": "Five contiguous excerpts retain original browser pixels; idle time and the local training-app payload entry are omitted from the 2.5x highlight loop.",
+  "sourceMasterSha256": "7b1c3d881ec7ecd4d4a2001c1e94c01c18438f4852423cb1703336ea7aa123f8",
   "assets": {
     "juice-shop-poster.png": {
-      "bytes": 258351,
-      "sha256": "d1748581bcd26bee599f1d4ae61bab37994ec8275dbd731926676e231f1aba5f"
+      "bytes": 204727,
+      "sha256": "f45288e3f8df6ed97407620a71f00227b1430e2f157440f9a68c12020df4db7f"
     },
     "juice-shop-session.mp4": {
-      "bytes": 917082,
-      "sha256": "13577591afcfd80bd96f6fe3c72d59c5e89788f94022ab8cb847ca8e4fce7942"
+      "bytes": 380278,
+      "sha256": "d768e016f585cf24a96e88a79e9954fdb49f303ba81b4c50d40d67062dd48462"
     },
     "juice-shop-walkthrough.md": {
-      "bytes": 1194,
-      "sha256": "2d59ddb3197b89a92ed6f570079683fce967010fbe0ac5f1e9e087f43c721639"
+      "bytes": 1160,
+      "sha256": "e6f446ce13b757f486160c929023c6a80317e5f09a789cf8b6e96c385ba12f08"
     }
   }
 }
