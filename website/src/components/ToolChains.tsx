@@ -104,8 +104,12 @@ export default function ToolChains({reduced}:{reduced:boolean}){
           </div>
         </div>
         <div className="demo-browser-copy">
-          <div><h3 id="juice-title">Test a local challenge. Keep the proof.</h3><p>Hercules checks the private service, tests a normal login path, then drives the deliberately vulnerable Juice Shop fixture in CloakBrowser. Juice Shop confirms Login Admin and Score Board; Hercules preserves the local report. The narration is scripted.</p></div>
-          <div className="juice-proof-steps" aria-label="Walkthrough stages"><span><b>01</b> Start a private lab</span><ArrowRight size={15}/><span><b>02</b> Check the login path</span><ArrowRight size={15}/><span><b>03</b> Confirm two results</span></div>
+          <div><h3 id="juice-title">Test a local challenge. Keep the proof.</h3><p>Hercules checks the private service, follows the login path in CloakBrowser, and writes the report. Juice Shop confirms Login Admin and Score Board. The narration is scripted.</p></div>
+          <div className="juice-proof-steps" aria-label="Walkthrough stages">
+            <span className="proof-step"><b>Private lab</b><small>network ready</small></span><ArrowRight size={15}/>
+            <span className="proof-step"><b>Browser check</b><small>login path tested</small></span><ArrowRight size={15}/>
+            <span className="proof-step"><b>Verified result</b><small>report retained</small></span>
+          </div>
         </div>
         <details className="demo-transcript"><summary>What the recording shows</summary><p>The app runs on a private Docker network with no published port. Hercules starts its own Kali runtime when asked, drives the browser through MCP, and writes a report that remains readable after the runtime stops. <a href={demoAsset("juice-shop-walkthrough.md")} target="_blank" rel="noreferrer">Read the verified walkthrough.</a> <a href={demoAsset("juice-shop-session.mp4")} target="_blank" rel="noreferrer">Open the full-size recording.</a></p></details>
         <p className="browser-limitation">CloakBrowser reduces common automation signals; it does not guarantee CAPTCHA or bot-detection bypass.</p>
