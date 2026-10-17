@@ -38,39 +38,37 @@ function useSectionMotion(root:React.RefObject<HTMLElement|null>, reduced:boolea
 }
 
 function ReconVisual(){
-  return <div className="demo-recon-map" role="img" aria-label="A scoped lab maps to three reachable services: an app, an HTTP proxy, and a TLS endpoint, followed by response and certificate checks">
-    <div className="recon-origin"><Network size={24} aria-hidden="true"/><span>Scoped lab<br/>3 services</span></div>
-    <div className="recon-branches" aria-hidden="true"><i className="demo-wire"/><i className="demo-wire"/><i className="demo-wire"/></div>
-    <div className="recon-services">
-      <div><span><Browser size={17} aria-hidden="true"/>8000 · Sign-in</span><small>health checked</small></div>
-      <div><span><Network size={17} aria-hidden="true"/>8080 · Proxy</span><small>response checked</small></div>
-      <div><span><Check size={17} aria-hidden="true"/>8443 · HTTPS</span><small>lab CA verified</small></div>
+  return <div className="recon-board" role="img" aria-label="A scoped local lab is discovered first, then its sign-in app, proxy, and HTTPS service are individually verified">
+    <div className="recon-board-top"><span><Pulse size={14} aria-hidden="true"/>Discovery sweep</span><small>allowlisted local lab</small></div>
+    <div className="recon-board-body">
+      <div className="recon-scope-node"><span className="recon-radar"><Network size={25} aria-hidden="true"/><i/></span><strong>Scoped local lab</strong><small>3 reachable services</small></div>
+      <div className="recon-discovery" aria-hidden="true"><span>discover</span><i/><i/><i/></div>
+      <div className="recon-service-stack">
+        <div className="recon-service recon-service--app"><span><Browser size={16} aria-hidden="true"/><b>8000</b><small>sign-in</small></span><em>responded</em></div>
+        <div className="recon-service recon-service--proxy"><span><Network size={16} aria-hidden="true"/><b>8080</b><small>proxy</small></span><em>response checked</em></div>
+        <div className="recon-service recon-service--tls"><span><Check size={16} aria-hidden="true"/><b>8443</b><small>HTTPS</small></span><em>CA verified</em></div>
+      </div>
     </div>
+    <div className="recon-board-foot"><Check size={14} aria-hidden="true"/> Discovery creates leads. Verification creates evidence.</div>
   </div>;
 }
 
 function JobsVisual(){
-  return <div className="demo-job-board" role="img" aria-label="One long-running background check keeps its partial output while the agent verifies another lead">
-    <div className="job-board-heading"><span>Work keeps moving</span><span className="job-live"><i/>1 background check</span></div>
-    <div className="job-lane"><span className="job-icon"><TerminalWindow size={19}/></span><div><strong>Long-running check</strong><small>Partial output stays available</small></div><div className="job-progress"><i className="demo-wire"/><b>resume</b></div></div>
-    <div className="job-lane"><span className="job-icon"><Browser size={19}/></span><div><strong>Agent follows another lead</strong><small>Then narrows and checks the result</small></div><div className="job-progress"><i className="demo-wire"/><b>verify</b></div></div>
-    <div className="job-board-foot"><Check size={15}/> The original job log remains available.</div>
+  return <div className="demo-job-board" role="img" aria-label="A long-running background check keeps its output while the agent moves to a second lead, then returns to resume it">
+    <div className="job-board-heading"><span><Pulse size={14} aria-hidden="true"/>Parallel investigation</span><span className="job-live"><i/>1 check continues</span></div>
+    <div className="job-clock" aria-hidden="true"><span>start</span><i/><span>switch focus</span><i/><span>resume</span></div>
+    <div className="job-lane job-lane--running"><span className="job-icon"><TerminalWindow size={19}/></span><div><strong>Long-running check</strong><small>Partial output stays available</small></div><div className="job-progress"><i/><b>running</b></div></div>
+    <div className="job-handoff"><span>Agent follows a second lead while the job stays active</span><i aria-hidden="true"/></div>
+    <div className="job-lane job-lane--verify"><span className="job-icon"><Browser size={19}/></span><div><strong>Targeted browser check</strong><small>Result narrows the return path</small></div><div className="job-progress"><i/><b>verified</b></div></div>
+    <div className="job-board-foot"><Check size={15}/> Return to the same log with its earlier output intact.</div>
   </div>;
 }
 
 function WorkspacesVisual(){
-  return <div className="demo-workspace-compare" role="img" aria-label="Two connected agents have separate Hercules runtimes and workspaces; stopping one leaves the other running">
-    <div className="workspace-column">
-      <div className="workspace-client"><span className="workspace-client-icon"><TerminalWindow size={18}/></span><span>Client A<small>Hercules connection</small></span><i className="demo-wire"/></div>
-      <div className="workspace-runtime"><HardDrives size={19}/><span>Runtime A<small>Started on request</small></span><Circle className="runtime-led" weight="fill" size={9}/></div>
-      <div className="workspace-files"><FolderOpen size={18}/><span>Workspace A<small>Report and evidence remain</small></span></div>
-    </div>
-    <div className="workspace-separator" aria-hidden="true"><span>separate sessions</span></div>
-    <div className="workspace-column">
-      <div className="workspace-client"><span className="workspace-client-icon"><TerminalWindow size={18}/></span><span>Client B<small>Hercules connection</small></span><i className="demo-wire"/></div>
-      <div className="workspace-runtime"><HardDrives size={19}/><span>Runtime B<small>Independent lifecycle</small></span><Circle className="runtime-led" weight="fill" size={9}/></div>
-      <div className="workspace-files"><FolderOpen size={18}/><span>Workspace B<small>Own files and history</small></span></div>
-    </div>
+  return <div className="demo-workspace-compare" role="img" aria-label="Two connected clients each own a Hercules runtime and workspace, separated by a boundary">
+    <div className="session-pod session-pod--a"><div className="session-pod-head"><TerminalWindow size={17}/><span>Client A<small>connected</small></span><Circle className="runtime-led" weight="fill" size={8}/></div><div className="session-path"><div><HardDrives size={17}/><span>Kali runtime<small>started on request</small></span></div><i/><div><FolderOpen size={17}/><span>Workspace A<small>report and evidence</small></span></div></div></div>
+    <div className="workspace-separator" aria-hidden="true"><i/><span>session boundary</span><i/></div>
+    <div className="session-pod session-pod--b"><div className="session-pod-head"><TerminalWindow size={17}/><span>Client B<small>connected</small></span><Circle className="runtime-led" weight="fill" size={8}/></div><div className="session-path"><div><HardDrives size={17}/><span>Kali runtime<small>own lifecycle</small></span></div><i/><div><FolderOpen size={17}/><span>Workspace B<small>files and history</small></span></div></div></div>
   </div>;
 }
 
