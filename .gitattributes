@@ -2,6 +2,7 @@ Dockerfile text eol=lf
 *.sh text eol=lf
 # Recording hashes and ANSI payloads must survive Windows/Linux checkouts.
 website/assets/recordings/** -text
+website/assets/demos/** -text
 website/capture/*.json text eol=lf
 website/capture/**/*.py text eol=lf
 website/capture/*.py text eol=lf
