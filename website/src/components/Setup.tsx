@@ -1,18 +1,20 @@
 import { useRef, useState } from "react";
-import { ArrowUpRight, Check, Copy } from "@phosphor-icons/react";
-
-export default function Setup({ prompt }: { prompt: string }) {
-  const [status,setStatus]=useState("");
-  const details=useRef<HTMLDetailsElement>(null);
+import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
+import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { Check } from "@phosphor-icons/react/Check";
+import { Copy } from "@phosphor-icons/react/Copy";
+import { ChatText } from "@phosphor-icons/react/ChatText";
+import { PlugsConnected } from "@phosphor-icons/react/PlugsConnected";
+export default function Setup({prompt}:{prompt:string}){
+  const [status,setStatus]=useState(""),details=useRef<HTMLDetailsElement>(null);
   async function copy(){
-    try { await navigator.clipboard.writeText(prompt);setStatus("Installation prompt copied. Paste it into your terminal-capable agent."); }
-    catch { if(details.current)details.current.open=true;setStatus("Clipboard access is unavailable. Select and copy the prompt below."); }
+    try{await navigator.clipboard.writeText(prompt);setStatus("Prompt copied. Paste it into your coding agent.");}
+    catch{if(details.current)details.current.open=true;setStatus("Select and copy the complete prompt below.");}
   }
-  return <section id="install" className="chapter wrap setup-section" aria-labelledby="setup-title">
-    <div className="chapter-heading"><h2 id="setup-title">Give your agent<br />a place to work.</h2><p>One setup CLI handles installation, updates, and repair. Configure only your current agent; keep its preferences and evidence intact.</p></div>
-    <div className="setup-layout"><div className="setup-prerequisites"><h3>Start with the essentials.</h3><ul><li>Git and uv for host setup</li><li>Docker when you prepare or use the runtime</li><li>A terminal-capable agent with STDIO MCP support</li></ul><p>Windows, macOS, or Linux. Full capabilities by default, existing selections preserved.</p><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp/blob/main/install.md">Read the setup guide <ArrowUpRight size={18} aria-hidden="true"/></a></div>
-      <div className="setup-action"><h3>Copy. Install. Resume.</h3><p>Paste the prompt into your agent. Host setup checks a cold connection without starting Kali. Runtime downloads and local container testing are separate choices.</p><button className="button primary" onClick={copy}>{status.startsWith("Installation")?<Check size={20} aria-hidden="true"/>:<Copy size={20} aria-hidden="true"/>}Copy installation prompt</button><p className="copy-status" role="status">{status}</p><details ref={details}><summary>Read the complete prompt</summary><pre className="installation-prompt">{prompt}</pre></details></div>
-    </div>
-    <div className="setup-verify"><div><h3>Know what is ready.</h3><p>The summary separates host installation, client reload, runtime preparation, verification, and cleanup. Connecting alone does not start Kali.</p></div><div><code>status → install → runtime prepare → verify --runtime</code><p>Claude auto-mode denials stay stopped for your review. Setup never adds blanket permissions or replaces a running environment.</p></div></div>
+  return <section id="install" className="chapter wrap installation-section" aria-labelledby="setup-title">
+    <div className="installation-heading"><h2 id="setup-title">Install with<br/><em>one prompt.</em></h2><div><p>One setup CLI installs, updates, or repairs Hercules for your current agent. Keep existing preferences and evidence intact.</p><button className="button primary" onClick={copy}>{status.startsWith("Prompt copied")?<Check size={21}/>:<Copy size={21}/>}Copy installation prompt</button><p className="copy-status" role="status">{status}</p></div></div>
+    <ol className="installation-path"><li><Copy size={31}/><h3>Copy the prompt.</h3><p>Use the same prompt on Windows, macOS, or Linux. Full capabilities by default; existing selections stay unchanged.</p></li><li><ChatText size={31}/><h3>Paste into your agent.</h3><p>Configure only your current client. Host setup checks a cold connection without starting Kali. Claude auto-mode denials stay stopped for your review.</p></li><li><PlugsConnected size={31}/><h3>Connect and verify.</h3><p>Reload your client when instructed. Runtime downloads and local container tests are separate choices, not part of registration repair.</p></li></ol>
+    <div className="installation-bottom"><p>Git, uv, and a terminal-capable STDIO MCP agent for host setup. Docker when preparing or using the runtime. The summary separates installation, client reload, runtime readiness, verification, and cleanup.</p><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp/blob/main/install.md">Full setup guide <ArrowUpRight size={18}/></a></div>
+    <details ref={details} className="prompt-disclosure"><summary>Read the installation prompt <ArrowRight size={17}/></summary><pre className="installation-prompt">{prompt}</pre></details>
   </section>;
 }

@@ -1,35 +1,39 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ArrowRight, DownloadSimple } from "@phosphor-icons/react";
+import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
+import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { Check } from "@phosphor-icons/react/Check";
+import { FunnelSimple } from "@phosphor-icons/react/FunnelSimple";
+import { WarningCircle } from "@phosphor-icons/react/WarningCircle";
+import specimen from "../../assets/filter-example.json";
 gsap.registerPlugin(ScrollTrigger);
-export type Measurement = { tool: string; rawCharacters: number; inlineResponseCharacters: number; characterReduction: number; rawTokenEstimate: number; inlineTokenEstimate: number; outputComplete: boolean; evidenceComplete: boolean; outputFiltered: boolean; rawArtifact: string; file?: string; caseTitle?: string };
-const stages = ["Raw output", "Preserved diagnostics", "Filtered findings", "Bounded response", "Readable artifacts"];
-
-export default function EvidencePipeline({ reduced, paused, measurement, base }: { reduced: boolean; paused: boolean; measurement: Measurement | null; base: string }) {
-  const root = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (reduced || paused || !root.current) return;
-    const media = gsap.matchMedia();
-    media.add("(min-width: 1000px)", () => {
-      const context = gsap.context(() => {
-        const timeline=gsap.timeline({scrollTrigger:{trigger:root.current,start:"top 85%",end:"center center",scrub:.7}});
-        timeline.fromTo(".evidence-illustration",{scale:.8},{scale:1,ease:"none",duration:1},0);
-        timeline.fromTo(".pipeline-stage",{y:12},{y:0,stagger:.15,duration:.4,ease:"none"},0);
-      }, root);
-      return () => context.revert();
-    });
-    return () => media.revert();
-  }, [reduced, paused]);
-  return <section id="evidence" ref={root} className="chapter wrap evidence-section">
-    <div className="chapter-heading"><h2>Less noise in context.<br />More evidence on disk.</h2><p>Tool-specific filters extract useful findings. Bounded responses keep the conversation manageable, while raw artifacts preserve the diagnostics you may need next.</p></div>
-    <ol className="output-pipeline">{stages.map((stage,i) => <li className="pipeline-stage" key={stage}><span>{stage}</span>{i < 4 && <ArrowRight size={20} aria-hidden="true" />}</li>)}</ol>
-    <div className="evidence-layout"><div className="evidence-paper"><img className="evidence-illustration" src={`${import.meta.env.BASE_URL}assets/illustrations/evidence-stack.png`} width="1536" height="1024" alt="Graphite and copper illustration of layered report pages and preserved evidence." loading="lazy" decoding="async" /><span>Illustration · evidence layers</span></div><div className="evidence-explanation">
-      <h3>Measure the response.<br />Keep the original.</h3>
-      {measurement ? <><p className="measurement-source">Measured from a real local <code>{measurement.tool}</code> call. Includes serialized response metadata.</p><div className="character-comparison"><div><span>Raw output</span><strong>{measurement.rawCharacters.toLocaleString()}</strong><small>characters · ~{measurement.rawTokenEstimate.toLocaleString()} tokens</small></div><ArrowRight size={24} aria-hidden="true" /><div><span>Inline response</span><strong>{measurement.inlineResponseCharacters.toLocaleString()}</strong><small>characters · ~{measurement.inlineTokenEstimate.toLocaleString()} tokens</small></div></div><p>{measurement.characterReduction > 0 ? `${measurement.characterReduction}% fewer characters in this response.` : "This response’s metadata adds characters; reduction varies by tool and output."} Token estimates use characters ÷ 4, rounded up. They are approximate.</p>{measurement.file && <a className="text-link" href={base + measurement.file} download><DownloadSimple size={20} aria-hidden="true" />Inspect the raw artifact</a>}</> : <p>Measurements will appear with validated lab artifacts. No estimated savings are presented as measured results.</p>}
-      {measurement?.caseTitle && <p className="measurement-case">Capture: {measurement.caseTitle}. This is one observed call, not an average or a promised saving.</p>}
-      {measurement && !measurement.outputFiltered && <p className="measurement-case">This call demonstrates response bounding. Semantic filtering was not applied.</p>}
-      <dl className="completeness"><div><dt><code>output_complete</code>{measurement && <span className="complete-value">{String(measurement.outputComplete)}</span>}</dt><dd>Whether the inline response contains the full tool output.</dd></div><div><dt><code>evidence_complete</code>{measurement && <span className="complete-value">{String(measurement.evidenceComplete)}</span>}</dt><dd>Whether the available artifacts preserve the captured evidence.</dd></div></dl><p>Neither flag proves that an investigation is exhaustive. Reports should state scope, rejected leads and untested assumptions.</p>
-    </div></div>
+export type Measurement={tool:string;rawCharacters:number;inlineResponseCharacters:number;characterReduction:number;rawTokenEstimate:number;inlineTokenEstimate:number;outputComplete:boolean;evidenceComplete:boolean;outputFiltered:boolean;rawArtifact:string;file?:string;caseTitle?:string};
+const kept=new Set(specimen.filtered.trimEnd().split("\n"));
+export default function EvidencePipeline({reduced,paused}:{reduced:boolean;paused:boolean}){
+  const root=useRef<HTMLElement>(null),[filtered,setFiltered]=useState(true);
+  useEffect(()=>{
+    if(reduced || paused || !root.current)return;
+    setFiltered(false);
+    const trigger=ScrollTrigger.create({trigger:root.current.querySelector(".filter-demonstration"),start:"top 70%",once:true,onEnter:()=>setFiltered(true)});
+    return()=>trigger.kill();
+  },[reduced,paused]);
+  useEffect(()=>{
+    if(!root.current)return;
+    const context=gsap.context(()=>{
+      if(reduced || paused){gsap.set(".filter-noise",{height:filtered?0:"auto",opacity:filtered?0:1});return;}
+      const timeline=gsap.timeline();
+      timeline.to(".filter-noise",{height:filtered?0:"auto",opacity:filtered?0:1,duration:.65,stagger:.08,ease:"power3.inOut"});
+      timeline.fromTo(".filter-kept",{x:filtered?-8:0},{x:0,duration:.6,stagger:.09,ease:"power3.out"},.2);
+    },root);
+    return()=>context.revert();
+  },[filtered,reduced,paused]);
+  return <section id="evidence" ref={root} className="chapter wrap efficiency-section">
+    <div className="feature-heading"><h2>Keep the finding.<br/>Lose the routine noise.</h2><p>Hercules filters known scanner chatter before it reaches your agent. Useful findings and important diagnostics remain.</p></div>
+    <div className="filter-demonstration">
+      <div className="filter-example"><div className="filter-example-bar"><span>{filtered?"Filtered response":"Original scanner output"}</span><button onClick={()=>setFiltered(value=>!value)}><FunnelSimple size={18}/>{filtered?"Compare original":"Apply filter"}</button></div><div className="filter-output-lines" role="group" aria-label={filtered?"Filtered scanner example":"Original scanner example"}>{specimen.raw.trimEnd().split("\n").map((line,i)=><div key={i} aria-hidden={!kept.has(line) && filtered} className={kept.has(line)?"filter-kept":"filter-noise"}><code>{line}</code></div>)}</div><p className="filter-example-note">Illustrative lab input, processed by the actual Hercules filter.</p></div>
+      <div className="filter-explanation"><FunnelSimple size={42}/><h3>A shorter response.<br/>The finding stays.</h3><p>Removing routine text saves context tokens. Compare the original and filtered output: banners and timestamps disappear; the finding and warning stay visible.</p><div className="filter-keeps"><span><Check size={20}/>Finding retained</span><span><WarningCircle size={20}/>Incomplete scan disclosed</span></div><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp#output-artifacts-sessions-and-workspaces">How output filtering works <ArrowUpRight size={18}/></a></div>
+    </div>
+    <div className="output-limit-note"><strong>Filtering and response limits do different jobs.</strong><p>Filters remove characterized noise. Separate size limits keep large responses manageable, with files available for follow-up reading. Hercules reports whether output was shortened and whether complete raw output is available.</p><ArrowRight size={22} aria-hidden="true"/></div>
   </section>;
 }

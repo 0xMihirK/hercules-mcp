@@ -74,12 +74,6 @@ components:
     rounded: "{rounded.sharp}"
     padding: "12px 18px"
     height: "48px"
-  search-field:
-    textColor: "{colors.silver}"
-    rounded: "{rounded.sharp}"
-    padding: "12px 16px"
-    height: "52px"
-    width: "510px"
   agent-tab:
     textColor: "{colors.muted-silver}"
     rounded: "{rounded.sharp}"
@@ -88,15 +82,10 @@ components:
   agent-tab-selected:
     backgroundColor: "{colors.copper}"
     textColor: "#151719"
-  evidence-tab:
-    textColor: "{colors.muted-silver}"
-    padding: "10px 14px"
-    height: "48px"
-  evidence-tab-selected:
-    textColor: "{colors.copper-hover}"
-  evidence-rail:
+  investigation-summary:
     backgroundColor: "{colors.evidence-surface}"
     textColor: "{colors.silver}"
+    padding: "23px"
     rounded: "{rounded.sharp}"
   phase-button:
     textColor: "{colors.muted-silver}"
@@ -108,169 +97,66 @@ components:
     textColor: "{colors.copper-code}"
 ---
 
-# Design System: Hercules
+# Hercules design system
 
-## Overview
+Graphite reading surfaces, copper actions, Archivo headlines, and IBM Plex body type remain the visual foundation. The existing lion and wordmark anchor the identity. The procedural Canvas smoke/hatch/shimmer/halftone background stays unchanged. Native terminals retain their captured colors and typography.
 
-**Creative North Star: "Graphite/Copper Editorial World"**
+## Product facts
 
-Hercules pairs a dark technical workspace with clear editorial typography. Graphite reading surfaces, copper actions and thin rules make dense evidence understandable without disguising its provenance. The lion and Hercules wordmark remain the identity anchor.
+Hercules is a host-side STDIO MCP server. Compatible agents, workers, and custom integrations can connect on Windows, macOS, and Linux. Connecting does not start the runtime. A session explicitly starts its owned Kali container; independent sessions have separate runtime ownership, working files, and allocated ports. Cleanup targets the owned runtime. Operators control networking, permissions, and target scope; Docker is not a complete security boundary.
 
-The procedural Canvas smoke, hatch sampling, shimmer and halftone recipe is a binding material of this world. Keep the source renderer, adaptive frame rates, worker fallback, visibility pauses and reduced-motion still rendering. Dimensional graphite/copper illustrations support explanations; they are identified as illustrations. Actual native client interfaces retain their recorded geometry and ANSI colors.
+Tool-specific filters remove known scanner noise while preserving important findings and diagnostics. Response-size bounding is a separate mechanism. Saved artifacts support follow-up but are not presented as a distinctive product feature. No numerical filter savings are claimed without a validated measurement. Reports and screenshots shown on the page are outcomes of the real local-lab recordings.
 
-**Key Characteristics:**
+## Page sequence
 
-- Graphite surfaces, silver reading text and purposeful copper emphasis.
-- Self-hosted Archivo display type with IBM Plex Sans and IBM Plex Mono.
-- Sharp framing, restrained rules and generous separation around dense content.
-- Native evidence, procedural atmosphere and clearly labeled supporting illustrations.
-- Keyboard access, readable transcripts and complete static or reduced-motion presentations.
+Hero → native agent player and investigation summary → four capability examples → sandbox lifecycle → portability → output filters → single-prompt installation.
 
-## Colors
+The hero and agent introduction are preserved. The technical catalog lives in GitHub documentation. Main-page explanations avoid raw MCP names, JSON payloads, hashes, byte counts, and recording mechanics.
 
-The palette is warm copper against cool graphite, with silver carrying the reading hierarchy. The frontmatter owns canonical color values.
+## Visual language
 
-### Primary
+Sharp corners, fine rules, generous chapter spacing, and readable silver text. Use copper to indicate actions, active stages, and meaningful connections. Keep labels opaque during animation. Do not introduce glass panels, decorative status dots, unverified counters, or a new type system.
 
-- **Copper:** primary installation actions, selected agent tabs, emphasis and diagram connectors.
-- **Copper Hover:** interactive link color, hover feedback and visible focus.
-- **Copper Code:** recurring tool names, measured output emphasis and selected architecture stages.
+One focused capability example is shown at a time in a four-tab walkthrough: network mapping, website verification, layered challenge solving, and a readable report. Use functional diagrams and real browser/report content. Illustrations must describe software relationships, not substitute physical machinery for Docker. The rejected chassis, blank paper, and generated architecture overview are not shown.
 
-### Neutral
+The sandbox is an HTML software scene. A task from the agent passes through Hercules to a visibly bounded Kali container, with the security tools inside that boundary. A secondary route shows independent session ownership. Lifecycle controls explain connection, explicit startup, independent sessions, and cleanup. The page scrolls naturally; changing scroll position does not change the selected lifecycle state. The lion uses the existing vector paths with tighter intrinsic framing; authentic Docker artwork is from Devicon v2.17.0. OS and interface glyphs use the existing Phosphor library. Labels and controls remain accessible HTML.
 
-- **Graphite:** the page ground and procedural-background scrim.
-- **Raised Graphite:** subdued interactive surface feedback.
-- **Silver:** primary reading text and identity.
-- **Muted Silver:** supporting copy and inactive controls.
-- **Rule:** translucent silver dividers separating evidence, controls and sections.
-- **Action Ink:** dark text on filled copper actions.
-- **Evidence Surface:** an almost opaque reading enclosure for the synchronized rail.
+## Native player
 
-Section surfaces use nearby solid graphite tones: architecture is slightly deeper than setup, and expanded tool chains use a raised graphite field. These remain contextual material variations rather than additional accent families.
+One Canvas2D player, four agent tabs, and a compact investigation summary beside it on desktop and below it on phones. The prompt contains the objective once. The compact summary follows actual completed-call timestamps: current action, up to two observations, available browser evidence, and the verified report action. No findings or report appear before their underlying artifacts are available.
 
-### Named Rules
+Play captured pixels at 2.5×. Switching agents restarts the same case and preserves explicit pause. Shuffled cycling retains the selected agent. Hold six recorded seconds at completion (2.4 wall seconds). Decode the opening before switching, crossfade for 200ms, and retain the last valid frame during loading, buffering, or failures. Reduced motion starts with a captured completed frame and swaps directly.
 
-**The Copper Has a Job Rule.** Copper identifies an action, selected state, tool or explanatory connection; do not distribute it as unrelated decoration.
+Load five source seconds at startup and maintain twelve ahead, with a shared verified compressed cache capped at 32MiB and decoded bitmaps capped at 64MiB. Native output timing remains separate from GSAP motion. A verified complete Hermes entrance frame avoids naturally scrolled startup artwork; no native pixels are replaced.
 
-**The Native Color Rule.** Recorded client colors belong to their capture. Surrounding controls use the house palette without recoloring terminal evidence.
+The only player buttons are pause/play, replay, and enlargement, each at least 44px. Enlargement fits and centers the existing complete frame; it does not choose a different geometry or reload the recording. Preserve proportions and never reflow terminal artwork.
 
-## Typography
+Recorded-history navigation pauses playback and reviews previously presented screens. Desktop wheel/trackpad and Arrow/Page/Home/End keys provide access. Phone swipes scroll the page while playing; pause first to review history. Play resumes from the selected point. A horizontal history range sits below the image so it does not consume native-frame width. Navigation remains keyboard accessible, and page scrolling is released at history boundaries. Phones give the frame the full available page width; the complete transcript is available in a readable disclosure below it.
 
-**Display Font:** Archivo with a sans-serif fallback, self-hosted and condensed through the observed font stretch (87.5%).
-**Body Font:** IBM Plex Sans with a sans-serif fallback, self-hosted.
-**Label/Mono Font:** IBM Plex Mono with a monospace fallback, self-hosted.
+## Motion and accessibility
 
-**Character:** Archivo gives wide, balanced headings a firm editorial voice. IBM Plex Sans keeps the surrounding interface readable; Mono identifies code, tool calls, filenames and measured detail.
+Use an unpinned software scene with explicit lifecycle controls. An entering connection pulse and a contained tool reveal explain the request path and startup. No automatic lifecycle switching or scroll spacer may interrupt reading. The real filter example collapses routine lines while leaving findings and warnings opaque, with reserved space to keep the next section stable.
 
-### Hierarchy
+Phones use ordinary document flow with meaningful positional motion. Reduced motion preserves every fact without pinning or continuous effects. The floating site-motion action has been removed at the user's request; native-player controls remain. Hidden/offscreen playback pauses without consuming unseen time. Focus outlines use copper; enlargement contains keyboard focus and closes with Escape. Loading errors retain a captured frame and expose retry guidance. If Canvas is unavailable, show an actual captured image.
 
-- **Display:** the frontmatter display role governs the large opening statement. Narrow screens use the observed responsive size (`clamp(36px, 7.3vw, 56px)`).
-- **Headline:** the frontmatter headline role governs chapter headings. The player introduction uses a smaller responsive heading (`clamp(30px, 2.9vw, 44px)`) with a more open line-height (1.12).
-- **Title:** the frontmatter title role is the default subsection heading. Story and evidence titles can grow to the observed larger size (36px); compact architecture titles use a smaller size (23px).
-- **Body:** the frontmatter body role sets the page baseline. Explanatory copy commonly uses the observed supporting range (15–17px) and line-height (1.55–1.65), with reading widths around 54–66ch.
-- **Label:** use the frontmatter label role for general navigation and supporting controls. Preserve sentence case rather than adding uppercase ornamental text.
-- **Code:** the frontmatter code role serves tool calls and preformatted lifecycle examples. Native replay uses its captured cell grid and independent IBM Plex Mono rendering.
+Installation prominently presents “Install with one prompt,” a copy action, and copy → paste → connect/verify. The canonical prompt comes unchanged from the committed README. Prerequisites and explicit runtime startup remain clear; detailed setup stays in a disclosure and repository documentation.
 
-### Named Rules
+## Review requirements
 
-**The Wide Heading Rule.** Keep headings balanced with deliberate breaks and clear line-height; display tracking must remain at or above the incumbent lower bound (-0.04em).
+Review desktop, short laptop, and phones from 320px, including readable copy, relevance, contrast, keyboard access, reduced motion, DPR 1/2, asset failures, agent switching, history, and enlargement. Compare native reconstruction against independent captured pixels. Do not claim fresh capture or filter benchmarks when Docker is unavailable. Impeccable's React/Canvas adapter is unsupported; the user approved manual browser review. No automated visual receipt is asserted.
 
-**The Mono Means Evidence Rule.** Use Mono for code or measured detail, with Sans carrying explanations and Archivo carrying hierarchy.
+## Visual corrections — 2026-10-16
 
-## Layout
+The browser proof uses a clearly labeled excerpt of the original capture, linked to the unchanged full image. Browser evidence remains actual pixels; no native interface is drawn by the website. The filter specimen is characterized input passed through the registered Hercules Nikto filter, with a regression requiring the finding and incomplete-scan warning to survive. It is not a live benchmark and carries no percentage claim.
 
-A centered container has the observed maximum width (1536px) and fluid page gutter from the frontmatter. Main chapters use the recorded desktop, tablet and mobile spacing steps. Tight control groups and evidence rows sit inside this generous section rhythm.
+Lower-section styles live in showcase.css. Remove superseded overrides rather than adding another layer. Mobile agent names and versions stack to prevent grid overflow. Enlargement uses its side insets with automatic width, preserving source geometry. Icon imports use the library’s individual public entrypoints, and Tailwind scans source files rather than recording archives.
 
-Use purposeful adjacent regions: a broad primary stage with a narrower evidence rail, paired headline and explanation, or illustration beside a readable story. Desktop player proportions are 3:1 with a minimum rail width (270px) and gap (24px). At the intermediate breakpoint (1100px), the player becomes 2.4:1, the rail minimum shrinks (245px), and the gap tightens (18px). At the narrow breakpoint (760px), regions stack, agent controls form two columns, the rail expands to content height, and catalog items become two columns.
+## Illustration detail
 
-Chapter headings use a 1.1:1 split and gap (60px); their gap tightens on tablets and their content stacks on phones. Chains use four columns for sequential evidence, then one column on phones. Keep the native recording's grid intact and scale the whole captured geometry. Enlargement provides a readable alternative to a small scaled preview.
+Software diagrams share a graphite surface, copper routes, restrained one-pixel rules and consistent symbol frames. The Hercules process and Docker boundary have structural connection ports. On phones, the Docker route turns vertically and meets the container at the actual column center; it does not use a rotated horizontal fragment. Network branches share equal service rows so every route meets its endpoint center. Challenge symbols use a continuous three-stage route, with readable labels and the verified original flag. Native recording pixels and browser captures are unaffected.
 
-The current showcase follows Hero → native player → tool chains → architecture and isolation → filters and evidence → installation. Its selected editorial composition belongs to `.impeccable/surface-brief.md`; future surfaces should inherit the spatial grammar rather than duplicate this page order.
+## Capability gallery — 2026-10-17
 
-### Named Rules
+Four separate demonstrations use an asymmetric grid: the real Juice Shop recording leads beside recon and background-job stories; an independent-workspace comparison spans the next row. Below 1040px the browser occupies a full row; below 760px all demonstrations stack. Small-phone diagrams turn into vertical lists rather than shrinking their labels. Keep Archivo headings, IBM Plex body/mono, graphite surfaces and copper connections.
 
-**The Group Before Gap Rule.** Keep related controls and facts close, then give the next section room. Do not flatten the chapter rhythm into equally spaced small cards.
-
-**The Fixed Grid Rule.** Native terminal artwork scales as a whole; do not reflow its captured cells to fit a layout.
-
-## Elevation & Depth
-
-Depth primarily comes from solid tonal layering, sharp rules and dimensional supporting illustrations. Reading surfaces stay quiet over the procedural Canvas field, whose final observed opacity is restrained (0.25). The directional background scrim is native to this world and remains behind content.
-
-The enlarged recording uses a diffuse overlay shadow (`0 24px 80px rgba(0,0,0,.75)`). The selected evidence tab uses an inset copper underline (`inset 0 -2px var(--copper)`), a state indicator rather than lifted depth.
-
-### Named Rules
-
-**The Quiet Surface Rule.** Use graphite tone and thin rules for ordinary grouping. Reserve the observed diffuse shadow for the enlarged recording overlay.
-
-## Shapes
-
-Page frames, buttons, inputs, evidence containers and diagrams use sharp corners from the frontmatter. Thin borders establish edges without pill forms or heavy decorative outlines. Icons are real inline SVG controls and explanatory symbols, with copper identifying diagram connections.
-
-The lion image and wordmark are preserved. The procedural smoke/hatch Canvas and graphite/copper illustrations supply organic and dimensional material within the otherwise precise geometry.
-
-## Components
-
-### Buttons
-
-Direct, quiet actions with enough room to operate.
-
-- **Primary:** filled Copper with Action Ink; the frontmatter records its padding and minimum target height. Hover uses Copper Hover.
-- **Secondary:** transparent with a Rule border; hover shifts the border toward Copper.
-- **Focus:** Copper Hover outline (2px) offset from the control (4px).
-- **Responsive:** narrow-screen buttons use the observed tighter padding (12px 15px) and size (13px). Icon actions retain at least a 44px target.
-
-### Cards / Containers
-
-Evidence-first enclosures use sharp corners, near-opaque graphite and a single Rule border. The rail's desktop content inset is observed at 22px, tightening to 18px on smaller screens. Rail content scrolls within a desktop limit (440px), then expands naturally on phones. Rows use fine dividers; ordinary containers do not acquire a raised shadow.
-
-### Inputs / Fields
-
-The catalog search is a transparent field inside a sharp Rule frame. It uses the recorded inset and minimum height from the frontmatter, muted placeholder text and a Copper Hover caret. Focus moves to the whole search enclosure with a Copper Hover outline (2px) and offset (3px).
-
-### Navigation
-
-The header is a compact ruled strip (64px high). Its lion wordmark uses Archivo, while section links use muted Sans and brighten on hover. Links have at least a 44px target. The observed narrow layout hides the section link row at 760px and retains the brand and source action.
-
-### Tabs and Stage Controls
-
-Agent tabs are filled only when selected; inactive tabs stay muted and use Raised Graphite on hover. Evidence tabs remain quiet, marking selection with Copper Hover text and an inset copper underline. Both groups use real tab semantics with Arrow, Home and End keyboard navigation.
-
-Architecture stage controls are sharp bordered buttons. Selected stages use a warm graphite fill, Copper border and Copper Code text. Preserve `aria-pressed` state.
-
-### Tool Chains
-
-Expandable ruled rows pair an Archivo title, a Sans explanation and a copper chevron. The open state brightens the title and rotates the chevron. The revealed sequence uses code names above evidence descriptions, connecting actual steps with SVG arrows; phones place the sequence vertically.
-
-### Native Player and Evidence Rail
-
-Keep captured native bytes, fixed cell geometry, original 1× timing, captured stills and recorded client colors. Visible surrounding controls provide pause, replay, enlargement, transcript and evidence access. Preserve an actual frame through loading and render preparation; loading or failure recovery is readable and directs visitors to Replay or the captured transcript.
-
-Enlargement uses the observed fixed inset (24px desktop, 10px phone), a diffuse shadow, Escape dismissal and contained keyboard focus. Synchronized findings and files become available according to the capture; the report appears after evidence verification. Capture provenance is factual supporting content, not an ornamental eyebrow.
-
-### Motion and Static Explanations
-
-Preserve the independent procedural background and native recording clocks. The runtime ownership sequence uses scoped GSAP pinning only on suitable desktops (minimum width 1000px and height 900px), with scrub (0.7). The evidence illustration and pipeline use a separate reveal sequence on desktops (minimum width 1000px). Native playback stays independent at 1×.
-
-Reduced motion removes smooth scrolling and shortens transitions; the background renders still, the recording presents a completed captured frame until explicitly played, and the complete architecture explanation appears in ordinary document flow. A fixed 44px motion control pauses site motion. Hidden or offscreen recording playback pauses without consuming unseen time.
-
-## Do's and Don'ts
-
-### Do:
-
-- **Do** preserve graphite/copper, the lion wordmark and the self-hosted Archivo / IBM Plex pairing.
-- **Do** preserve the source Canvas smoke, hatch and halftone material, including worker fallback and reduced-motion still rendering.
-- **Do** use thin rules and solid graphite reading surfaces to make evidence and controls legible.
-- **Do** keep native recordings at original timing and fixed geometry, with captured stills and readable transcripts.
-- **Do** provide at least 44px interactive targets and visible focus.
-- **Do** retain every explanatory fact on phones and under reduced motion.
-- **Do** label supporting illustrations and scripted model decisions explicitly.
-
-### Don't:
-
-- **Don't** replace the procedural background with generated raster artwork.
-- **Don't** recolor, fabricate or reflow the native client interface.
-- **Don't** add decorative status dots, generic glass cards or invented metrics.
-- **Don't** use ornamental kickers to manufacture hierarchy.
-- **Don't** apply the overlay shadow to ordinary reading surfaces.
-- **Don't** tighten display tracking beyond the confirmed lower bound (-0.04em).
+The browser is actual CloakBrowser footage driven by Hercules in a private local Docker lab. It demonstrates the verified Login Admin and Score Board training challenges (2 of 186), not a complete Juice Shop assessment. The delivery loop is an edited highlight: it omits idle gaps and the payload entry while retaining original browser pixels. Keep its 1280×600 proportions, 2.5× delivery speed, captured poster and report. Pause the loop automatically when hidden or offscreen; reduced motion and video failure show the real completed capture. Do not add generated browser frames or claim guaranteed bot-detection bypass. Asset hashes and capture facts live beside the static assets and in CAPTURE.md.
