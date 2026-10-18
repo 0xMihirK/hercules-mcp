@@ -11,46 +11,158 @@ import { Network } from "@phosphor-icons/react/Network";
 import { GlobeHemisphereWest } from "@phosphor-icons/react/GlobeHemisphereWest";
 import { FileArchive } from "@phosphor-icons/react/FileArchive";
 import { Code } from "@phosphor-icons/react/Code";
+import { Browsers } from "@phosphor-icons/react/Browsers";
+import { Key } from "@phosphor-icons/react/Key";
+import { HardDrive } from "@phosphor-icons/react/HardDrive";
 gsap.registerPlugin(ScrollTrigger);
 const asset=(path:string)=>import.meta.env.BASE_URL+"assets/"+path;
 const phases=[
-  {label:"Connect",title:"Connected. Tools are not running yet.",text:"Your agent can see the Hercules tools. The Kali container stays stopped until the agent explicitly starts it."},
-  {label:"Start tools",title:"Start a workspace when the work begins.",text:"Hercules starts your session’s Kali container. Security tools execute inside that software environment."},
-  {label:"Separate sessions",title:"A separate container for each session.",text:"Another agent gets its own Hercules session, container, working files, and allocated ports."},
-  {label:"Stop tools",title:"Stop your container. Other sessions continue.",text:"Hercules stops the container owned by this session. The other session keeps control of its own container."}
+  {step:"01",label:"Connect",title:"Connected. Tools are not running yet.",text:"Your agent registers 47 Hercules tools over STDIO MCP. The Kali container stays stopped until the agent explicitly starts a session."},
+  {step:"02",label:"Start tools",title:"Start a workspace when the work begins.",text:"Hercules boots your session’s isolated Kali container and mounts a dedicated host workspace directory for raw outputs and reports."},
+  {step:"03",label:"Separate sessions",title:"A separate container for each session.",text:"Another agent gets its own Hercules session, Kali container, working files, and allocated ports without colliding with Session A."},
+  {step:"04",label:"Stop tools",title:"Stop your container. Other sessions continue.",text:"Hercules stops Session A’s container while preserving its host workspace artifacts. Session B keeps running uninterrupted."}
 ];
-function Connection({label,docker=false}:{label:string;docker?:boolean}){return <div className={"flow-connection"+(docker?" docker-connection":"")} aria-hidden="true"><span>{label}</span><i><b className="connection-packet"/></i><ArrowRight size={18}/></div>;}
+function Connection({label,sublabel,active,docker=false}:{label:string;sublabel:string;active:boolean;docker?:boolean}){
+  return <div className={"flow-connection"+(docker?" docker-connection":"")+(active?" is-active":"")} aria-hidden="true">
+    <span className="conduit-label">{label}</span>
+    <div className="conduit-rail">
+      <svg viewBox="0 0 120 20" className="conduit-svg" preserveAspectRatio="none">
+        <line x1="0" y1="10" x2="108" y2="10" className="conduit-track"/>
+        <line x1="0" y1="10" x2="108" y2="10" className="conduit-pulse"/>
+        <polygon points="106,5 118,10 106,15" className="conduit-arrow"/>
+      </svg>
+      <b className="connection-packet"/>
+    </div>
+    <small className="conduit-sublabel">{sublabel}</small>
+  </div>;
+}
 export default function ArchitectureScene({reduced,paused}:{reduced:boolean;paused:boolean}){
-  const root=useRef<HTMLElement>(null),scene=useRef<HTMLDivElement>(null),[phase,setPhase]=useState(0);
+  const root=useRef<HTMLElement>(null),scene=useRef<HTMLDivElement>(null),[phase,setPhase]=useState(1);
   useEffect(()=>{
     if(reduced || paused || !root.current)return;
     const context=gsap.context(()=>{
       gsap.fromTo(".connection-packet",{xPercent:-100},{xPercent:520,duration:1.1,ease:"power2.out",scrollTrigger:{trigger:scene.current,start:"top 80%",once:true}});
-      if(phase===1 || phase===2)gsap.fromTo(".runtime-capability",{clipPath:"inset(0 0 100% 0)",y:5},{clipPath:"inset(0 0 0% 0)",y:0,duration:.45,stagger:.06,ease:"power3.out"});
+      if(phase===1 || phase===2)gsap.fromTo(".runtime-capability",{opacity:.35,y:5},{opacity:1,y:0,duration:.4,stagger:.05,ease:"power3.out"});
     },root);
     return()=>context.revert();
   },[phase,reduced,paused]);
   const running=phase===1 || phase===2;
+  const stoppedAfterRun=phase===3;
   return <section id="architecture" ref={root} className="chapter architecture" aria-labelledby="architecture-title">
-    <div className="wrap"><div className="feature-heading feature-heading--split"><h2 id="architecture-title">Kali in a container.<br/>A separate workspace.</h2><p>Hercules runs on your computer. Its security tools run in a session-owned Kali Docker container.</p></div>
+    <div className="wrap">
+      <div className="feature-heading feature-heading--split">
+        <h2 id="architecture-title">Kali in a container.<br/>A separate workspace.</h2>
+        <p>Hercules runs on your computer as a lightweight STDIO MCP host server. Heavy security tools execute inside a session-owned Kali Docker container.</p>
+      </div>
       <div ref={scene} className={"sandbox-demonstration phase-"+phase}>
-        <div className="sandbox-controls" role="group" aria-label="Explore the illustrated session lifecycle">{phases.map((item,i)=><button key={item.label} aria-pressed={phase===i} onClick={()=>setPhase(i)}>{item.label}</button>)}</div>
+        <div className="sandbox-controls" role="group" aria-label="Explore the illustrated session lifecycle">
+          {phases.map((item,i)=><button key={item.label} aria-pressed={phase===i} onClick={()=>setPhase(i)}>
+            <span className="phase-step">{item.step}</span>
+            <span>{item.label}</span>
+          </button>)}
+        </div>
         <div className="software-flow" role="group" aria-label="Your agent connects to Hercules on your computer. Hercules manages a separate Kali Docker container containing the security tools.">
-          <div className="agent-request"><TerminalWindow size={35} aria-hidden="true"/><h3>Your agent</h3><p>Claude, Codex, or your own integration.</p><blockquote>Review this website.</blockquote><span>You choose the task and scope.</span></div>
-          <Connection label="STDIO MCP"/>
-          <div className="hercules-bridge"><img src={asset("lion.svg")} width="82" height="90" alt=""/><h3>Hercules</h3><p>Connects your agent.<br/>Manages the runtime.</p><span>Runs on your computer</span></div>
-          <Connection label="Starts on request" docker/>
-          <div className={"tool-container"+(running?" is-running":"")}>
-            <header><img src={asset("brands/docker.svg")} width="49" height="49" alt="Docker"/><div><h3>Kali Linux</h3><p>Docker container · session A</p></div></header>
-            <div className="runtime-capabilities"><div className="runtime-capability"><Network size={24}/><span>Network<small>Hosts and services</small></span></div><div className="runtime-capability"><GlobeHemisphereWest size={24}/><span>Web<small>Requests and browsers</small></span></div><div className="runtime-capability"><FileArchive size={24}/><span>Forensics<small>Files and challenges</small></span></div><div className="runtime-capability"><Code size={24}/><span>Shell<small>Tools working together</small></span></div></div>
-            <footer><span className="container-status">{running?"Running for session A":"Container stopped"}</span><span>Separate from your host tools</span></footer>
+          <div className="agent-request arch-node">
+            <div className="arch-node-top">
+              <span className="arch-node-badge">MCP CLIENT</span>
+              <span className="arch-node-state is-online">Connected</span>
+            </div>
+            <div className="arch-node-Identity">
+              <TerminalWindow size={32} aria-hidden="true"/>
+              <div>
+                <h3>Your agent</h3>
+                <p>Claude, Codex, Gemini, or custom client</p>
+              </div>
+            </div>
+            <blockquote>“Assess target ports, web routes, and auth flows.”</blockquote>
+            <div className="arch-node-meta">
+              <span>Scope controlled by user</span>
+              <code>47 tools registered</code>
+            </div>
+          </div>
+          <Connection label="STDIO MCP" sublabel="JSON-RPC stream" active={true}/>
+          <div className="hercules-bridge arch-node">
+            <div className="arch-node-top">
+              <span className="arch-node-badge">HOST SERVER</span>
+              <span className="arch-node-state is-online">Active</span>
+            </div>
+            <img src={asset("lion.svg")} width="76" height="84" alt=""/>
+            <h3>Hercules</h3>
+            <p>Manages sessions, filters noisy tool output, and tracks background jobs.</p>
+            <div className="arch-node-meta">
+              <span>Runs on your computer</span>
+              <code>session_id: a8f2</code>
+            </div>
+          </div>
+          <Connection label={running?"Docker API · Active":stoppedAfterRun?"Container stopped":"Starts on request"} sublabel={running?"Exec + volume mount":"On-demand lifecycle"} active={running} docker/>
+          <div className={"tool-container arch-node"+(running?" is-running":"")+(stoppedAfterRun?" is-stopped-clean":"")}>
+            <header>
+              <div className="container-header-main">
+                <img src={asset("brands/docker.svg")} width="42" height="42" alt="Docker"/>
+                <div>
+                  <h3>Kali Linux</h3>
+                  <p>Docker container · Session A</p>
+                </div>
+              </div>
+              <span className={"container-pill"+(running?" is-running":stoppedAfterRun?" is-preserved":"")}>
+                {running?"RUNNING":stoppedAfterRun?"STOPPED · SAVED":"STANDBY"}
+              </span>
+            </header>
+            <div className="runtime-capabilities">
+              <div className="runtime-capability"><Network size={22}/><span>Network<small>Nmap, RustScan, masscan</small></span></div>
+              <div className="runtime-capability"><GlobeHemisphereWest size={22}/><span>Web &amp; API<small>Nuclei, ffuf, Nikto, SQLMap</small></span></div>
+              <div className="runtime-capability"><Browsers size={22}/><span>Browser<small>Isolated Chromium &amp; DOM</small></span></div>
+              <div className="runtime-capability"><FileArchive size={22}/><span>Forensics<small>Binwalk, YARA, ExifTool</small></span></div>
+              <div className="runtime-capability"><Key size={22}/><span>Cracking<small>John, Hydra, Hashid</small></span></div>
+              <div className="runtime-capability"><Code size={22}/><span>Shell &amp; Jobs<small>Async tasks &amp; pipelines</small></span></div>
+            </div>
+            <div className={"volume-retention"+(running||stoppedAfterRun?" is-mounted":"")}>
+              <HardDrive size={18}/>
+              <span>Host evidence mount: <code>/opt/workspace/session-a</code></span>
+              <strong>{stoppedAfterRun?"Artifacts preserved on host":running?"Writing raw logs & reports":"Mounted when started"}</strong>
+            </div>
+            <footer>
+              <span className="container-status">{running?"Running for Session A":stoppedAfterRun?"Container stopped · Evidence kept":"Container stopped (0 CPU / RAM)"}</span>
+              <span>Isolated from host packages</span>
+            </footer>
           </div>
         </div>
-        <div className="second-session">{phase>=2?<div className="secondary-flow"><span><TerminalWindow size={20}/>Another agent</span><ArrowRight size={18} aria-hidden="true"/><span>Hercules session B</span><ArrowRight size={18} aria-hidden="true"/><span><img src={asset("brands/docker.svg")} width="25" height="25" alt=""/>Container B · running</span></div>:<p>Another session gets its own container, working files, and allocated ports.</p>}</div>
-        <div className="sandbox-caption" aria-live="polite"><h3>{phases[phase].title}</h3><p>{phases[phase].text}</p></div>
+        <div className={"second-session"+(phase>=2?" is-active":"")}>
+          <div className="second-session-header">
+            <span className="second-session-badge">{phase>=2?"PARALLEL SESSION B · RUNNING":"MULTI-SESSION ISOLATION"}</span>
+            {phase<2 && <button type="button" className="second-session-trigger" onClick={()=>setPhase(2)}>Preview parallel session <ArrowRight size={15}/></button>}
+          </div>
+          <div className="secondary-flow">
+            <div className="secondary-node"><TerminalWindow size={18}/><span>Another agent</span><code>Client B</code></div>
+            <ArrowRight size={16} aria-hidden="true"/>
+            <div className="secondary-node"><span>Hercules Session B</span><code>session_id: b4c9</code></div>
+            <ArrowRight size={16} aria-hidden="true"/>
+            <div className="secondary-node is-container"><img src={asset("brands/docker.svg")} width="20" height="20" alt=""/><span>Kali Container B</span><code>{phase>=2?"Running · :9223 · /opt/workspace/session-b":"On-demand container & port pool"}</code></div>
+          </div>
+        </div>
+        <div className="sandbox-caption" aria-live="polite">
+          <div>
+            <span className="caption-step">PHASE {phases[phase].step} · {phases[phase].label.toUpperCase()}</span>
+            <h3>{phases[phase].title}</h3>
+          </div>
+          <p>{phases[phase].text}</p>
+        </div>
       </div>
       <p className="sandbox-scope">You control networking, permissions, and target scope. Container isolation depends on those settings.</p>
-      <div className="portability-band"><div><h3>Bring your agent.<br/>Choose your system.</h3><p>Any agent, worker, or custom integration with STDIO MCP support can connect. MCP means Model Context Protocol.</p><a className="text-link" href="https://github.com/0xMihirK/hercules-mcp#install-with-your-ai-agent">See setup options <ArrowUpRight size={18}/></a></div><div className="platform-line"><span><WindowsLogo size={38} weight="fill"/>Windows</span><span><AppleLogo size={38} weight="fill"/>macOS</span><span><LinuxLogo size={38} weight="fill"/>Linux</span><p>Same Hercules. Docker on each system.</p></div></div>
+      <div className="portability-band">
+        <div>
+          <h3>Bring your agent.<br/>Choose your system.</h3>
+          <p>Any coding agent, CLI worker, or custom integration with STDIO MCP support can connect. MCP means Model Context Protocol.</p>
+          <a className="text-link" href="https://github.com/0xMihirK/hercules-mcp#install-with-your-ai-agent">See setup options <ArrowUpRight size={18}/></a>
+        </div>
+        <div className="platform-line">
+          <span><WindowsLogo size={34} weight="fill"/>Windows</span>
+          <span><AppleLogo size={34} weight="fill"/>macOS</span>
+          <span><LinuxLogo size={34} weight="fill"/>Linux</span>
+          <p>Same Hercules host server. Docker on each system.</p>
+        </div>
+      </div>
     </div>
   </section>;
 }
+
