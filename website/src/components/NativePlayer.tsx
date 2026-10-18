@@ -191,7 +191,8 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   const minimum=runtime.current && shown && key(runtime.current.record)===key(shown)?runtime.current.minimum:shown?.displayStart || 0;
   const caseEntries=manifest?Object.entries(manifest.cases):[];
   const activeScenario=shown?.scenario || scenario;
-  return <div className="native-player" data-native-ready={ready} data-client={shownClient} data-requested-client={client} data-case={activeScenario} data-columns={shown?.columns || columns} data-recording-sha={shown?.sha256} data-playback-rate={PLAYBACK_RATE}>
+  const isPlaying=!stopped && ready;
+  return <div className="native-player" data-playing={isPlaying} data-native-ready={ready} data-client={shownClient} data-requested-client={client} data-columns={shown?.columns || columns} data-case={activeScenario} data-recording-sha={shown?.sha256} data-playback-rate={PLAYBACK_RATE}>
     <div className="player-bars">
       <div className="agent-tabs" role="tablist" aria-label="Example agent">{clients.map(({id,name},i)=><button key={id} id={"agent-"+id} aria-controls="native-session" role="tab" aria-selected={client===id} tabIndex={client===id?0:-1} onClick={()=>switchAgent(id)} onKeyDown={e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();const n=e.key==="Home"?0:e.key==="End"?3:(i+(e.key==="ArrowRight"?1:3))%4;switchAgent(clients[n].id);(e.currentTarget.parentElement?.children[n] as HTMLButtonElement)?.focus();}}}>{name}<span>{manifest?.clients[id]?.version || ""}</span></button>)}</div>
       {caseEntries.length>0 && <div className="scenario-tabs" role="group" aria-label="Investigation scenario">
@@ -203,7 +204,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
     </div>
     <div className="player-layout">
       <div className="player-recording">
-      <div ref={stage} className={"native-stage"+(expanded?" is-expanded":"")} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={expanded?clients.find(c=>c.id===shownClient)?.name+" recording":undefined} onKeyDown={e=>{
+      <div ref={stage} data-playing={isPlaying} className={"native-stage"+(expanded?" is-expanded":"")} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={expanded?clients.find(c=>c.id===shownClient)?.name+" recording":undefined} onKeyDown={e=>{
         if(expanded && e.key==="Escape")setExpanded(false);
         if(expanded && e.key==="Tab"){const targets=stage.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href],[tabindex="0"]');if(targets?.length){const first=targets[0],last=targets[targets.length-1];if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}}}
       }}>
