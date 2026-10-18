@@ -82,8 +82,8 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         return `M${a.x},${a.y} L${b.x},${b.y}`;
       };
       setRoutes({
-        request: path(".map-agent-port", ".map-filter-input") + path(".map-filter-output", ".map-hub-input"),
-        response: path(".map-hub-input", ".map-filter-output") + path(".map-filter-input", ".map-agent-port"),
+        request: path(".map-agent-port", ".map-filter-input") + path(".map-filter-output", ".map-hub-input") + path(".map-hub-output", ".map-docker-port"),
+        response: path(".map-docker-port", ".map-hub-output") + path(".map-hub-input", ".map-filter-output") + path(".map-filter-input", ".map-agent-port"),
       });
     };
     const observer = new ResizeObserver(measure);
@@ -103,17 +103,13 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
       loop.call(() => { setPhase("Agent dispatches independent checks"); setRuntimeState("working"); }, [], 0)
         .fromTo(".map-request-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1 }, .3)
         .to(".map-request-pulse", { opacity: 0, duration: .3 }, 1.4)
-        .fromTo(".map-dispatch-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: .8 }, 1.4)
-        .to(".map-dispatch-pulse", { opacity: 0, duration: .3 }, 2.3)
         .fromTo(".map-agent-cursor", { opacity: .2 }, { opacity: 1, duration: .45, repeat: 7, yoyo: true }, .3)
-        .fromTo(".map-mini-cursor", { x: -8, y: -6, opacity: .3 }, { x: 0, y: 0, opacity: 1, duration: 1.2, ease: "power2.out" }, 2.4)
-        .fromTo(".map-mini-node", { opacity: .25 }, { opacity: 1, duration: .5, stagger: .4 }, 3)
-        .fromTo(".map-job-fill", { scaleX: .08 }, { scaleX: 1, duration: 3, stagger: .45, ease: "power1.inOut" }, 2.3)
+        .fromTo(".map-mini-cursor", { x: -8, y: -6, opacity: .3 }, { x: 0, y: 0, opacity: 1, duration: 1.2, ease: "power2.out" }, 1.5)
+        .fromTo(".map-mini-node", { opacity: .25 }, { opacity: 1, duration: .5, stagger: .4 }, 2)
+        .fromTo(".map-job-fill", { scaleX: .08 }, { scaleX: 1, duration: 3.5, stagger: .55, ease: "power1.inOut" }, 1.4)
         .call(() => { setPhase("Findings and diagnostics return"); setRuntimeState("complete"); }, [], 6.6)
-        .fromTo(".map-dispatch-response-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: .8 }, 6.6)
-        .to(".map-dispatch-response-pulse", { opacity: 0, duration: .3 }, 7.5)
-        .fromTo(".map-response-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2 }, 7.4)
-        .to(".map-response-pulse", { opacity: 0, duration: .3 }, 8.8)
+        .fromTo(".map-response-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2 }, 6.6)
+        .to(".map-response-pulse", { opacity: 0, duration: .3 }, 8)
         .fromTo(".map-noise", { opacity: .75, x: 0 }, { opacity: .15, x: -8, duration: .6, stagger: .15 }, 7)
         .fromTo(".map-retained-output", { opacity: .65 }, { opacity: 1, duration: .5, stagger: .2 }, 7.5)
         .call(() => { setPhase("Fresh session requested · stopping current runtime"); setRuntimeState("stopping"); }, [], 10)
@@ -138,7 +134,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     }, section);
     return () => {
       context.revert();
-      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-mini-cursor,.map-mini-node,.map-agent-cursor,.map-job-fill,.map-noise,.map-retained-output,.map-request-pulse,.map-response-pulse,.map-dispatch-pulse,.map-dispatch-response-pulse"), { clearProps: "all" });
+      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-mini-cursor,.map-mini-node,.map-agent-cursor,.map-job-fill,.map-noise,.map-retained-output,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
       delete section.dataset.motion;
     };
   }, [reduced, paused]);
@@ -147,6 +143,11 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     cancelAnimationFrame(revealFrame.current);
     revealFrame.current = requestAnimationFrame(() => {
       if (!button.isConnected) return;
+      const flow = button.closest<HTMLElement>(".map-flow-viewport");
+      if (flow) {
+        const bounds = flow.getBoundingClientRect(), target = button.getBoundingClientRect();
+        flow.scrollTo({ left: flow.scrollLeft + target.left - bounds.left - (flow.clientWidth - target.width) / 2, behavior: "instant" });
+      }
       const panelHeight = root.current?.querySelector(".map-detail")?.getBoundingClientRect().height ?? 0;
       const card = button.getBoundingClientRect();
       const available = window.innerHeight - panelHeight - 12 - 84;
@@ -176,21 +177,20 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
       </div>
       <div className="capability-scene" data-active={active ?? "overview"} data-inspecting={selected || focused ? "true" : undefined}>
         <div className="map-caption"><span>Agent ↔ output filter ↔ Hercules ↔ Docker</span><span><Info size={15} aria-hidden="true"/> Hover, focus, or select to explore</span></div>
+        <p className="map-pan-hint">Follow the connection → <span>Swipe horizontally or focus the diagram and use the arrow keys.</span></p>
+        <div className="map-flow-viewport" role="region" aria-label="Horizontal Hercules connection diagram" tabIndex={0}>
         <div className="architecture-map">
           <svg className="map-connections" aria-hidden="true"><defs><marker id="map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs>
             {Object.entries(routes).map(([key, d]) => <g key={key}>{key === "request" && d.split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className="map-route" d={segment} markerStart="url(#map-arrow)" markerEnd="url(#map-arrow)"/>)}<path className={`map-${key}-pulse`} d={d} pathLength="1"/></g>)}
           </svg>
             <div className="map-agent"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={25} aria-hidden="true"/><div><strong>Your agent</strong><small>Any STDIO MCP client</small></div><span className="map-agent-task">“Investigate this local lab.”<i className="map-agent-cursor" aria-hidden="true"/></span></div>
-          <div className="map-mcp-link" aria-hidden="true"><span>STDIO MCP</span><svg viewBox="0 0 8 40"><path d="M4 2V38M1 6L4 2L7 6M1 34L4 38L7 34"/></svg></div>
             <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Token-saving filter</strong><Info size={14} aria-hidden="true"/></span><span className="map-port map-filter-input" aria-hidden="true"/><span className="map-port map-filter-output" aria-hidden="true"/>
               <span className="map-filter-direction">Filters returned output</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span className="map-retained-output"><Check size={14} aria-hidden="true"/>Findings kept</span><span className="map-retained-output">! Important diagnostics kept</span></span><small>Noise filtering ≠ response-size limits</small>
             </button>
-          <div className="map-mcp-link" aria-hidden="true"><span>STDIO MCP</span><svg viewBox="0 0 8 40"><path d="M4 2V38M1 6L4 2L7 6M1 34L4 38L7 34"/></svg></div>
-            <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Connect · coordinate · return</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/></button>
-          <div className="map-dispatch-link" aria-hidden="true"><span>Tools &amp; results</span><svg viewBox="0 0 12 52"><defs><marker id="map-dispatch-arrow" viewBox="0 0 8 8" refX="14" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs><path className="map-route" d="M6 1V51" markerStart="url(#map-dispatch-arrow)" markerEnd="url(#map-dispatch-arrow)"/><path className="map-dispatch-pulse" d="M6 1V51" pathLength="1"/><path className="map-dispatch-response-pulse" d="M6 51V1" pathLength="1"/></svg></div>
+            <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Connect · coordinate · return</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-output" aria-hidden="true"/></button>
           <div className="map-runtime-stage">
             <div className="map-runtime-backplate" aria-hidden="true"><img src={asset("brands/docker.svg")} width="45" height="35" alt=""/><span>Current runtime stopped → fresh session starting</span></div>
-            <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}>
+            <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}><i className="map-port map-docker-port" aria-hidden="true"/>
               <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
               <div className="map-runtime-state" aria-hidden="true" title={reduced || paused ? "Start on request → run tools → fresh session" : phase}><span>Runtime {workspace}</span><strong>{reduced || paused ? "Starts on request" : runtimeLabels[runtimeState]}</strong></div>
               <div className="map-capabilities">{capabilities.map(({ key, title, tools, action }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><span className="map-tool-names">{tools}</span><span className="map-tool-purpose">{action}</span></button>)}</div>
@@ -198,8 +198,9 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
               <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Independent checks overlap · background output stays inspectable</small></button>
             </div>
           </div>
-          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><strong>Managed workspaces</strong><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {workspace}<small>Active · mounted in this runtime</small></span></span><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {previous}<small>Retained · available to inspect</small></span></span></span><small>One active session per connection. Separate clients can own independent runtimes.</small></button>
         </div>
+        </div>
+          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><strong>Managed workspaces</strong><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {workspace}<small>Active · mounted in this runtime</small></span></span><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {previous}<small>Retained · available to inspect</small></span></span></span><small>One active session per connection. Separate clients can own independent runtimes.</small></button>
 
         <div id="architecture-detail" className="map-detail" aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Explore the tools, not just the container."}</h3><p>{current?.text ?? "Choose a capability to see what your agent can do. This illustration shows an on-request runtime, concurrent work, a filtered response, and replacement for a fresh session."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>

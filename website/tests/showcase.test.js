@@ -37,6 +37,8 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   const agent=markup.indexOf('class="map-agent"'), filter=markup.indexOf('data-feature="filter"'), hub=markup.indexOf('data-feature="hercules"'), docker=markup.indexOf('class="map-runtime-stage"');
   assert.ok(agent<filter && filter<hub && hub<docker,"agent → output filter → Hercules → Docker");
   assert.match(markup,/Filters returned output/);
+  assert.match(markup,/Horizontal Hercules connection diagram/);
+  assert.doesNotMatch(markup,/map-dispatch-link/);
   assert.doesNotMatch(markup,/scene-shell-trace/);
 });
 test("every presentation beat uses a real completed call and an existing artifact",()=>{
