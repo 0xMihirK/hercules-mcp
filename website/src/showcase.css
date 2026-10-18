@@ -777,23 +777,68 @@
 }
 .platform-inline {
   display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--edge);
+  position: relative;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+.platform-inline::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 32px;
+  height: 2px;
+  background: var(--ember);
+}
+.platform-badges {
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 14px 18px;
-  background: var(--surface-1);
-  font-size: 14px;
-  color: var(--ink);
+  gap: 10px;
 }
-.platform-inline span {
+.platform-pill {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-weight: 600;
-}
-.platform-inline small {
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--edge);
   font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  transition: border-color 0.18s, color 0.18s;
+}
+.platform-pill svg {
+  color: var(--ember-soft);
+  flex-shrink: 0;
+}
+.platform-pill:hover {
+  border-color: rgba(255, 106, 43, 0.4);
+  color: var(--ember-soft);
+}
+.platform-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--edge);
+  font-family: var(--mono);
+  font-size: 12px;
   color: var(--ink-3);
+  letter-spacing: -0.01em;
+}
+.platform-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 8px var(--signal);
+  flex-shrink: 0;
 }
 .installation-cta-box {
   background: var(--surface-1);

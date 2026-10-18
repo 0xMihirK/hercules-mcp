@@ -61,19 +61,24 @@ export default function Setup({ prompt }: { prompt: string }) {
             ))}
           </div>
           <div className="platform-inline" aria-label="Supported operating systems">
-            <span>
-              <WindowsLogo size={20} weight="fill" />
-              Windows
-            </span>
-            <span>
-              <AppleLogo size={20} weight="fill" />
-              macOS
-            </span>
-            <span>
-              <LinuxLogo size={20} weight="fill" />
-              Linux
-            </span>
-            <small>Same STDIO MCP host server · Docker on each system</small>
+            <div className="platform-badges">
+              <span className="platform-pill">
+                <WindowsLogo size={18} weight="fill" />
+                Windows
+              </span>
+              <span className="platform-pill">
+                <AppleLogo size={18} weight="fill" />
+                macOS
+              </span>
+              <span className="platform-pill">
+                <LinuxLogo size={18} weight="fill" />
+                Linux
+              </span>
+            </div>
+            <div className="platform-meta">
+              <span className="platform-dot" aria-hidden="true" />
+              <span>Same STDIO MCP host server · Docker on each system</span>
+            </div>
           </div>
         </div>
         <div className={`installation-cta-box${copied ? " is-copied" : ""}`} data-ui>
