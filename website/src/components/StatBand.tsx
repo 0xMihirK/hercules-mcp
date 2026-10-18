@@ -1,7 +1,26 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import type { CatalogData } from "./ToolChains";
+export type CatalogItem = {
+  key: string;
+  category: string;
+  description: string;
+  mandatory: boolean;
+  mcp_tools: string[];
+  backend_binaries: string[];
+  wordlists: string[];
+  metasploit: boolean;
+  browser: boolean;
+  note: string;
+};
+
+export type CatalogData = {
+  full_tool_count: number;
+  without_metasploit_tool_count: number;
+  resource_count: number;
+  categories: { key: string; title: string }[];
+  capabilities: CatalogItem[];
+};
 
 gsap.registerPlugin(ScrollTrigger);
 

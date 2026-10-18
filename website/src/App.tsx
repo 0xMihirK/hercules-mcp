@@ -9,7 +9,6 @@ import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
 import StatBand from "./components/StatBand";
-import ToolChains from "./components/ToolChains";
 import ArchitectureScene from "./components/ArchitectureScene";
 import EvidencePipeline from "./components/EvidencePipeline";
 import Setup from "./components/Setup";
@@ -41,7 +40,7 @@ export default function App() {
       });
     };
     const observer = new ResizeObserver(refresh);
-    for (const element of document.querySelectorAll("#agents,#tools"))
+    for (const element of document.querySelectorAll("#agents,#architecture"))
       observer.observe(element);
     document.fonts.ready.then(() => {
       if (live) refresh();
@@ -111,7 +110,6 @@ export default function App() {
           </a>
           <nav aria-label="Main">
             <a href="#agents">Live sessions</a>
-            <a href="#tools">Capabilities</a>
             <a href="#architecture">How it works</a>
             <a href="#evidence">Evidence</a>
             <a href="#install">Setup</a>
@@ -191,8 +189,8 @@ export default function App() {
                 results. Model responses and decisions are scripted. No public
                 targets are contacted.
               </p>
-              <a href="#tools">
-                Explore the capabilities <ArrowDown size={18} aria-hidden="true" />
+              <a href="#architecture">
+                Explore the architecture <ArrowDown size={18} aria-hidden="true" />
               </a>
             </div>
           </div>
@@ -203,7 +201,6 @@ export default function App() {
           reduced={reduced}
           paused={paused}
         />
-        <ToolChains reduced={reduced} paused={paused} />
         <ArchitectureScene reduced={reduced} paused={paused} />
         <EvidencePipeline reduced={reduced} paused={paused} />
         <Setup prompt={facts.installationPrompt} />
