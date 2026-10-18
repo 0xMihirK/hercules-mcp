@@ -13,10 +13,26 @@ async function component(path,replacements={}){
   const code=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ES2022}}).outputText
     .replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve("react/jsx-runtime")))
     .replaceAll('"react"',JSON.stringify(import.meta.resolve("react")))
+    .replaceAll('"gsap"',JSON.stringify(import.meta.resolve("gsap")))
     .replace(/"(@phosphor-icons\/react(?:\/[^"]+)?)"/g,(_,specifier)=>JSON.stringify(import.meta.resolve(specifier)));
   return import("data:text/javascript;base64,"+Buffer.from(code).toString("base64"));
 }
 const {default:Story}=await component("../src/components/SessionStory.tsx",{'import content from "../showcase-content.json";':"const content="+JSON.stringify(data)+";"});
+const {default:Architecture}=await component("../src/components/ArchitectureScene.tsx",{'import.meta.env.BASE_URL':'"/"'});
+
+test("architecture exposes six accessible features and truthful static fallback content",()=>{
+  const markup=renderToStaticMarkup(createElement(Architecture,{reduced:true,paused:false}));
+  assert.equal((markup.match(/data-feature=/g)||[]).length,6);
+  assert.equal((markup.match(/aria-controls="architecture-detail"/g)||[]).length,6);
+  assert.equal((markup.match(/aria-pressed="false"/g)||[]).length,6);
+  assert.match(markup,/Active \u00b7 mounted in this runtime/);
+  assert.match(markup,/Retained \u00b7 available to inspect/);
+  assert.match(markup,/Warning retained/);
+  assert.match(markup,/Tools start only when requested/);
+  assert.doesNotMatch(markup,/18MB|98\.5|AST Filter|Zero host pollution|live telemetry|sandbox-controls/);
+  assert.match(markup,/Start \u00b7 work \u00b7 fresh session/);
+  assert.equal((markup.match(/<button /g)||[]).length,6);
+});
 test("every presentation beat uses a real completed call and an existing artifact",()=>{
   assert.deepEqual(Object.keys(data).sort(),Object.keys(manifest.cases).sort());
   for(const r of manifest.recordings){
