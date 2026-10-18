@@ -5,7 +5,6 @@ import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
 import { Browser } from "@phosphor-icons/react/Browser";
 import { Check } from "@phosphor-icons/react/Check";
 import { Circle } from "@phosphor-icons/react/Circle";
-import { Code } from "@phosphor-icons/react/Code";
 import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
 import { HardDrives } from "@phosphor-icons/react/HardDrives";
 import { LockKey } from "@phosphor-icons/react/LockKey";
@@ -39,51 +38,6 @@ export type CatalogData = {
   categories: { key: string; title: string }[];
   capabilities: CatalogItem[];
 };
-
-const MCP_RESOURCES = [
-  {
-    uri: "resource://agent_skills/nse",
-    category: "Authoring guide",
-    title: "Custom Nmap NSE Lua authoring",
-    when: "Loaded when installed NSE scripts cannot express an authorized protocol or check.",
-  },
-  {
-    uri: "resource://agent_skills/nuclei",
-    category: "Authoring guide",
-    title: "Custom Nuclei YAML template authoring",
-    when: "Loaded when installed Nuclei templates or tags cannot express the required detection.",
-  },
-  {
-    uri: "resource://post_exploitation/linpeas",
-    category: "Linux enumeration",
-    title: "Embedded LinPEAS lite script",
-    when: "Used when an authorized Linux shell needs broad local privilege-escalation enumeration.",
-  },
-  {
-    uri: "resource://post_exploitation/winpeas",
-    category: "Windows enumeration",
-    title: "Embedded WinPEAS lite script",
-    when: "Used when an authorized Windows command shell needs broad local enumeration.",
-  },
-  {
-    uri: "resource://post_exploitation/powerup",
-    category: "PowerShell follow-up",
-    title: "PowerUp service & registry checks",
-    when: "Used when an authorized PowerShell session needs service or registry auditing.",
-  },
-  {
-    uri: "resource://post_exploitation/gtfobins",
-    category: "Linux reference",
-    title: "GTFOBins binary lookup",
-    when: "Queried when Linux evidence identifies an exact sudo, SUID, or capability-enabled binary.",
-  },
-  {
-    uri: "resource://post_exploitation/lolbas",
-    category: "Windows reference",
-    title: "LOLBAS binary & script lookup",
-    when: "Queried when Windows evidence identifies an exact signed binary, script, or library.",
-  },
-];
 
 function useSectionMotion(
   root: React.RefObject<HTMLElement | null>,
@@ -129,12 +83,6 @@ function useSectionMotion(
           { y: 24, opacity: 0 },
           { y: 0, opacity: 1, duration: 0.6, stagger: 0.1 },
           "-=0.4",
-        )
-        .fromTo(
-          ".catalog-explorer",
-          { y: 24, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.6 },
-          "-=0.25",
         );
     }, root);
     return () => context.revert();
@@ -489,20 +437,16 @@ function WorkspacesVisual() {
 }
 
 export default function ToolChains({
-  catalog,
   reduced,
   paused,
 }: {
-  catalog: CatalogData;
   reduced: boolean;
   paused: boolean;
 }) {
   const root = useRef<HTMLElement>(null);
-  const catalogGridRef = useRef<HTMLDivElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const visible = useSectionMotion(root, reduced);
   const [videoFailed, setVideoFailed] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   useEffect(() => {
     const element = video.current;
@@ -527,34 +471,6 @@ export default function ToolChains({
       element.pause();
     };
   }, [reduced, paused, videoFailed]);
-
-  const handleCategoryChange = (next: string) => {
-    if (next === selectedCategory) return;
-    setSelectedCategory(next);
-    if (!reduced && !paused && catalogGridRef.current) {
-      requestAnimationFrame(() => {
-        if (!catalogGridRef.current) return;
-        gsap.fromTo(
-          catalogGridRef.current.children,
-          { y: 14, opacity: 0 },
-          {
-            y: 0,
-            opacity: 1,
-            duration: 0.35,
-            stagger: 0.025,
-            ease: "power2.out",
-          },
-        );
-      });
-    }
-  };
-
-  const filteredBundles =
-    selectedCategory === "all"
-      ? catalog.capabilities
-      : catalog.capabilities.filter(
-          (item) => item.category === selectedCategory,
-        );
 
   return (
     <section
@@ -787,145 +703,6 @@ export default function ToolChains({
             </div>
           </div>
         </article>
-      </div>
-
-      <div
-        className="catalog-explorer"
-        aria-labelledby="catalog-explorer-title"
-      >
-        <div className="catalog-explorer-head">
-          <div>
-            <h3 id="catalog-explorer-title">
-              Complete MCP tool &amp; capability catalog
-            </h3>
-            <p>
-              One catalog governs both the binaries built into the Kali Docker
-              image and the MCP tool schemas advertised to your agent—keeping
-              unused schemas out of the model’s context window.
-            </p>
-          </div>
-          <div className="catalog-profile-pills" aria-label="Capability profiles">
-            <span>
-              <b>{catalog.full_tool_count}</b> tools (Full profile)
-            </span>
-            <span>
-              <b>{catalog.without_metasploit_tool_count}</b> tools
-              (SKIP_METASPLOIT)
-            </span>
-            <span>
-              <b>{catalog.resource_count}</b> MCP resources
-            </span>
-          </div>
-        </div>
-
-        <div
-          className="catalog-filter-bar"
-          role="tablist"
-          aria-label="Filter capabilities by security domain"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedCategory === "all"}
-            onClick={() => handleCategoryChange("all")}
-          >
-            All bundles <span>{catalog.capabilities.length}</span>
-          </button>
-          {catalog.categories.map((cat) => {
-            const count = catalog.capabilities.filter(
-              (c) => c.category === cat.key,
-            ).length;
-            return (
-              <button
-                key={cat.key}
-                type="button"
-                role="tab"
-                aria-selected={selectedCategory === cat.key}
-                onClick={() => handleCategoryChange(cat.key)}
-              >
-                {cat.title} <span>{count}</span>
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedCategory === "resources"}
-            onClick={() => handleCategoryChange("resources")}
-          >
-            MCP Resources <span>{catalog.resource_count}</span>
-          </button>
-        </div>
-
-        {selectedCategory === "resources" ? (
-          <div
-            ref={catalogGridRef}
-            className="catalog-grid catalog-grid--resources"
-            role="region"
-            aria-label="MCP Resources"
-          >
-            {MCP_RESOURCES.map((res) => (
-              <div key={res.uri} className="catalog-bundle-card is-resource">
-                <div className="bundle-card-top">
-                  <strong>{res.title}</strong>
-                  <span className="bundle-tag">{res.category}</span>
-                </div>
-                <code className="resource-uri">{res.uri}</code>
-                <p className="bundle-resource-desc">{res.when}</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            ref={catalogGridRef}
-            className="catalog-grid"
-            role="region"
-            aria-label="Capability bundles"
-          >
-            {filteredBundles.map((item) => (
-              <div
-                key={item.key}
-                className={`catalog-bundle-card${item.mandatory ? " is-mandatory" : ""}`}
-              >
-                <div className="bundle-card-top">
-                  <div>
-                    <strong>{item.description}</strong>
-                    <span className="bundle-key">bundle: {item.key}</span>
-                  </div>
-                  <span
-                    className={`bundle-tag${item.mandatory ? " is-core" : ""}`}
-                  >
-                    {item.mandatory
-                      ? "Core · Mandatory"
-                      : catalog.categories.find((c) => c.key === item.category)
-                          ?.title || item.category}
-                  </span>
-                </div>
-                <div
-                  className="bundle-tools"
-                  aria-label="Registered MCP tools"
-                >
-                  {item.mcp_tools.map((tool) => (
-                    <code key={tool}>
-                      <Code size={12} aria-hidden="true" />
-                      {tool}
-                    </code>
-                  ))}
-                </div>
-                <div className="bundle-meta">
-                  <span>
-                    <b>Kali binaries:</b> {item.backend_binaries.join(", ")}
-                  </span>
-                  {item.wordlists.length > 0 && (
-                    <span>
-                      <b>Wordlists:</b> {item.wordlists.join(", ")}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="capability-footnote">

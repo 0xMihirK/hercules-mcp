@@ -203,11 +203,7 @@ export default function App() {
           reduced={reduced}
           paused={paused}
         />
-        <ToolChains
-          catalog={facts.catalog}
-          reduced={reduced}
-          paused={paused}
-        />
+        <ToolChains reduced={reduced} paused={paused} />
         <ArchitectureScene reduced={reduced} paused={paused} />
         <EvidencePipeline reduced={reduced} paused={paused} />
         <Setup prompt={facts.installationPrompt} />
