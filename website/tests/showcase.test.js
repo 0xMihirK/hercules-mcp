@@ -34,6 +34,9 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.equal((markup.match(/<button /g)||[]).length,11);
   for(const name of ["CloakBrowser","Nmap","Nuclei","SQLMap","Binwalk","Metasploit","Hydra","John the Ripper"]) assert.ok(markup.includes(name));
   assert.match(markup,/map-runtime-unit/);
+  const agent=markup.indexOf('class="map-agent"'), filter=markup.indexOf('data-feature="filter"'), hub=markup.indexOf('data-feature="hercules"'), docker=markup.indexOf('class="map-runtime-stage"');
+  assert.ok(agent<filter && filter<hub && hub<docker,"agent → output filter → Hercules → Docker");
+  assert.match(markup,/Filters returned output/);
   assert.doesNotMatch(markup,/scene-shell-trace/);
 });
 test("every presentation beat uses a real completed call and an existing artifact",()=>{
