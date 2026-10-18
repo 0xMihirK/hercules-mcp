@@ -103,6 +103,7 @@ export default function App() {
           <a href="#main" className="brand">
             <img src={asset("lion.svg")} width="30" height="30" alt="" />
             hercules<span>/ mcp</span>
+            <span className="brand-beta-tag">BETA</span>
           </a>
           <nav aria-label="Main">
             <a href="#agents">Live sessions</a>
@@ -194,6 +195,7 @@ export default function App() {
           <a href="#main" className="brand">
             <img src={asset("lion.svg")} width="26" height="26" alt="" />
             hercules<span>/ mcp</span>
+            <span className="brand-beta-tag">BETA</span>
           </a>
           <p>Built for authorized security testing.</p>
           <div className="footer-links">

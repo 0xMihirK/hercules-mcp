@@ -11,7 +11,7 @@ html {
   -webkit-text-size-adjust: 100%;
   tab-size: 4;
   scroll-behavior: smooth;
-  scroll-padding-top: 76px;
+  scroll-padding-top: 92px;
 }
 h1,
 h2,
@@ -255,8 +255,10 @@ svg {
   position: sticky;
   top: 0;
   z-index: 30;
-  background: rgba(7, 8, 10, 0.94);
-  border-bottom: 1px solid var(--edge);
+  background: rgba(7, 8, 10, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .site-header-inner {
   height: 68px;
@@ -283,6 +285,21 @@ svg {
   color: var(--ink-4);
   font: 400 16px/1 var(--body);
   margin-left: 3px;
+}
+.brand-beta-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: rgba(255, 106, 43, 0.16);
+  color: var(--ember-soft);
+  border: 1px solid rgba(255, 106, 43, 0.45);
+  margin-left: 8px;
+  line-height: 1;
+  border-radius: 2px;
+  align-self: center;
 }
 .site-header nav {
   display: flex;
@@ -818,6 +835,11 @@ svg {
 }
 
 @media (max-width: 760px) {
+  .site-header {
+    position: relative;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
   .site-header-inner {
     height: auto;
     flex-wrap: wrap;
