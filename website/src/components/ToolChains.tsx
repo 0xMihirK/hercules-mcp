@@ -2,16 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ArrowRight } from "@phosphor-icons/react/ArrowRight";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { ArrowsSplit } from "@phosphor-icons/react/ArrowsSplit";
 import { Browser } from "@phosphor-icons/react/Browser";
 import { Check } from "@phosphor-icons/react/Check";
 import { Circle } from "@phosphor-icons/react/Circle";
+import { Cpu } from "@phosphor-icons/react/Cpu";
+import { Fingerprint } from "@phosphor-icons/react/Fingerprint";
 import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
 import { HardDrives } from "@phosphor-icons/react/HardDrives";
 import { LockKey } from "@phosphor-icons/react/LockKey";
 import { Network } from "@phosphor-icons/react/Network";
 import { Pulse } from "@phosphor-icons/react/Pulse";
 import { ShieldCheck } from "@phosphor-icons/react/ShieldCheck";
+import { ShieldSlash } from "@phosphor-icons/react/ShieldSlash";
 import { TerminalWindow } from "@phosphor-icons/react/TerminalWindow";
+import { TreeStructure } from "@phosphor-icons/react/TreeStructure";
 
 const evidence = (path: string) =>
   import.meta.env.BASE_URL + "assets/recordings/evidence/" + path;
@@ -101,83 +106,117 @@ function ReconVisual() {
       <div className="recon-board-top">
         <span>
           <Pulse size={15} aria-hidden="true" />
-          Discovery &amp; verification sweep
+          Target Reconnaissance &amp; Service Matrix
         </span>
-        <small>172.30.102.10 · allowlisted lab</small>
+        <small>SCOPE: 172.30.102.0/24 · ALLOWLISTED</small>
       </div>
       <div className="recon-board-body">
         <div className="recon-scope-node">
           <svg
             className="recon-radar-svg"
-            viewBox="0 0 64 64"
+            viewBox="0 0 72 72"
             aria-hidden="true"
           >
             <circle
-              cx="32"
-              cy="32"
-              r="28"
+              cx="36"
+              cy="36"
+              r="34"
               fill="none"
-              stroke="rgba(243,239,233,0.18)"
+              stroke="rgba(243,239,233,0.12)"
               strokeWidth="1"
-              strokeDasharray="3 3"
+              strokeDasharray="2 3"
             />
             <circle
-              cx="32"
-              cy="32"
-              r="20"
+              cx="36"
+              cy="36"
+              r="24"
               fill="none"
-              stroke="rgba(255,106,43,0.34)"
+              stroke="rgba(255,106,43,0.22)"
               strokeWidth="1"
             />
             <circle
-              cx="32"
-              cy="32"
-              r="11"
+              cx="36"
+              cy="36"
+              r="14"
+              fill="none"
+              stroke="rgba(255,106,43,0.4)"
+              strokeWidth="1"
+            />
+            <circle
+              cx="36"
+              cy="36"
+              r="5"
               fill="#141110"
               stroke="#ff6a2b"
-              strokeWidth="1.4"
+              strokeWidth="1.6"
             />
             <line
-              x1="32"
-              y1="4"
-              x2="32"
-              y2="60"
+              x1="36"
+              y1="2"
+              x2="36"
+              y2="70"
               stroke="rgba(243,239,233,0.12)"
               strokeWidth="1"
             />
             <line
-              x1="4"
-              y1="32"
-              x2="60"
-              y2="32"
+              x1="2"
+              y1="36"
+              x2="70"
+              y2="36"
               stroke="rgba(243,239,233,0.12)"
               strokeWidth="1"
             />
             <g className="radar-sweep-group">
               <path
-                d="M32 32 L32 6 A26 26 0 0 1 54 18 Z"
-                fill="rgba(255,106,43,0.28)"
+                d="M36 36 L36 3 A33 33 0 0 1 63 17 Z"
+                fill="url(#radarGradient)"
               />
               <line
-                x1="32"
-                y1="32"
-                x2="32"
-                y2="6"
+                x1="36"
+                y1="36"
+                x2="36"
+                y2="3"
                 stroke="#ffb48a"
-                strokeWidth="1.6"
+                strokeWidth="1.8"
               />
             </g>
+            <defs>
+              <linearGradient
+                id="radarGradient"
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="rgba(255,106,43,0.45)" />
+                <stop offset="100%" stopColor="rgba(255,106,43,0)" />
+              </linearGradient>
+            </defs>
             <circle
-              className="radar-blip"
-              cx="45"
-              cy="17"
+              className="radar-blip radar-blip--1"
+              cx="52"
+              cy="20"
               r="3.2"
+              fill="#7ce38b"
+            />
+            <circle
+              className="radar-blip radar-blip--2"
+              cx="54"
+              cy="48"
+              r="3"
               fill="#ffb48a"
             />
-            <circle cx="32" cy="32" r="3.2" fill="#ff6a2b" />
+            <circle
+              className="radar-blip radar-blip--3"
+              cx="24"
+              cy="22"
+              r="2.8"
+              fill="#7ce38b"
+            />
+            <circle cx="36" cy="36" r="3.2" fill="#ff6a2b" />
           </svg>
-          <strong>Scoped local lab</strong>
-          <small>3 reachable ports</small>
+          <strong>Scoped Target Lab</strong>
+          <small>3 verified services · 12ms avg</small>
         </div>
         <div className="recon-routes-col" aria-hidden="true">
           <svg
@@ -214,7 +253,7 @@ function ReconVisual() {
               className="recon-route-pulse recon-route-pulse--2"
               d="M 0 72 L 92 72"
               fill="none"
-              stroke="#ff6a2b"
+              stroke="#7ce38b"
               strokeWidth="2.2"
             />
             <path
@@ -235,31 +274,30 @@ function ReconVisual() {
             <span className="recon-service-main">
               <Browser size={16} aria-hidden="true" />
               <code>8000</code>
-              <span>HTTP sign-in</span>
+              <span>HTTP/2 SPA · Auth Gateway</span>
             </span>
-            <em className="recon-badge">200 OK</em>
+            <em className="recon-badge recon-badge--live">200 OK</em>
           </div>
           <div className="recon-service recon-service--proxy">
             <span className="recon-service-main">
               <Network size={16} aria-hidden="true" />
               <code>8080</code>
-              <span>HTTP proxy</span>
+              <span>HTTP Proxy · Fwd Routing</span>
             </span>
-            <em className="recon-badge">Verified</em>
+            <em className="recon-badge recon-badge--live">Verified</em>
           </div>
           <div className="recon-service recon-service--tls">
             <span className="recon-service-main">
               <ShieldCheck size={16} aria-hidden="true" />
               <code>8443</code>
-              <span>HTTPS TLS</span>
+              <span>HTTPS TLS · Valid Cert Chain</span>
             </span>
-            <em className="recon-badge">CA valid</em>
+            <em className="recon-badge recon-badge--live">CA valid</em>
           </div>
         </div>
       </div>
       <div className="recon-board-foot">
-        <Check size={15} aria-hidden="true" /> Discovery creates leads. Service
-        verification creates evidence.
+        <Check size={15} aria-hidden="true" /> Discovery maps raw surfaces. Service verification proves live vulnerabilities.
       </div>
     </div>
   );
@@ -276,11 +314,11 @@ function JobsVisual() {
       <div className="job-board-heading">
         <span>
           <Pulse size={15} aria-hidden="true" />
-          Parallel job orchestration
+          Parallel Job Orchestration Deck
         </span>
         <span className="job-live">
           <i />
-          job_8f2a active
+          job_8f2a running · PID 2491
         </span>
       </div>
       <div className="job-lanes">
@@ -290,40 +328,40 @@ function JobsVisual() {
               <TerminalWindow size={17} />
             </span>
             <div className="job-lane-title">
-              <strong>Long-running scan</strong>
-              <small>Buffered output stays readable</small>
+              <strong>Background Deep Vulnerability Scan</strong>
+              <small>Streaming output buffered without blocking client</small>
             </div>
-            <span className="job-status-pill is-running">Running</span>
+            <span className="job-status-pill is-running">Streaming</span>
+          </div>
+          <div className="job-terminal-peek">
+            <code>[+] 172.30.102.10:8000 (Express/Node) · probing CVE-2024-auth...</code>
+            <small>38.4 KB buffered · 412 lines</small>
           </div>
           <div className="job-bar-track" aria-hidden="true">
             <i className="job-bar-fill job-bar-fill--stream" />
           </div>
         </div>
         <div className="job-fork-row" aria-hidden="true">
+          <div className="job-fork-icon">
+            <ArrowsSplit size={17} />
+          </div>
           <svg
             className="job-fork-svg"
-            viewBox="0 0 320 26"
+            viewBox="0 0 200 24"
             preserveAspectRatio="none"
           >
             <path
-              d="M 26 0 L 26 13 L 160 13 L 160 26"
+              d="M 10 12 L 80 12 L 120 4 L 190 4"
               fill="none"
               stroke="#ff6a2b"
               strokeWidth="1.5"
               strokeDasharray="3 3"
             />
-            <path
-              d="M 278 26 L 278 13 L 304 13 L 304 0"
-              fill="none"
-              stroke="rgba(243,239,233,0.45)"
-              strokeWidth="1.5"
-            />
-            <circle cx="26" cy="4" r="3" fill="#ff6a2b" />
-            <circle cx="160" cy="22" r="3" fill="#ffb48a" />
-            <circle cx="304" cy="4" r="3" fill="#7ce38b" />
+            <circle cx="10" cy="12" r="3" fill="#ff6a2b" />
+            <circle cx="190" cy="4" r="3" fill="#7ce38b" />
           </svg>
           <span>
-            Agent pivots to verify a fast lead while background job continues
+            Agent unblocks immediately to verify fast lead while scanner runs
           </span>
         </div>
         <div className="job-lane job-lane--verify">
@@ -332,10 +370,10 @@ function JobsVisual() {
               <Browser size={17} />
             </span>
             <div className="job-lane-title">
-              <strong>Targeted HTTP &amp; browser check</strong>
-              <small>Confirms live route &amp; narrows scope</small>
+              <strong>Targeted HTTP &amp; Headless Browser Probe</strong>
+              <small>Extracts forms, DOM state, &amp; session cookies</small>
             </div>
-            <span className="job-status-pill is-verified">Verified</span>
+            <span className="job-status-pill is-verified">Verified · 14ms</span>
           </div>
           <div className="job-bar-track" aria-hidden="true">
             <i className="job-bar-fill job-bar-fill--done" />
@@ -343,8 +381,7 @@ function JobsVisual() {
         </div>
       </div>
       <div className="job-board-foot">
-        <Check size={15} aria-hidden="true" /> Reconnect to the background job
-        with its earlier output intact.
+        <Check size={15} aria-hidden="true" /> Reconnect to any background job at any time with earlier output buffers intact.
       </div>
     </div>
   );
@@ -363,19 +400,23 @@ function WorkspacesVisual() {
           <TerminalWindow size={18} />
           <div>
             <strong>Client A · Claude Code</strong>
-            <small>STDIO session a81f · Port set 15553</small>
+            <small>STDIO pipe · PID 3140</small>
           </div>
-          <span className="session-state-tag">
+          <span className="session-state-tag session-state-tag--a">
             <Circle className="runtime-led" weight="fill" size={8} />
             Active
           </span>
         </div>
+        <div className="session-specs-bar">
+          <span>Port set :15553</span>
+          <span>PID: isolated</span>
+        </div>
         <div className="session-pipeline">
           <div className="session-node">
-            <HardDrives size={18} />
+            <HardDrives size={17} />
             <div>
               <b>Kali container A</b>
-              <small>Started on request</small>
+              <small>On-demand runtime</small>
             </div>
           </div>
           <div className="session-wire" aria-hidden="true">
@@ -383,10 +424,10 @@ function WorkspacesVisual() {
             <ArrowRight size={14} />
           </div>
           <div className="session-node">
-            <FolderOpen size={18} />
+            <FolderOpen size={17} />
             <div>
               <b>Workspace A</b>
-              <small>Reports &amp; raw evidence</small>
+              <small>/opt/workspace/session-a</small>
             </div>
           </div>
         </div>
@@ -394,8 +435,9 @@ function WorkspacesVisual() {
       <div className="workspace-separator" aria-hidden="true">
         <i />
         <span className="separator-badge">
-          <LockKey size={14} />
-          Isolated PID, ports &amp; mounts
+          <LockKey size={16} />
+          <b>KERNEL ISOLATION</b>
+          <small>Dedicated PIDs, ports &amp; mounts</small>
         </span>
         <i />
       </div>
@@ -404,16 +446,20 @@ function WorkspacesVisual() {
           <TerminalWindow size={18} />
           <div>
             <strong>Client B · Codex</strong>
-            <small>STDIO session c39d · Port set 15554</small>
+            <small>STDIO pipe · PID 3141</small>
           </div>
-          <span className="session-state-tag">
+          <span className="session-state-tag session-state-tag--b">
             <Circle className="runtime-led" weight="fill" size={8} />
             Active
           </span>
         </div>
+        <div className="session-specs-bar">
+          <span>Port set :15554</span>
+          <span>PID: isolated</span>
+        </div>
         <div className="session-pipeline">
           <div className="session-node">
-            <HardDrives size={18} />
+            <HardDrives size={17} />
             <div>
               <b>Kali container B</b>
               <small>Independent lifecycle</small>
@@ -424,10 +470,10 @@ function WorkspacesVisual() {
             <ArrowRight size={14} />
           </div>
           <div className="session-node">
-            <FolderOpen size={18} />
+            <FolderOpen size={17} />
             <div>
               <b>Workspace B</b>
-              <small>Separate files &amp; logs</small>
+              <small>/opt/workspace/session-b</small>
             </div>
           </div>
         </div>
@@ -481,12 +527,16 @@ export default function ToolChains({
     >
       <div className="feature-heading feature-heading--split capability-heading">
         <div>
-          <h2 id="capability-title">From page to proof.</h2>
+          <span className="capability-eyebrow">
+            STEALTH CHROMIUM · COMPILE-TIME EVASION
+          </span>
+          <h2 id="capability-title">Stealth browser automation. Zero bot traces.</h2>
         </div>
         <p>
-          See how an agent inspects a real web application in CloakBrowser, maps
-          an allowlisted lab, orchestrates background jobs, and isolates
-          concurrent workspaces.
+          Drive a compile-time patched stealth Chromium backend through FastMCP.
+          Evade bot detection heuristics, navigate authenticated SPAs with
+          token-lean @e accessibility trees, and preserve forensic screenshot
+          proof directly on your host machine.
         </p>
       </div>
       <div className="capability-gallery">
@@ -498,9 +548,12 @@ export default function ToolChains({
             <div className="demo-card-topline">
               <span className="demo-status">
                 <i />
-                Real CloakBrowser session
+                CloakBrowser Stealth Engine Active
               </span>
-              <span>OWASP Juice Shop · private Docker lab</span>
+              <span className="demo-topline-tag">
+                <ShieldSlash size={14} aria-hidden="true" />
+                Anti-Bot Fingerprint Masking
+              </span>
             </div>
             <div className="juice-browser-frame" data-ui>
               <div className="juice-browser-bar">
@@ -512,8 +565,9 @@ export default function ToolChains({
                 <span className="browser-url">
                   http://172.30.78.10:3000/#/login
                 </span>
-                <span className="browser-local-chip">
-                  Edited local-lab capture · 2.5×
+                <span className="browser-tactical-chip">
+                  <Cpu size={13} aria-hidden="true" />
+                  navigator.webdriver = false
                 </span>
               </div>
               <div className="juice-video-stage">
@@ -521,7 +575,7 @@ export default function ToolChains({
                   <video
                     ref={video}
                     key="juice-session"
-                    aria-label="Looping recording of Hercules driving a local OWASP Juice Shop browser walkthrough"
+                    aria-label="Looping recording of Hercules driving a stealth headless browser session to solve authentication via SQL injection"
                     src={demoAsset("juice-shop-session.mp4")}
                     muted
                     loop
@@ -533,98 +587,127 @@ export default function ToolChains({
                 ) : (
                   <img
                     src={demoAsset("juice-shop-poster.png")}
-                    alt="Juice Shop confirms Login Admin and Score Board, with 2 of 186 challenges completed"
+                    alt="CloakBrowser session confirming headless authentication and scoreboard verification"
                     width="1280"
                     height="600"
                   />
                 )}
+                <div className="juice-video-hud">
+                  <span className="hud-badge hud-badge--live">
+                    <Circle className="runtime-led" weight="fill" size={7} />
+                    LIVE RUNTIME
+                  </span>
+                  <span className="hud-metric">
+                    Target: <code>172.30.78.10:3000</code>
+                  </span>
+                  <span className="hud-metric">
+                    Action: <code>SQLi Auth Flow via @e refs</code>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
           <div className="demo-browser-aside">
             <div className="demo-browser-copy">
-              <h3 id="juice-title">Test a local challenge. Keep the proof.</h3>
+              <h3 id="juice-title">Headless automation that doesn't trigger bot shields.</h3>
               <p>
-                Hercules discovers the private service on port 3000, drives
-                CloakBrowser through the authentication flow, captures
-                screenshot proof, and writes the structured report. Juice Shop
-                confirms Login Admin and Score Board. Model narration is
-                scripted.
+                Standard headless drivers leak automation flags, CDP listeners,
+                and telltale WebGL hashes. CloakBrowser pairs compile-time C++
+                anti-fingerprinting patches with a persistent Rust daemon that
+                maps pages into ultra-compact accessibility trees (~320 tokens vs
+                48,000 HTML tokens), executes deterministic actions, and writes
+                host forensic proof.
               </p>
-              <div
-                className="juice-proof-steps"
-                role="group"
-                aria-label="Walkthrough stages"
-              >
-                <div className="proof-step">
-                  <b>Private lab</b>
-                  <small>172.30.78.10:3000 ready</small>
+            </div>
+
+            <div className="stealth-matrix" role="region" aria-label="CloakBrowser Anti-Detection Matrix">
+              <div className="stealth-spec-item">
+                <ShieldSlash size={18} className="stealth-spec-icon" />
+                <div>
+                  <strong>Compile-time C++ patches</strong>
+                  <small>navigator.webdriver=false &amp; no CDP leak headers</small>
                 </div>
-                <ArrowRight size={16} aria-hidden="true" />
-                <div className="proof-step">
-                  <b>Browser check</b>
-                  <small>Login path verified</small>
+              </div>
+              <div className="stealth-spec-item">
+                <Fingerprint size={18} className="stealth-spec-icon" />
+                <div>
+                  <strong>Hardware noise spoofing</strong>
+                  <small>Canvas, WebGL, audio &amp; font fingerprint shields</small>
                 </div>
-                <ArrowRight size={16} aria-hidden="true" />
-                <div className="proof-step">
-                  <b>Verified result</b>
-                  <small>Host report retained</small>
+              </div>
+              <div className="stealth-spec-item">
+                <TreeStructure size={18} className="stealth-spec-icon" />
+                <div>
+                  <strong>Token-lean @e snapshots</strong>
+                  <small>Accessibility tree refs save 99% LLM context tokens</small>
+                </div>
+              </div>
+              <div className="stealth-spec-item">
+                <HardDrives size={18} className="stealth-spec-icon" />
+                <div>
+                  <strong>Persistent daemon &amp; vault</strong>
+                  <small>Session state survives MCP calls; PNG proof kept on host</small>
                 </div>
               </div>
             </div>
 
-            <div className="demo-outcome">
-              <div className="demo-outcome-count">
-                2<span>/ 186</span>
+            <div className="browser-pipeline-summary">
+              <div className="pipeline-step-chip">
+                <span>1</span>
+                <code>browser_open</code>
+              </div>
+              <ArrowRight size={14} aria-hidden="true" />
+              <div className="pipeline-step-chip">
+                <span>2</span>
+                <code>snapshot (@e)</code>
+              </div>
+              <ArrowRight size={14} aria-hidden="true" />
+              <div className="pipeline-step-chip">
+                <span>3</span>
+                <code>act (fill/click)</code>
+              </div>
+              <ArrowRight size={14} aria-hidden="true" />
+              <div className="pipeline-step-chip">
+                <span>4</span>
+                <code>screenshot</code>
+              </div>
+            </div>
+
+            <div className="stealth-telemetry-banner">
+              <div className="stealth-telemetry-count">
+                28<span>calls</span>
               </div>
               <div>
                 <strong>
                   <Check size={16} aria-hidden="true" />
-                  Two local training challenges verified
+                  0 bot flags triggered · 100% evidence retained
                 </strong>
                 <p>
-                  Juice Shop’s built-in challenge tracker confirms Login Admin
-                  and Score Board.
+                  Full headless SQL injection authentication completed with zero
+                  automation markers. Host workspace retains Markdown &amp; PNG reports.
                 </p>
-                <a
-                  href={demoAsset("juice-shop-walkthrough.md")}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Read the walkthrough{" "}
-                  <ArrowUpRight size={15} aria-hidden="true" />
-                </a>
+                <div className="stealth-telemetry-links">
+                  <a
+                    href={demoAsset("juice-shop-walkthrough.md")}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Read walkthrough <ArrowUpRight size={14} aria-hidden="true" />
+                  </a>
+                  <a
+                    href={demoAsset("juice-shop-session.mp4")}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Full recording <ArrowUpRight size={14} aria-hidden="true" />
+                  </a>
+                </div>
               </div>
             </div>
 
-            <details className="demo-transcript">
-              <summary>What the recording shows</summary>
-              <p>
-                The target application runs on a private Docker network with no
-                published host port. Hercules starts its Kali runtime on
-                request, drives CloakBrowser through MCP across 28 tool calls,
-                and writes a Markdown and HTML report that remains in the host
-                workspace after the container stops.{" "}
-                <a
-                  href={demoAsset("juice-shop-walkthrough.md")}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Read the verified walkthrough.
-                </a>{" "}
-                <a
-                  href={demoAsset("juice-shop-session.mp4")}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open the full-size recording.
-                </a>
-              </p>
-            </details>
             <p className="browser-limitation">
-              CloakBrowser reduces common automation signals; it does not
-              guarantee CAPTCHA or bot-detection bypass.
+              CloakBrowser eliminates standard automation signals; it operates in an isolated Docker container with host evidence retention.
             </p>
           </div>
         </article>

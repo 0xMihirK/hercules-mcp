@@ -171,14 +171,20 @@ export default function ArchitectureScene({
     >
       <div className="wrap">
         <div className="feature-heading feature-heading--split architecture-heading">
-          <h2 id="architecture-title">
-            Kali in a container.
-            <br />A separate workspace.
-          </h2>
+          <div>
+            <span className="architecture-eyebrow">
+              CONTAINERIZED DISPOSABLE RUNTIME · ZERO POLLUTION
+            </span>
+            <h2 id="architecture-title">
+              Kali in a container.
+              <br />Zero host pollution.
+            </h2>
+          </div>
           <p>
-            Hercules runs on your computer as a lightweight STDIO MCP host
-            server. Heavy security tools execute inside a session-owned Kali
-            Docker container.
+            Your AI agent speaks standard MCP over STDIO. Hercules acts as a
+            lightweight 18MB gateway on your computer. Heavy security tools and attack runtimes
+            execute inside an isolated Docker container that boots on demand and cleans up without
+            leaving trace packages or raw logs on your host OS.
           </p>
         </div>
         <div
@@ -209,21 +215,21 @@ export default function ArchitectureScene({
           >
             <div className="agent-request arch-node">
               <div className="arch-node-top">
-                <span className="arch-node-badge">MCP client</span>
+                <span className="arch-node-badge">MCP CLIENT</span>
                 <span className="arch-node-state is-online">Connected</span>
               </div>
               <div className="arch-node-Identity">
                 <TerminalWindow size={32} aria-hidden="true" />
                 <div>
                   <h3>Your agent</h3>
-                  <p>Claude, Codex, Gemini, or custom client</p>
+                  <p>Claude Code, Codex, Gemini, or custom client</p>
                 </div>
               </div>
-              <blockquote>
-                “Assess target ports, web routes, and auth flows.”
+              <blockquote className="agent-prompt-bubble">
+                “Assess target ports, web routes, and auth flows on 172.30.102.0/24.”
               </blockquote>
               <div className="arch-node-meta">
-                <span>Scope controlled by user</span>
+                <span>Strict CIDR scope enforced</span>
                 <code>47 tools registered</code>
               </div>
             </div>
@@ -234,17 +240,18 @@ export default function ArchitectureScene({
             />
             <div className="hercules-bridge arch-node">
               <div className="arch-node-top">
-                <span className="arch-node-badge">Host server</span>
-                <span className="arch-node-state is-online">Active</span>
+                <span className="arch-node-badge">HOST GATEWAY</span>
+                <span className="arch-node-state is-online">18MB RAM</span>
               </div>
-              <img src={asset("lion.svg")} width="76" height="84" alt="" />
+              <div className="hercules-logo-wrapper">
+                <img src={asset("lion.svg")} width="76" height="84" alt="" />
+              </div>
               <h3>Hercules</h3>
               <p>
-                Manages sessions, filters noisy tool output, and tracks
-                background jobs.
+                Dispatches tools, strips noisy tool output, and manages background jobs over STDIO.
               </p>
               <div className="arch-node-meta">
-                <span>Runs on your computer</span>
+                <span>Host daemon PID: 4912</span>
                 <code>session_id: a8f2</code>
               </div>
             </div>
@@ -279,7 +286,7 @@ export default function ArchitectureScene({
                   />
                   <div>
                     <h3>Kali Linux</h3>
-                    <p>Docker container · Session A</p>
+                    <p>kali-rolling:2024.4 · Session A</p>
                   </div>
                 </div>
                 <span
@@ -299,6 +306,11 @@ export default function ArchitectureScene({
                       : "Standby"}
                 </span>
               </header>
+              <div className="container-specs-strip">
+                <span>Allocated: 512MB RAM</span>
+                <span>Net: bridge-isolated</span>
+                <span>Loopback: :15553</span>
+              </div>
               <div className="runtime-capabilities">
                 <div className="runtime-capability">
                   <Network size={22} />
@@ -315,7 +327,7 @@ export default function ArchitectureScene({
                 <div className="runtime-capability">
                   <Browsers size={22} />
                   <span>
-                    Browser<small>Isolated Chromium &amp; DOM</small>
+                    Browser<small>CloakBrowser &amp; agent-browser</small>
                   </span>
                 </div>
                 <div className="runtime-capability">
