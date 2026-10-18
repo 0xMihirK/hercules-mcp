@@ -87,14 +87,6 @@ components:
     textColor: "{colors.silver}"
     padding: "23px"
     rounded: "{rounded.sharp}"
-  phase-button:
-    textColor: "{colors.muted-silver}"
-    rounded: "{rounded.sharp}"
-    padding: "8px 12px"
-    height: "44px"
-  phase-button-selected:
-    backgroundColor: "#2b2522"
-    textColor: "{colors.copper-code}"
 ---
 
 # Hercules design system
@@ -109,7 +101,7 @@ Tool-specific filters remove known scanner noise while preserving important find
 
 ## Page sequence
 
-Hero → native agent player and investigation summary → four capability examples → sandbox lifecycle → portability → output filters → single-prompt installation.
+Hero and native agent player → catalog summary → interactive architecture illustration → single-prompt installation. The architecture scene integrates Docker, browser control, concurrent tools, workspace management, and response filtering.
 
 The hero and agent introduction are preserved. The technical catalog lives in GitHub documentation. Main-page explanations avoid raw MCP names, JSON payloads, hashes, byte counts, and recording mechanics.
 
@@ -119,7 +111,13 @@ Sharp corners, fine rules, generous chapter spacing, and readable silver text. U
 
 One focused capability example is shown at a time in a four-tab walkthrough: network mapping, website verification, layered challenge solving, and a readable report. Use functional diagrams and real browser/report content. Illustrations must describe software relationships, not substitute physical machinery for Docker. The rejected chassis, blank paper, and generated architecture overview are not shown.
 
-The sandbox is an HTML software scene. A task from the agent passes through Hercules to a visibly bounded Kali container, with the security tools inside that boundary. A secondary route shows independent session ownership. Lifecycle controls explain connection, explicit startup, independent sessions, and cleanup. The page scrolls naturally; changing scroll position does not change the selected lifecycle state. The lion uses the existing vector paths with tighter intrinsic framing; authentic Docker artwork is from Devicon v2.17.0. OS and interface glyphs use the existing Phosphor library. Labels and controls remain accessible HTML.
+The architecture is one lightly dimensional HTML/SVG software scene. An agent connects through Hercules to a bounded Kali Docker runtime containing browser control and security tools. Actual element bounds determine the SVG routes: request, tool dispatch, workspace mount, raw output, and concise return response. Connections meet their endpoints and remeasure on resize; labels remain readable HTML or SVG text.
+
+Workspace A is the current mounted workspace; Workspace B is retained on the host. A connection has one active workspace. Creating a fresh session stops that connection's current runtime; separate connections can own independent runtimes. Do not imply one connection has multiple simultaneously active containers.
+
+Six real buttons expose Hercules, Docker, browser control, parallel execution, workspaces, and filtering. Hover and keyboard focus preview a compact explanation, click/tap pins it, Escape or the close action clears it. Reserve explanation space to prevent layout shifts. Remove lifecycle selectors, telemetry consoles, invented metrics, and unverified bot-evasion claims. Authentic Docker artwork and the existing lion remain unchanged.
+
+On desktop the scene reads across; at 960px and below, agent/Hercules sit above the full-width Docker enclosure, followed by workspaces and filtering. Depth comes from shallow edges and restrained shadows, not tilted text or a physical appliance. The scene uses existing GSAP and Phosphor dependencies without WebGL or generated raster artwork.
 
 ## Native player
 
@@ -135,7 +133,7 @@ Recorded-history navigation pauses playback and reviews previously presented scr
 
 ## Motion and accessibility
 
-Use an unpinned software scene with explicit lifecycle controls. An entering connection pulse and a contained tool reveal explain the request path and startup. No automatic lifecycle switching or scroll spacer may interrupt reading. The real filter example collapses routine lines while leaving findings and warnings opaque, with reserved space to keep the next section stable.
+Use an unpinned software scene with a twelve-second explanatory loop: explicit startup, agent coordination, overlapping checks, filtered response, and on-request replacement with a fresh runtime. It is an illustration, not live telemetry or Kubernetes orchestration. A departing shell and arriving shell depict replacement while labels stay legible. Pause the loop when the section is offscreen or the document is hidden; reduced motion shows every fact without playing the cycle. Native terminal timing is independent.
 
 Phones use ordinary document flow with meaningful positional motion. Reduced motion preserves every fact without pinning or continuous effects. The floating site-motion action has been removed at the user's request; native-player controls remain. Hidden/offscreen playback pauses without consuming unseen time. Focus outlines use copper; enlargement contains keyboard focus and closes with Escape. Loading errors retain a captured frame and expose retry guidance. If Canvas is unavailable, show an actual captured image.
 
@@ -160,3 +158,12 @@ Software diagrams share a graphite surface, copper routes, restrained one-pixel 
 Four separate demonstrations use an asymmetric grid: the real Juice Shop recording leads beside recon and background-job stories; an independent-workspace comparison spans the next row. Below 1040px the browser occupies a full row; below 760px all demonstrations stack. Small-phone diagrams turn into vertical lists rather than shrinking their labels. Keep Archivo headings, IBM Plex body/mono, graphite surfaces and copper connections.
 
 The browser is actual CloakBrowser footage driven by Hercules in a private local Docker lab. It demonstrates the verified Login Admin and Score Board training challenges (2 of 186), not a complete Juice Shop assessment. The delivery loop is an edited highlight: it omits idle gaps and the payload entry while retaining original browser pixels. Keep its 1280×600 proportions, 2.5× delivery speed, captured poster and report. Pause the loop automatically when hidden or offscreen; reduced motion and video failure show the real completed capture. Do not add generated browser frames or claim guaranteed bot-detection bypass. Asset hashes and capture facts live beside the static assets and in CAPTURE.md.
+
+
+## Architecture review — 2026-10-19
+
+Validate six feature interactions, focus visibility, pinned details, Escape, resize geometry, reduced motion, and offscreen/hidden suspension. Review the rendered scene at 1440px, 1280px short laptops, 768px tablets, and 320/390px phones, including genuine browser zoom. An independent reviewer scores composition (25), craft (20), clarity/accuracy (20), motion (15), responsiveness (10), and accessibility/theme (10). Scores are subjective assessments supported by browser screenshots and concrete findings, never a substituted automated visual proof.
+
+Independent browser review completed at desktop 1440px, laptop 1280×720, tablet 768px, and phones 390/320px. Iterations corrected disconnected routes, a stacked connector crossing Hercules text, narrow-phone detail height changes, and visible-scene animation suspension. The final subjective assessment was 98/100: composition 24/25, craft 19/20, clarity 20/20, motion 15/15, responsiveness 10/10, accessibility/theme 10/10. Incoming replacement carries a transient “Fresh runtime” label. Explanations reserve 235px at 390px and 280px at 320px, with no observed layout shift across the six features.
+
+Reduced motion and actual offscreen pausing were verified. Genuine 200% browser zoom and hidden-tab simulation could not be exercised through the review browser and are not claimed as passed checks. Screenshot evidence was emitted by CUA during review; no saved screenshot files or automated visual receipts are asserted.
