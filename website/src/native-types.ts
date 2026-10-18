@@ -1,4 +1,17 @@
-import type { Measurement } from "./components/EvidencePipeline";
+export type Measurement = {
+  tool: string;
+  rawCharacters: number;
+  inlineResponseCharacters: number;
+  characterReduction: number;
+  rawTokenEstimate: number;
+  inlineTokenEstimate: number;
+  outputComplete: boolean;
+  evidenceComplete: boolean;
+  outputFiltered: boolean;
+  rawArtifact: string;
+  file?: string;
+  caseTitle?: string;
+};
 export type PixelCapture = { index:string; indexSha256:string; width:number; height:number; fps:number; profile:Record<string,unknown>; pixelExact:boolean };
 export type Client = "claude" | "codex" | "opencode" | "hermes";
 export type NativeRecording = { file: string; sha256: string; client: Client; version: string; scenario: string; columns: number; rows: number; duration: number; displayStart?: number; chapters: Record<string,number>; transcript: string; still?: string; completedStill?: string; completedStillAt?: number; report: string; reportHtml: string; reportPreview?: string; reportAvailableAt?: number; synchronized: { at: number; tool: string; phase?: "setup" | "investigation" | "reporting"; observation: string; scriptedObservation: boolean; exitCode?: number | null }[]; artifacts: { path: string; file: string; bytes: number; sha256: string; availableAt?: number }[]; metrics: Measurement[]; realTools: boolean; scriptedToolResults: boolean };

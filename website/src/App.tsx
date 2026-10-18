@@ -2,15 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowDown } from "@phosphor-icons/react/ArrowDown";
-import { Pause } from "@phosphor-icons/react/Pause";
-import { Play } from "@phosphor-icons/react/Play";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
 import StatBand from "./components/StatBand";
 import ArchitectureScene from "./components/ArchitectureScene";
-import EvidencePipeline from "./components/EvidencePipeline";
 import Setup from "./components/Setup";
 import facts from "./site-facts.json";
 import bootstrap from "./bootstrap.json";
@@ -22,8 +19,7 @@ const github = "https://github.com/0xMihirK/hercules-mcp";
 const asset = (name: string) => `${import.meta.env.BASE_URL}assets/${name}`;
 
 export default function App() {
-  const reduced = useReducedMotion(),
-    [paused, setPaused] = useState(false);
+  const reduced = useReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
   const [manifest, setManifest] = useState<NativeManifest | null>(
     bootstrap.schemaVersion === 3 ? (bootstrap as unknown as NativeManifest) : null,
@@ -53,7 +49,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (reduced || paused || !heroRef.current) return;
+    if (reduced || !heroRef.current) return;
     const context = gsap.context(() => {
       const tl = gsap.timeline({ defaults: { ease: "power3.out" } });
       tl.fromTo(
@@ -75,7 +71,7 @@ export default function App() {
         );
     }, heroRef);
     return () => context.revert();
-  }, [reduced, paused]);
+  }, [reduced]);
 
   useEffect(() => {
     if (typeof fetch !== "function") return;
@@ -97,8 +93,8 @@ export default function App() {
   }, [recordingBase]);
 
   return (
-    <div className={`site${paused || reduced ? " motion-off" : ""}`}>
-      <Background paused={paused} reduced={reduced} />
+    <div className={`site${reduced ? " motion-off" : ""}`}>
+      <Background paused={false} reduced={reduced} />
       <a className="skip-link" href="#main">
         Skip to content
       </a>
@@ -111,23 +107,9 @@ export default function App() {
           <nav aria-label="Main">
             <a href="#agents">Live sessions</a>
             <a href="#architecture">How it works</a>
-            <a href="#evidence">Evidence</a>
             <a href="#install">Setup</a>
           </nav>
           <div className="header-actions">
-            <button
-              className="motion-control"
-              aria-pressed={paused}
-              aria-label={paused ? "Resume page motion" : "Pause page motion"}
-              onClick={() => setPaused((value) => !value)}
-            >
-              {paused ? (
-                <Play size={16} aria-hidden="true" />
-              ) : (
-                <Pause size={16} aria-hidden="true" />
-              )}
-              <span>{paused ? "Resume motion" : "Pause motion"}</span>
-            </button>
             <a className="header-github" href={github}>
               GitHub <ArrowUpRight size={16} aria-hidden="true" />
             </a>
@@ -181,7 +163,7 @@ export default function App() {
               manifest={manifest}
               base={recordingBase}
               reduced={reduced}
-              paused={paused}
+              paused={false}
             />
             <div className="session-note">
               <p>
@@ -199,10 +181,9 @@ export default function App() {
         <StatBand
           catalog={facts.catalog}
           reduced={reduced}
-          paused={paused}
+          paused={false}
         />
-        <ArchitectureScene reduced={reduced} paused={paused} />
-        <EvidencePipeline reduced={reduced} paused={paused} />
+        <ArchitectureScene reduced={reduced} paused={false} />
         <Setup prompt={facts.installationPrompt} />
       </main>
       <footer className="site-footer">
