@@ -148,18 +148,6 @@ export default function App() {
           </div>
 
           <div id="agents" className="hero-stage wrap" aria-label="Recorded native agent sessions">
-            <div className="stage-topline">
-              <div className="stage-topline-left">
-                <span className="live-indicator" aria-hidden="true" />
-                <strong>Native agent sessions</strong>
-                <span className="recording-provenance">
-                  Real Docker tool execution · scripted model prompts · 10 local-lab investigations
-                </span>
-              </div>
-              <p className="stage-topline-note">
-                Switch clients or select any investigation scenario below.
-              </p>
-            </div>
             <NativePlayer
               manifest={manifest}
               base={recordingBase}

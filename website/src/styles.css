@@ -433,53 +433,6 @@ svg {
   gap: 16px;
   perspective: 1400px;
 }
-.stage-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  padding: 14px 20px;
-  background: var(--surface-1);
-}
-.stage-topline-left {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-}
-.live-indicator {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--ember);
-  box-shadow: 0 0 12px 2px var(--ember);
-  animation: livePulse 2.2s ease-in-out infinite;
-}
-@keyframes livePulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.86);
-  }
-}
-.stage-topline-left strong {
-  font-size: 15px;
-  color: var(--ink);
-}
-.recording-provenance {
-  font-size: 14px;
-  color: var(--ember-soft);
-}
-.stage-topline-note {
-  font-size: 14px;
-  color: var(--ink-3);
-}
-
 /* Counter Stat Band */
 .stat-band {
   background: rgba(11, 13, 17, 0.9);

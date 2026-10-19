@@ -11,7 +11,6 @@ import { PixelRenderer, verifiedFetch, type PixelIndex } from "../pixel-renderer
 import { clients, type Client, type NativeManifest, type NativeRecording } from "../native-types";
 import CapturedPoster from "./CapturedPoster";
 import SessionStory, {stories} from "./SessionStory";
-import SessionTranscript from "./SessionTranscript";
 
 type Recording=NativeManifest["recordings"][number];
 type Runtime={renderer:PixelRenderer|null;canvas:HTMLCanvasElement;clock:PlaybackClock;end:number;maximum:number;minimum:number;seek:number|null;record:Recording};
@@ -224,7 +223,6 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/main/website/CAPTURE.md">About these recordings</a>}</p>}
         <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
       </div>
-      <SessionTranscript key={shown?.transcript || "loading"} url={shown?.transcript?base+shown.transcript:undefined}/>
       </div>
       <SessionStory recording={shown || null} time={time} base={base} title={currentCase?.title || ""}/>
     </div>
