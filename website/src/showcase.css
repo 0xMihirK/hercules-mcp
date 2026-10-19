@@ -141,34 +141,6 @@
   text-decoration: underline;
 }
 
-/* SessionTranscript drawer */
-.session-transcript {
-  background: var(--surface-1);
-  margin-top: 8px;
-}
-.session-transcript summary {
-  padding: 12px 18px;
-  font-size: 14px;
-  color: var(--ink-3);
-  cursor: pointer;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.session-transcript summary:hover {
-  color: var(--ember-soft);
-}
-.session-transcript pre {
-  padding: 16px 18px;
-  max-height: 280px;
-  overflow: auto;
-  font-size: 13px;
-  line-height: 1.5;
-  background: #08090c;
-  color: var(--ink-2);
-}
-
 /* SessionStory telemetry card */
 .session-story {
   display: flex;
@@ -706,7 +678,6 @@
 }
 
 /* Motion-off & reduced-motion states */
-.motion-off .live-indicator,
 .motion-off .radar-sweep-group,
 .motion-off .radar-blip,
 .motion-off .recon-route-pulse,
