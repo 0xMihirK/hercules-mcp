@@ -40,23 +40,87 @@ const illustrations = {
   research: <><path d="M4 8H28V43H4ZM10 16H22M10 22H19M10 28H22M10 35H16M12 48H34V14"/><path d="M38 29H47M44 25L48 29L44 33"/><rect className="map-mini-accent" x="51" y="16" width="17" height="29"/><path className="map-mini-accent" d="M56 24L63 30L56 36Z"/></>,
   passwords: <><rect x="3" y="7" width="40" height="43"/><path d="M3 17H43M10 12H12M17 12H19M10 27H34M10 37H12M17 37H19M24 37H26M31 37H33"/><circle className="map-mini-accent" cx="53" cy="38" r="9"/><path className="map-mini-accent" d="M53 29V15H63M59 15V21M53 21H59"/></>,
 };
-const runtimeLabels = { ready: "Ready for a new task", working: "Independent checks running", complete: "Checks complete", stopping: "Stopping current runtime", starting: "Starting fresh runtime" };
+type Point = { x: number; y: number };
+export function roundedRoute(input: Point[], radius = 12) {
+  const points = input.filter((point, index) => !index || point.x !== input[index - 1].x || point.y !== input[index - 1].y);
+  if (points.length < 2) return "";
+  let d = `M${points[0].x},${points[0].y}`;
+  for (let index = 1; index < points.length - 1; index++) {
+    const previous = points[index - 1], corner = points[index], next = points[index + 1];
+    const before = Math.hypot(corner.x - previous.x, corner.y - previous.y);
+    const after = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const r = Math.min(radius, before / 2, after / 2);
+    d += ` L${corner.x - (corner.x - previous.x) * r / before},${corner.y - (corner.y - previous.y) * r / before}`;
+    d += ` Q${corner.x},${corner.y} ${corner.x + (next.x - corner.x) * r / after},${corner.y + (next.y - corner.y) * r / after}`;
+  }
+  return d + ` L${points.at(-1)!.x},${points.at(-1)!.y}`;
+}
+export function architectureRoutes(ports: Record<string, Point>) {
+  const { agent, hub, dispatch, docker, agentReturn, filter, filterInput, result, mount, workspace } = ports;
+  const request = (from: Point, to: Point) => {
+    const x = (from.x + to.x) / 2;
+    return roundedRoute([from, { x, y: from.y }, { x, y: to.y }, to]);
+  };
+  const left = (agentReturn.x + filter.x) / 2, right = (result.x + filterInput.x) / 2;
+  return {
+    request: request(agent, hub) + " " + request(dispatch, docker),
+    response: roundedRoute([result, { x: right, y: result.y }, { x: right, y: filterInput.y }, filterInput, filter, { x: left, y: filter.y }, { x: left, y: agentReturn.y }, agentReturn]),
+    mount: roundedRoute([mount, { x: mount.x, y: workspace.y - 16 }, { x: workspace.x, y: workspace.y - 16 }, workspace]),
+    arrows: [{ x: (right + filterInput.x) / 2, y: filterInput.y }, { x: (left + filter.x) / 2, y: filter.y }],
+    mountLabel: { x: mount.x - 12, y: (mount.y + workspace.y) / 2 },
+  };
+}
+const runtimeLabels = { request: "Requesting tools", working: "Running…", results: "Returning results", complete: "Complete", requested: "New session requested", stopping: "Stopping", stopped: "Runtime stopped", starting: "Starting", ready: "Ready" };
 type RuntimeState = keyof typeof runtimeLabels;
+type MotionTargets = { runtime: gsap.TweenTarget; rows: gsap.TweenTarget; bars: gsap.TweenTarget; request: gsap.TweenTarget; response: gsap.TweenTarget; noise: gsap.TweenTarget };
+export function createArchitectureLoop(targets: MotionTargets, stage: (state: RuntimeState) => void, replace: (value: boolean) => void, stable: () => void) {
+  return gsap.timeline({ paused: true, repeat: -1 })
+    .call(() => stage("request"), [], 0)
+    .set(targets.bars, { scaleX: 0 }, 0)
+    .set(targets.noise, { opacity: 1, x: 0 }, 0)
+    .fromTo(targets.request, { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: .7, immediateRender: false }, 0)
+    .to(targets.request, { opacity: 0, duration: .1 }, .7)
+    .call(() => stage("working"), [], .8)
+    .to(targets.bars, { scaleX: 1, duration: 2.6, stagger: .4, ease: "power1.inOut" }, .8)
+    .call(() => stage("results"), [], 4.2)
+    .fromTo(targets.response, { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2, immediateRender: false }, 4.2)
+    .to(targets.noise, { opacity: .2, x: -6, duration: .5 }, 4.6)
+    .to(targets.response, { opacity: 0, duration: .15 }, 5.4)
+    .call(() => stage("complete"), [], 5.4)
+    .call(() => { replace(true); stage("requested"); }, [], 7)
+    .call(() => stage("stopping"), [], 7.15)
+    .to(targets.rows, { opacity: 0, y: 6, duration: .65, stagger: .04, ease: "power2.in" }, 7.15)
+    .to(targets.runtime, { opacity: 0, scale: .96, filter: "grayscale(1)", duration: 1.25, ease: "power2.in" }, 7.15)
+    .call(() => stage("stopped"), [], 8.4)
+    .set(targets.bars, { scaleX: 0 }, 8.4)
+    .call(() => stage("starting"), [], 9.1)
+    .to(targets.runtime, { opacity: 1, scale: 1.02, filter: "grayscale(0)", duration: 1.2, ease: "power2.out" }, 9.1)
+    .to(targets.rows, { opacity: 1, y: 0, duration: 1.1, stagger: { each: .04, from: "end" }, ease: "power2.out" }, 9.3)
+    .to(targets.runtime, { scale: 1, duration: .5, ease: "power2.out" }, 10.3)
+    .call(() => { stage("ready"); replace(false); stable(); }, [], 10.8)
+    .to({}, { duration: 4.2 }, 10.8);
+}
 
 export function ArchitectureScene({ reduced, paused }: { reduced: boolean; paused: boolean }) {
   const root = useRef<HTMLElement>(null);
   const revealFrame = useRef(0);
-  useEffect(() => () => cancelAnimationFrame(revealFrame.current), []);
+  const layoutTarget = useRef<HTMLButtonElement | null>(null);
+  const syncReveal = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    const release = () => { layoutTarget.current = null; cancelAnimationFrame(revealFrame.current); };
+    const inputs = ["wheel", "touchstart", "pointerdown", "keydown"];
+    inputs.forEach(type => window.addEventListener(type, release, { capture: true, passive: true }));
+    return () => { release(); inputs.forEach(type => window.removeEventListener(type, release, true)); };
+  }, []);
   const inspecting = useRef(false);
   const transitioning = useRef(false);
   const syncMotion = useRef<(() => void) | null>(null);
   const [hovered, setHovered] = useState<Feature | null>(null);
   const [focused, setFocused] = useState<Feature | null>(null);
   const [selected, setSelected] = useState<Feature | null>(null);
-  const [phase, setPhase] = useState("Start on request");
   const [runtimeState, setRuntimeState] = useState<RuntimeState>("ready");
   const [replacing, setReplacing] = useState(false);
-  const [routes, setRoutes] = useState({ request: "", response: "", mount: "" });
+  const [routes, setRoutes] = useState({ request: "", response: "", mount: "", arrows: [] as Point[], mountLabel: { x: 0, y: 0 } });
   const active = focused ?? selected ?? hovered;
   const current = active ? details[active] : null;
   inspecting.current = active !== null;
@@ -76,18 +140,17 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         }
         return { x, y };
       };
-      const agent = point(".map-agent-port"), hub = point(".map-hub-input"), dispatch = point(".map-hub-dispatch"), docker = point(".map-docker-port");
-      const agentReturn = point(".map-agent-return"), filter = point(".map-filter-output"), filterInput = point(".map-filter-input"), hubReturn = point(".map-hub-return"), hubOutput = point(".map-hub-output"), result = point(".map-docker-return");
-      const mount = point(".map-mount-port"), workspace = point(".map-workspace-port");
-      const requestY = 28, responseY = result.y + 32;
-      setRoutes({
-        request: `M${agent.x},${agent.y} V${requestY} H${hub.x} V${hub.y} M${dispatch.x},${dispatch.y} V${requestY} H${docker.x} V${docker.y}`,
-        response: `M${result.x},${result.y} V${responseY} H${hubReturn.x} V${hubReturn.y} M${hubOutput.x},${hubOutput.y} V${responseY} H${filterInput.x} V${filterInput.y} M${filter.x},${filter.y} V${responseY} H${agentReturn.x} V${agentReturn.y}`,
-        mount: `M${mount.x},${mount.y} V${workspace.y - 16} H${workspace.x} V${workspace.y}`,
-      });
+      setRoutes(architectureRoutes({
+        agent: point(".map-agent-port"), hub: point(".map-hub-input"), dispatch: point(".map-hub-dispatch"), docker: point(".map-docker-port"),
+        agentReturn: point(".map-agent-return"), filter: point(".map-filter-output"), filterInput: point(".map-filter-input"), result: point(".map-docker-return"),
+        mount: point(".map-mount-port"), workspace: point(".map-workspace-port"),
+      }));
+      syncReveal.current?.();
     };
     const observer = new ResizeObserver(measure);
     observer.observe(map);
+    const main = map.closest("main");
+    if (main) observer.observe(main);
     map.querySelectorAll(".map-agent,.map-filter,.map-hub,.map-runtime-stage,.map-workspaces").forEach(node => observer.observe(node));
     measure();
     return () => observer.disconnect();
@@ -100,28 +163,10 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     if (!section || reduced || paused) return;
     let visible = false;
     const context = gsap.context(() => {
-      const loop = gsap.timeline({ paused: true, repeat: -1 });
-      loop.call(() => { setPhase("Agent dispatches independent checks"); setRuntimeState("working"); }, [], 0)
-        .fromTo(".map-request-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1 }, .3)
-        .to(".map-request-pulse", { opacity: 0, duration: .3 }, 1.4)
-        .fromTo(".map-agent-cursor", { opacity: .2 }, { opacity: 1, duration: .45, repeat: 7, yoyo: true }, .3)
-        .fromTo(".map-mini-cursor", { x: -8, y: -6, opacity: .3 }, { x: 0, y: 0, opacity: 1, duration: 1.2, ease: "power2.out" }, 1.5)
-        .fromTo(".map-mini-node", { opacity: .25 }, { opacity: 1, duration: .5, stagger: .4 }, 2)
-        .fromTo(".map-job-fill", { scaleX: .08 }, { scaleX: 1, duration: 3.5, stagger: .55, ease: "power1.inOut" }, 1.4)
-        .call(() => { setPhase("Findings and diagnostics return"); setRuntimeState("complete"); }, [], 6.6)
-        .fromTo(".map-response-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2 }, 6.6)
-        .to(".map-response-pulse", { opacity: 0, duration: .3 }, 8)
-        .fromTo(".map-noise", { opacity: .75, x: 0 }, { opacity: .15, x: -8, duration: .6, stagger: .15 }, 7)
-        .fromTo(".map-retained-output", { opacity: .65 }, { opacity: 1, duration: .5, stagger: .2 }, 7.5)
-        .call(() => { setPhase("Fresh session requested · stopping current runtime"); setRuntimeState("stopping"); }, [], 10)
-        .call(() => { transitioning.current = true; setReplacing(true); }, [], 10.5)
-        .to(".map-runtime-unit", { y: -35, opacity: 0, scale: .96, duration: .65, ease: "power2.in" }, 10.5)
-        .call(() => { setRuntimeState("starting"); setPhase("Previous workspace retained · starting fresh runtime"); }, [], 11.3)
-        .set(".map-job-fill", { scaleX: .08 }, 11.3)
-        .set(".map-runtime-unit", { y: 40, scale: .96 }, 11.3)
-        .to(".map-runtime-unit", { y: 0, opacity: 1, scale: 1, duration: .85, ease: "power2.out" }, 11.7)
-        .call(() => { transitioning.current = false; setReplacing(false); setRuntimeState("ready"); setPhase("Fresh runtime ready · previous workspace retained"); syncMotion.current?.(); }, [], 12.6)
-        .to({}, { duration: 2 }, 13);
+      const loop = createArchitectureLoop({
+        runtime: section.querySelector(".map-runtime-unit")!, rows: section.querySelectorAll(".map-capability"), bars: section.querySelectorAll(".map-job-fill"),
+        request: section.querySelectorAll(".map-request-pulse"), response: section.querySelectorAll(".map-response-pulse"), noise: section.querySelectorAll(".map-noise"),
+      }, setRuntimeState, value => { transitioning.current = value; setReplacing(value); }, () => syncMotion.current?.());
       const sync = () => {
         const running = visible && !document.hidden && (!inspecting.current || transitioning.current);
         section.dataset.motion = running ? "playing" : "paused";
@@ -135,12 +180,13 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     }, section);
     return () => {
       context.revert();
-      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-mini-cursor,.map-mini-node,.map-agent-cursor,.map-job-fill,.map-noise,.map-retained-output,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
+      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-capability,.map-job-fill,.map-noise,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
       delete section.dataset.motion;
     };
   }, [reduced, paused]);
 
   const reveal = (button: HTMLButtonElement) => {
+    layoutTarget.current = button;
     cancelAnimationFrame(revealFrame.current);
     // Let viewport reflow and browser scroll anchoring settle before aligning the card.
     revealFrame.current = requestAnimationFrame(() => {
@@ -158,6 +204,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
       });
     });
   };
+  syncReveal.current = () => { if (layoutTarget.current?.isConnected) reveal(layoutTarget.current); };
   const interaction = (key: Feature, className = "") => ({
     type: "button" as const,
     "aria-pressed": selected === key,
@@ -178,37 +225,39 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         <p>Your agent coordinates the investigation. Hercules brings browser control and Kali tools together in Docker, manages their workspaces, and filters the output returned to your agent.</p>
       </div>
       <div className="capability-scene" data-active={active ?? "overview"} data-inspecting={selected || focused ? "true" : undefined}>
-        <div className="map-caption"><span>Requests go out. Useful results come back.</span><span><Info size={15} aria-hidden="true"/> Select a part to explore</span></div>
+        <div className="map-caption"><span>Give your agent security tools in a Docker workspace.</span><span><Info size={15} aria-hidden="true"/> Select a part to explore</span></div>
         <p className="map-pan-hint">Follow the connection → <span>Swipe horizontally or focus the diagram and use the arrow keys.</span></p>
         <div className="map-flow-viewport" role="region" aria-label="Horizontal Hercules connection diagram" tabIndex={0}>
         <div className="architecture-map">
-          <div className="map-request-label">Request → <span>STDIO MCP</span></div>
-          <div className="map-response-label">← Results return through the noise filter</div>
+          <span className="map-request-label">Request</span><span className="map-tools-label">Run tools</span>
+          <span className="map-response-label">Results return to your agent.</span>
+          <span className="map-mount-label" style={{ left: routes.mountLabel.x, top: routes.mountLabel.y }}>Workspace mount</span>
           <svg className="map-connections" aria-hidden="true"><defs><marker id="map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs>
-            {Object.entries(routes).map(([key, d]) => <g key={key}>{d.split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className={`map-route map-route-${key}`} d={segment} markerEnd={key === "mount" ? undefined : "url(#map-arrow)"}/>)}{key !== "mount" && <path className={`map-${key}-pulse`} d={d} pathLength="1"/>}</g>)}
+            {(["request", "response", "mount"] as const).map(key => <g key={key}>{routes[key].split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className={`map-route map-route-${key}`} d={segment} markerEnd={key === "mount" ? undefined : "url(#map-arrow)"}/>)}{key !== "mount" && <path className={`map-${key}-pulse`} d={routes[key]} pathLength="1"/>}</g>)}
+            {routes.arrows.map((point, index) => <path key={index} className="map-flow-arrow" d={`M${point.x + 5},${point.y} H${point.x - 5}`} markerEnd="url(#map-arrow)"/>)}
           </svg>
-            <div className="map-agent"><i className="map-port map-agent-port" aria-hidden="true"/><i className="map-port map-agent-return" aria-hidden="true"/><TerminalWindow size={25} aria-hidden="true"/><div><strong>Your agent</strong><small>Any STDIO MCP client</small></div><span className="map-agent-task">“Investigate this local lab.”<i className="map-agent-cursor" aria-hidden="true"/></span></div>
-            <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Token-saving filter</strong><Info size={14} aria-hidden="true"/></span><span className="map-port map-filter-input" aria-hidden="true"/><span className="map-port map-filter-output" aria-hidden="true"/>
-              <span className="map-filter-direction">On the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span className="map-retained-output"><Check size={14} aria-hidden="true"/>Findings kept</span><span className="map-retained-output">! Important diagnostics kept</span></span><small>Removes routine noise. Large responses have separate size limits.</small>
-            </button>
-            <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Host MCP server<br/>Routes calls, manages execution, and returns results.</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-dispatch" aria-hidden="true"/><i className="map-port map-hub-return" aria-hidden="true"/><i className="map-port map-hub-output" aria-hidden="true"/></button>
-          <div className="map-runtime-stage"><i className="map-port map-docker-port" aria-hidden="true"/><i className="map-port map-docker-return" aria-hidden="true"/><i className="map-port map-mount-port" aria-hidden="true"/>
+          <div className="map-agent"><div className="map-node-head"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={26} aria-hidden="true"/><span><strong>Your agent</strong><small>Any STDIO MCP client</small></span></div><p className="map-agent-task">“Investigate this local lab.”</p><i className="map-port map-agent-return" aria-hidden="true"/></div>
+          <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><span className="map-node-head"><img src={asset("lion.svg")} width="44" height="50" alt=""/><span><strong>Hercules</strong><small>Host MCP server</small></span><Info size={14} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-dispatch" aria-hidden="true"/></span><span className="map-node-copy">Routes calls and manages execution on your computer.</span></button>
+          <div className="map-runtime-stage"><i className="map-port map-docker-return" aria-hidden="true"/><i className="map-port map-mount-port" aria-hidden="true"/>
+            <div className="map-runtime-status" aria-hidden="true"><span>Current session</span><strong>{runtimeLabels[reduced || paused ? "ready" : runtimeState]}</strong></div>
             <div className="map-runtime-backplate" aria-hidden="true"/>
             <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}>
-              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
-              <div className="map-runtime-state" aria-hidden="true" title={reduced || paused ? "Start on request → run tools → fresh session" : phase}><span>Current session</span><strong>{reduced || paused ? "Starts on request" : runtimeLabels[runtimeState]}</strong></div>
+              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><i className="map-port map-docker-port" aria-hidden="true"/><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
+
               <div className="map-capabilities">{capabilities.map(({ key, title }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><Info className="map-capability-info" size={13} aria-hidden="true"/></button>)}</div>
               <p className="map-tool-preview" aria-live="polite">{capabilities.find(item => item.key === active)?.tools ?? "Select a capability to see its tools."}</p>
 
-              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Concurrent checks · inspect background output</small></button>
+              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Example job progress</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Illustrated concurrent work</small></button>
             </div>
           </div>
+          <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><i className="map-port map-filter-input" aria-hidden="true"/><i className="map-port map-filter-output" aria-hidden="true"/><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Output filtering</strong><Info size={14} aria-hidden="true"/></span><span className="map-filter-direction">Part of Hercules · on the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span><Check size={14} aria-hidden="true"/>Findings kept</span><span><Info size={14} aria-hidden="true"/>Important diagnostics kept</span></span></button>
           <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><i className="map-port map-workspace-port" aria-hidden="true"/><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><span><strong>Managed workspaces</strong><small>Stored on your host</small></span><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Previous session<small>Retained · available to inspect</small></span></span><span className="map-current-workspace"><FolderOpen size={20} aria-hidden="true"/><span>Current session<small>Active · mounted in this runtime</small></span></span></span><small>One active workspace per connection. Separate clients can own independent runtimes.</small></button>
         </div>
         </div>
 
-        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Less noise in your agent’s context."}</h3><p>{current?.text ?? "Follow a request to the tools, then trace the response back through Hercules and its output filter. Select any outlined part for its role and capabilities."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
+        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "How an investigation flows."}</h3><p>{current?.text ?? "Your agent sends a request. Hercules runs selected tools in Docker, removes routine output noise, and returns useful results."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>
+      <p className="sr-only">The illustrative cycle shows a request, concurrent jobs, filtered results, and an explicit new session stopping the current runtime before a fresh runtime starts.</p>
       <p className="map-scope">Tools start only when requested. You control networking, permissions, and target scope. Tool availability depends on your selected bundles.</p>
     </div>
   </section>;
