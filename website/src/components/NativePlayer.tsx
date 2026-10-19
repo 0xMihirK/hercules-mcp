@@ -24,6 +24,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   const flags=useRef({explicitPause,allowMotion,reduced,paused,expanded});flags.current={explicitPause,allowMotion,reduced,paused,expanded};
   const requested=manifest?.recordings.find(r=>r.client===client && r.scenario===scenario && r.columns===columns);
   const shown=manifest?.recordings.find(r=>committed && key(r)===key(committed)) || committed;
+  const presentationPixels=shown?.pixels ?? requested?.pixels;
   const currentCase=manifest?.cases[shown?.scenario || ""],shownClient=shown?.client || client;
   const seek=(next:number)=>{
     const r=runtime.current;if(!r)return;
@@ -209,7 +210,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       }}>
         <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native recording"}</span><p>{stories[shown?.scenario || ""]?.objective || "Preparing a local investigation…"}</p></div>
         <p id="native-session-help" className="sr-only">Scroll up to review earlier captured screens. Play resumes from that point. On touch screens, pause first.</p>
-        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={{aspectRatio:shown?.pixels?shown.pixels.width+"/"+shown.pixels.height:"120/28"}} onKeyDown={e=>{
+        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={{aspectRatio:presentationPixels?presentationPixels.width+"/"+presentationPixels.height:"120/56"}} onKeyDown={e=>{
           const r=runtime.current;if(!r)return;
           const steps:Record<string,number>={ArrowUp:-2,ArrowDown:2,PageUp:-12,PageDown:12};
           if(e.key in steps){e.preventDefault();seek((r.seek ?? r.clock.time)+steps[e.key]);}

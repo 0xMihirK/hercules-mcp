@@ -2,13 +2,13 @@
 name: Hercules
 description: A graphite and copper editorial system for an agent-owned Kali workspace.
 colors:
-  copper: "#d87950"
-  copper-hover: "#f29a72"
-  copper-code: "#f2a989"
-  graphite: "#101317"
-  raised-graphite: "#1b2026"
-  silver: "#edf1f5"
-  muted-silver: "#a6afba"
+  copper: "#ff6a2b"
+  copper-hover: "#ff8652"
+  copper-code: "#ffb48a"
+  graphite: "#0e1014"
+  raised-graphite: "#15181e"
+  silver: "#f4efe9"
+  muted-silver: "#cec5bc"
   rule: "rgba(237,241,245,.16)"
   action-ink: "#141516"
   evidence-surface: "rgba(16,21,25,.97)"
@@ -183,3 +183,11 @@ The source-order regression requires agent → filter → Hercules → Docker, a
 The Docker enclosure spans two grid rows. The three host-side stages share the upper row, with managed workspaces directly beneath them. This fills the former empty lower-left area without adding a downward connection. The Docker docking port aligns with the host-stage centerline independently of the enclosure height. Capability cells and parallel-work padding are compact while their labels retain readable type. On phones, the focusable explanation panel has a bounded viewport-relative height and scrolls long descriptions; selecting another feature resets its internal scroll. No prior subjective score applies to this refinement.
 
 The independent review inspected current desktop, short-laptop, tablet and 320/390px browser renders and interactions. Its final design judgment was 95/100 (23 composition, 18 craft, 20 clarity, 14 motion, 10 responsive, 10 accessibility), with no functional or accuracy blocker; it was satisfied with this spacing correction. Remaining aesthetic opportunities are uniform tool-subtitle heights and a quieter replacement fade. This is not the previously requested 98 score. Genuine zoom, DPR 2, screen-reader speech and hidden-tab behavior were not independently checked. Final phone refinements constrain parallel-work content and the workspace card to readable widths inside the horizontal canvas.
+
+## Request / response clarification — current architecture
+
+This revision supersedes the shared bidirectional centerline and blue-gray schematic surfaces above. The four stages remain left-to-right. Separate directional rails show requests leaving the agent through Hercules for Docker, and results returning through Hercules and its logical noise-filter stage. Distinct input/output ports prevent ambiguous T junctions; the filter is part of Hercules output handling, not an extra installed service. A dashed mount relation connects the Docker runtime to explicitly labeled host storage. Current and previous sessions replace unexplained runtime/workspace numbers. All three host-stage cards share aligned top/bottom edges.
+
+Use the page’s existing graphite, orange, cream text, Archivo and IBM Plex tokens. Six compact capability headers reveal one tool list in a reserved preview on hover, keyboard focus or touch selection. Stronger resting borders and visible information symbols invite interaction. Known findings/diagnostics are distinguished from noise, while large responses retain separately disclosed size limits; never promise no truncation. Secondary labels use the established higher-contrast ink variables. The selected detail remains keyboard accessible and stable, and reduced motion keeps all routes and categories visible. Native recordings and public APIs are unchanged.
+
+Final browser correction: host stages stretch to match the runtime height, so their top and bottom baselines align and the return rail sits only 32px below them. The runtime replacement holder has no text behind fading tool labels. The native player reserves the requested capture’s actual pixel ratio before its first decoded frame, preventing initial loading from moving the architecture beneath it. Independent desktop/320/390 review covered theme, directed routes, workspace relation, capability selection, keyboard and reduced motion; genuine zoom, DPR 2 and screen-reader speech were not checked. The mechanical detector reported three existing warnings in the session-summary/install styles outside the changed architecture block; no new architecture finding was reported.
