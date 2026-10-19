@@ -45,6 +45,8 @@ type RuntimeState = keyof typeof runtimeLabels;
 
 export function ArchitectureScene({ reduced, paused }: { reduced: boolean; paused: boolean }) {
   const root = useRef<HTMLElement>(null);
+  const revealFrame = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(revealFrame.current), []);
   const inspecting = useRef(false);
   const transitioning = useRef(false);
   const syncMotion = useRef<(() => void) | null>(null);
@@ -55,11 +57,11 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
   const [runtimeState, setRuntimeState] = useState<RuntimeState>("ready");
   const [session, setSession] = useState(0);
   const [replacing, setReplacing] = useState(false);
-  const [routes, setRoutes] = useState({ request: "", response: "", return: "" });
+  const [routes, setRoutes] = useState({ request: "", response: "" });
   const active = focused ?? selected ?? hovered;
   const current = active ? details[active] : null;
   inspecting.current = active !== null;
-  useEffect(() => { syncMotion.current?.(); }, [active]);
+  useEffect(() => { syncMotion.current?.(); root.current?.querySelector(".map-detail")?.scrollTo({ top: 0, behavior: "instant" }); }, [active]);
 
   useEffect(() => {
     const map = root.current?.querySelector<HTMLElement>(".architecture-map");
@@ -68,28 +70,25 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
       // Layout offsets keep ports attached after resizing during a runtime transition.
       const point = (selector: string) => {
         const port = map.querySelector<HTMLElement>(selector)!;
-        let x = port.offsetLeft + port.offsetWidth / 2, y = port.offsetTop;
+        let x = port.offsetLeft + port.offsetWidth / 2, y = port.offsetTop + port.offsetHeight / 2;
         for (let parent = port.offsetParent as HTMLElement | null; parent && parent !== map; parent = parent.offsetParent as HTMLElement | null) {
           x += parent.offsetLeft + parent.clientLeft;
           y += parent.offsetTop + parent.clientTop;
         }
         return { x, y };
       };
-      const path = (from: string, to: string, reverse = false) => {
+      const path = (from: string, to: string) => {
         const a = point(from), b = point(to);
-        if (Math.abs(a.y - b.y) < 20) return `M${a.x},${a.y} L${b.x},${b.y}`;
-        const middle = (a.x + b.x) / 2;
-        return `M${a.x},${a.y} H${middle- (reverse ? -8 : 8)} Q${middle},${a.y} ${middle},${a.y + (b.y > a.y ? 8 : -8)} V${b.y + (b.y > a.y ? -8 : 8)} Q${middle},${b.y} ${middle + (reverse ? -8 : 8)},${b.y} H${b.x}`;
+        return `M${a.x},${a.y} L${b.x},${b.y}`;
       };
-      const agent = point(".map-agent-port"), filter = point(".map-return-port"), rail = agent.x - 16;
       setRoutes({
-        request: path(".map-hub-port", ".map-input-port"),
-        response: path(".map-output-port", ".map-filter-port", true),
-        return: `M${filter.x},${filter.y} H${rail+6} Q${rail},${filter.y} ${rail},${filter.y-6} V${agent.y+6} Q${rail},${agent.y} ${rail+6},${agent.y} H${agent.x}`,
+        request: path(".map-agent-port", ".map-filter-input") + path(".map-filter-output", ".map-hub-input") + path(".map-hub-output", ".map-docker-port"),
+        response: path(".map-docker-port", ".map-hub-output") + path(".map-hub-input", ".map-filter-output") + path(".map-filter-input", ".map-agent-port"),
       });
     };
     const observer = new ResizeObserver(measure);
     observer.observe(map);
+    map.querySelectorAll(".map-agent,.map-filter,.map-hub,.map-runtime-stage,.map-workspaces").forEach(node => observer.observe(node));
     measure();
     return () => observer.disconnect();
   }, []);
@@ -106,14 +105,12 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         .fromTo(".map-request-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1 }, .3)
         .to(".map-request-pulse", { opacity: 0, duration: .3 }, 1.4)
         .fromTo(".map-agent-cursor", { opacity: .2 }, { opacity: 1, duration: .45, repeat: 7, yoyo: true }, .3)
-        .fromTo(".map-mini-cursor", { x: -8, y: -6, opacity: .3 }, { x: 0, y: 0, opacity: 1, duration: 1.2, ease: "power2.out" }, 1.2)
+        .fromTo(".map-mini-cursor", { x: -8, y: -6, opacity: .3 }, { x: 0, y: 0, opacity: 1, duration: 1.2, ease: "power2.out" }, 1.5)
         .fromTo(".map-mini-node", { opacity: .25 }, { opacity: 1, duration: .5, stagger: .4 }, 2)
-        .fromTo(".map-job-fill", { scaleX: .08 }, { scaleX: 1, duration: 4, stagger: .65, ease: "power1.inOut" }, 1.1)
+        .fromTo(".map-job-fill", { scaleX: .08 }, { scaleX: 1, duration: 3.5, stagger: .55, ease: "power1.inOut" }, 1.4)
         .call(() => { setPhase("Findings and diagnostics return"); setRuntimeState("complete"); }, [], 6.6)
         .fromTo(".map-response-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2 }, 6.6)
         .to(".map-response-pulse", { opacity: 0, duration: .3 }, 8)
-        .fromTo(".map-return-pulse", { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2 }, 7.8)
-        .to(".map-return-pulse", { opacity: 0, duration: .3 }, 9.1)
         .fromTo(".map-noise", { opacity: .75, x: 0 }, { opacity: .15, x: -8, duration: .6, stagger: .15 }, 7)
         .fromTo(".map-retained-output", { opacity: .65 }, { opacity: 1, duration: .5, stagger: .2 }, 7.5)
         .call(() => { setPhase("Fresh session requested · stopping current runtime"); setRuntimeState("stopping"); }, [], 10)
@@ -138,16 +135,28 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     }, section);
     return () => {
       context.revert();
-      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-mini-cursor,.map-mini-node,.map-agent-cursor,.map-job-fill,.map-noise,.map-retained-output,.map-request-pulse,.map-response-pulse,.map-return-pulse"), { clearProps: "all" });
+      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-mini-cursor,.map-mini-node,.map-agent-cursor,.map-job-fill,.map-noise,.map-retained-output,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
       delete section.dataset.motion;
     };
   }, [reduced, paused]);
 
   const reveal = (button: HTMLButtonElement) => {
-    const panelHeight = root.current?.querySelector(".map-detail")?.getBoundingClientRect().height ?? 0;
-    const card = button.getBoundingClientRect();
-    const available = window.innerHeight - panelHeight - 12 - 84;
-    window.scrollBy({ top: card.top - 84 - Math.max(0, (available - card.height) / 2), behavior: "instant" });
+    cancelAnimationFrame(revealFrame.current);
+    // Let viewport reflow and browser scroll anchoring settle before aligning the card.
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = requestAnimationFrame(() => {
+        if (!button.isConnected) return;
+        const flow = button.closest<HTMLElement>(".map-flow-viewport");
+        if (flow) {
+          const bounds = flow.getBoundingClientRect(), target = button.getBoundingClientRect();
+          flow.scrollTo({ left: flow.scrollLeft + target.left - bounds.left - (flow.clientWidth - target.width) / 2, behavior: "instant" });
+        }
+        const panelHeight = root.current?.querySelector(".map-detail")?.getBoundingClientRect().height ?? 0;
+        const card = button.getBoundingClientRect();
+        const available = window.innerHeight - panelHeight - 12 - 84;
+        window.scrollTo({ top: window.scrollY + card.top - 84 - Math.max(0, (available - card.height) / 2), behavior: "instant" });
+      });
+    });
   };
   const interaction = (key: Feature, className = "") => ({
     type: "button" as const,
@@ -171,38 +180,34 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         <p>Your agent coordinates the investigation. Hercules brings browser control and Kali tools together in Docker, manages their workspaces, and filters the output returned to your agent.</p>
       </div>
       <div className="capability-scene" data-active={active ?? "overview"} data-inspecting={selected || focused ? "true" : undefined}>
-        <div className="map-caption"><span>Inside a Hercules investigation</span><span><Info size={15} aria-hidden="true"/> Hover, focus, or select to explore</span></div>
+        <div className="map-caption"><span>Agent ↔ output filter ↔ Hercules ↔ Docker</span><span><Info size={15} aria-hidden="true"/> Hover, focus, or select to explore</span></div>
+        <p className="map-pan-hint">Follow the connection → <span>Swipe horizontally or focus the diagram and use the arrow keys.</span></p>
+        <div className="map-flow-viewport" role="region" aria-label="Horizontal Hercules connection diagram" tabIndex={0}>
         <div className="architecture-map">
-          <svg className="map-connections" aria-hidden="true"><defs><marker id="map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs>
-            {Object.entries(routes).map(([key, d]) => <g key={key}><path className={`map-route map-route-${key}`} d={d} markerEnd="url(#map-arrow)"/><path className={`map-${key}-pulse`} d={d} pathLength="1"/></g>)}
+          <svg className="map-connections" aria-hidden="true"><defs><marker id="map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs>
+            {Object.entries(routes).map(([key, d]) => <g key={key}>{key === "request" && d.split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className="map-route" d={segment} markerStart="url(#map-arrow)" markerEnd="url(#map-arrow)"/>)}<path className={`map-${key}-pulse`} d={d} pathLength="1"/></g>)}
           </svg>
-          <div className="map-control">
             <div className="map-agent"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={25} aria-hidden="true"/><div><strong>Your agent</strong><small>Any STDIO MCP client</small></div><span className="map-agent-task">“Investigate this local lab.”<i className="map-agent-cursor" aria-hidden="true"/></span></div>
-            <div className="map-mcp-link" aria-hidden="true"><small>STDIO MCP</small><svg viewBox="0 0 40 8"><path d="M1 4H38M34 1L38 4L34 7"/></svg></div>
-            <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Connect · coordinate · return</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-port" aria-hidden="true"/></button>
-
-            <div className="map-agent-action" aria-hidden="true"><small>Illustrated activity</small><p>{reduced || paused ? "Start on request → run tools → fresh session" : phase}</p></div>
-          </div>
+            <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Token-saving filter</strong><Info size={14} aria-hidden="true"/></span><span className="map-port map-filter-input" aria-hidden="true"/><span className="map-port map-filter-output" aria-hidden="true"/>
+              <span className="map-filter-direction">Filters returned output</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span className="map-retained-output"><Check size={14} aria-hidden="true"/>Findings kept</span><span className="map-retained-output">! Important diagnostics kept</span></span><small>Noise filtering ≠ response-size limits</small>
+            </button>
+            <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Connect · coordinate · return</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-output" aria-hidden="true"/></button>
+          <i className="map-port map-docker-port" aria-hidden="true"/>
           <div className="map-runtime-stage">
             <div className="map-runtime-backplate" aria-hidden="true"><img src={asset("brands/docker.svg")} width="45" height="35" alt=""/><span>Current runtime stopped → fresh session starting</span></div>
             <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}>
-              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><i className="map-port map-input-port" aria-hidden="true"/><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
-              <div className="map-runtime-state" aria-hidden="true"><span>Runtime {workspace}</span><strong>{reduced || paused ? "Starts on request" : runtimeLabels[runtimeState]}</strong></div>
+              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
+              <div className="map-runtime-state" aria-hidden="true" title={reduced || paused ? "Start on request → run tools → fresh session" : phase}><span>Runtime {workspace}</span><strong>{reduced || paused ? "Starts on request" : runtimeLabels[runtimeState]}</strong></div>
               <div className="map-capabilities">{capabilities.map(({ key, title, tools, action }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><span className="map-tool-names">{tools}</span><span className="map-tool-purpose">{action}</span></button>)}</div>
               <div className="map-shell"><TerminalWindow size={17} aria-hidden="true"/><span>Shell, Python &amp; workspace files connect the steps.</span></div>
-              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><i className="map-port map-output-port" aria-hidden="true"/><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Independent checks overlap · background output stays inspectable</small></button>
+              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Concurrent checks · inspect background output</small></button>
             </div>
-          </div>
-          <div className="map-return">
-            <div className="map-return-label">Response to your agent ↑</div>
-            <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Token-saving filters</strong><Info size={14} aria-hidden="true"/></span><span className="map-filter-port map-port" aria-hidden="true"/><span className="map-return-port map-port" aria-hidden="true"/>
-              <span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span className="map-retained-output"><Check size={14} aria-hidden="true"/>Findings kept</span><span className="map-retained-output">! Important diagnostics kept</span></span><small>Noise filtering ≠ response-size limits</small>
-            </button>
           </div>
           <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><strong>Managed workspaces</strong><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {workspace}<small>Active · mounted in this runtime</small></span></span><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {previous}<small>Retained · available to inspect</small></span></span></span><small>One active session per connection. Separate clients can own independent runtimes.</small></button>
         </div>
+        </div>
 
-        <div id="architecture-detail" className="map-detail" aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Explore the tools, not just the container."}</h3><p>{current?.text ?? "Choose a capability to see what your agent can do. This illustration shows an on-request runtime, concurrent work, a filtered response, and replacement for a fresh session."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
+        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Explore the tools, not just the container."}</h3><p>{current?.text ?? "Choose a capability to see what your agent can do. This illustration shows an on-request runtime, concurrent work, a filtered response, and replacement for a fresh session."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>
       <p className="map-scope">Tools start only when requested. You control networking, permissions, and target scope. Tool availability depends on your selected bundles.</p>
     </div>
