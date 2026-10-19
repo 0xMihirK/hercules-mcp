@@ -119,7 +119,7 @@ The Docker enclosure contains six capability illustrations. Parallel lanes show 
 
 Eleven real buttons expose capabilities and infrastructure. Hover and keyboard focus preview details, click/tap pins an explanation, and Escape or close clears it. Inspection pauses the loop, and the runtime is inert during its short replacement transition. Selected and keyboard explanations stick inside the scene at the viewport bottom; alignment leaves the selected card above them. Pointer focus never scrolls before the click completes. Detail space stays reserved. Keep lifecycle selectors, telemetry consoles, invented savings, and bot-evasion guarantees out of the scene. Authentic Docker artwork and the existing lion remain unchanged.
 
-The four-stage chain never stacks. On narrow screens a focusable, horizontally pannable diagram preserves its geometry with a visible navigation hint and native scrollbar. The page itself does not overflow. Selection brings the target into horizontal view before aligning it above the inspector. Workspace information remains readable outside the wide canvas. DOM and visual order agree. Use shallow edges, one-pixel rules and restrained shadows; no WebGL, raster illustration, additional dependencies or altered global typography.
+The four-stage chain never stacks. On narrow screens a focusable, horizontally pannable diagram preserves its geometry with a visible navigation hint and native scrollbar. The page itself does not overflow. Selection brings the target into horizontal view before aligning it above the inspector. Workspace information sits below the three host-side stages inside the same pannable canvas. DOM and visual order agree. Use shallow edges, one-pixel rules and restrained shadows; no WebGL, raster illustration, additional dependencies or altered global typography.
 
 ## Native player
 
@@ -153,7 +153,7 @@ Lower-section styles live in showcase.css. Remove superseded overrides rather th
 
 ## Illustration detail
 
-Software diagrams share a graphite surface, copper routes, restrained one-pixel rules and consistent symbol frames. The Hercules process and Docker boundary have structural connection ports. On phones, the Docker route turns vertically and meets the container at the actual column center; it does not use a rotated horizontal fragment. Network branches share equal service rows so every route meets its endpoint center. Challenge symbols use a continuous three-stage route, with readable labels and the verified original flag. Native recording pixels and browser captures are unaffected.
+Software diagrams share a graphite surface, copper routes, restrained one-pixel rules and consistent symbol frames. The Hercules process and Docker boundary have structural connection ports. The architecture keeps all four connection stages horizontal, including on phones; its bounded canvas pans independently of the page. Network branches share equal service rows so every route meets its endpoint center. Challenge symbols use a continuous three-stage route, with readable labels and the verified original flag. Native recording pixels and browser captures are unaffected.
 
 ## Capability gallery — 2026-10-17
 
@@ -177,3 +177,9 @@ Verified: completed-to-fresh runtime stages, complete-unit replacement, resize r
 The latest user instruction explicitly requires left-to-right flow, not an up/down layout. All four stages now share one centerline at every viewport size. The earlier sidebar and three-node/downward-Docker compositions are superseded. Preserve the line on phones with horizontal panning rather than vertical reflow, while keeping page scrolling and keyboard access available.
 
 The source-order regression requires agent → filter → Hercules → Docker, an output-only filter label and a named horizontal diagram region. The 98/100 and 96/100 review records above describe earlier compositions; no score is transferred to this linear version. Raw recordings, public APIs and the installation contract remain unchanged.
+
+## Linear layout spacing refinement
+
+The Docker enclosure spans two grid rows. The three host-side stages share the upper row, with managed workspaces directly beneath them. This fills the former empty lower-left area without adding a downward connection. The Docker docking port aligns with the host-stage centerline independently of the enclosure height. Capability cells and parallel-work padding are compact while their labels retain readable type. On phones, the focusable explanation panel has a bounded viewport-relative height and scrolls long descriptions; selecting another feature resets its internal scroll. No prior subjective score applies to this refinement.
+
+The independent review inspected current desktop, short-laptop, tablet and 320/390px browser renders and interactions. Its final design judgment was 95/100 (23 composition, 18 craft, 20 clarity, 14 motion, 10 responsive, 10 accessibility), with no functional or accuracy blocker; it was satisfied with this spacing correction. Remaining aesthetic opportunities are uniform tool-subtitle heights and a quieter replacement fade. This is not the previously requested 98 score. Genuine zoom, DPR 2, screen-reader speech and hidden-tab behavior were not independently checked. Final phone refinements constrain parallel-work content and the workspace card to readable widths inside the horizontal canvas.

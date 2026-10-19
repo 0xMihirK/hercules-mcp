@@ -38,6 +38,7 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.ok(agent<filter && filter<hub && hub<docker,"agent → output filter → Hercules → Docker");
   assert.match(markup,/Filters returned output/);
   assert.match(markup,/Horizontal Hercules connection diagram/);
+  assert.match(markup,/role="region" aria-label="Architecture explanation" tabindex="0"/);
   assert.doesNotMatch(markup,/map-dispatch-link/);
   assert.doesNotMatch(markup,/scene-shell-trace/);
 });

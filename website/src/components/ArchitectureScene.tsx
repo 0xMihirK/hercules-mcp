@@ -61,7 +61,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
   const active = focused ?? selected ?? hovered;
   const current = active ? details[active] : null;
   inspecting.current = active !== null;
-  useEffect(() => { syncMotion.current?.(); }, [active]);
+  useEffect(() => { syncMotion.current?.(); root.current?.querySelector(".map-detail")?.scrollTo({ top: 0, behavior: "instant" }); }, [active]);
 
   useEffect(() => {
     const map = root.current?.querySelector<HTMLElement>(".architecture-map");
@@ -70,7 +70,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
       // Layout offsets keep ports attached after resizing during a runtime transition.
       const point = (selector: string) => {
         const port = map.querySelector<HTMLElement>(selector)!;
-        let x = port.offsetLeft + port.offsetWidth / 2, y = port.offsetTop;
+        let x = port.offsetLeft + port.offsetWidth / 2, y = port.offsetTop + port.offsetHeight / 2;
         for (let parent = port.offsetParent as HTMLElement | null; parent && parent !== map; parent = parent.offsetParent as HTMLElement | null) {
           x += parent.offsetLeft + parent.clientLeft;
           y += parent.offsetTop + parent.clientTop;
@@ -88,6 +88,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     };
     const observer = new ResizeObserver(measure);
     observer.observe(map);
+    map.querySelectorAll(".map-agent,.map-filter,.map-hub,.map-runtime-stage,.map-workspaces").forEach(node => observer.observe(node));
     measure();
     return () => observer.disconnect();
   }, []);
@@ -141,17 +142,20 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
 
   const reveal = (button: HTMLButtonElement) => {
     cancelAnimationFrame(revealFrame.current);
+    // Let viewport reflow and browser scroll anchoring settle before aligning the card.
     revealFrame.current = requestAnimationFrame(() => {
-      if (!button.isConnected) return;
-      const flow = button.closest<HTMLElement>(".map-flow-viewport");
-      if (flow) {
-        const bounds = flow.getBoundingClientRect(), target = button.getBoundingClientRect();
-        flow.scrollTo({ left: flow.scrollLeft + target.left - bounds.left - (flow.clientWidth - target.width) / 2, behavior: "instant" });
-      }
-      const panelHeight = root.current?.querySelector(".map-detail")?.getBoundingClientRect().height ?? 0;
-      const card = button.getBoundingClientRect();
-      const available = window.innerHeight - panelHeight - 12 - 84;
-      window.scrollTo({ top: window.scrollY + card.top - 84 - Math.max(0, (available - card.height) / 2), behavior: "instant" });
+      revealFrame.current = requestAnimationFrame(() => {
+        if (!button.isConnected) return;
+        const flow = button.closest<HTMLElement>(".map-flow-viewport");
+        if (flow) {
+          const bounds = flow.getBoundingClientRect(), target = button.getBoundingClientRect();
+          flow.scrollTo({ left: flow.scrollLeft + target.left - bounds.left - (flow.clientWidth - target.width) / 2, behavior: "instant" });
+        }
+        const panelHeight = root.current?.querySelector(".map-detail")?.getBoundingClientRect().height ?? 0;
+        const card = button.getBoundingClientRect();
+        const available = window.innerHeight - panelHeight - 12 - 84;
+        window.scrollTo({ top: window.scrollY + card.top - 84 - Math.max(0, (available - card.height) / 2), behavior: "instant" });
+      });
     });
   };
   const interaction = (key: Feature, className = "") => ({
@@ -188,21 +192,22 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
               <span className="map-filter-direction">Filters returned output</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span className="map-retained-output"><Check size={14} aria-hidden="true"/>Findings kept</span><span className="map-retained-output">! Important diagnostics kept</span></span><small>Noise filtering ≠ response-size limits</small>
             </button>
             <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><img src={asset("lion.svg")} width="47" height="54" alt=""/><span><strong>Hercules</strong><small>Connect · coordinate · return</small></span><Info size={15} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-output" aria-hidden="true"/></button>
+          <i className="map-port map-docker-port" aria-hidden="true"/>
           <div className="map-runtime-stage">
             <div className="map-runtime-backplate" aria-hidden="true"><img src={asset("brands/docker.svg")} width="45" height="35" alt=""/><span>Current runtime stopped → fresh session starting</span></div>
-            <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}><i className="map-port map-docker-port" aria-hidden="true"/>
+            <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}>
               <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
               <div className="map-runtime-state" aria-hidden="true" title={reduced || paused ? "Start on request → run tools → fresh session" : phase}><span>Runtime {workspace}</span><strong>{reduced || paused ? "Starts on request" : runtimeLabels[runtimeState]}</strong></div>
               <div className="map-capabilities">{capabilities.map(({ key, title, tools, action }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><span className="map-tool-names">{tools}</span><span className="map-tool-purpose">{action}</span></button>)}</div>
               <div className="map-shell"><TerminalWindow size={17} aria-hidden="true"/><span>Shell, Python &amp; workspace files connect the steps.</span></div>
-              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Independent checks overlap · background output stays inspectable</small></button>
+              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Work in parallel</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Concurrent checks · inspect background output</small></button>
             </div>
           </div>
-        </div>
-        </div>
           <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><strong>Managed workspaces</strong><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {workspace}<small>Active · mounted in this runtime</small></span></span><span><FolderOpen size={20} aria-hidden="true"/><span>Workspace {previous}<small>Retained · available to inspect</small></span></span></span><small>One active session per connection. Separate clients can own independent runtimes.</small></button>
+        </div>
+        </div>
 
-        <div id="architecture-detail" className="map-detail" aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Explore the tools, not just the container."}</h3><p>{current?.text ?? "Choose a capability to see what your agent can do. This illustration shows an on-request runtime, concurrent work, a filtered response, and replacement for a fresh session."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
+        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "Explore the tools, not just the container."}</h3><p>{current?.text ?? "Choose a capability to see what your agent can do. This illustration shows an on-request runtime, concurrent work, a filtered response, and replacement for a fresh session."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>
       <p className="map-scope">Tools start only when requested. You control networking, permissions, and target scope. Tool availability depends on your selected bundles.</p>
     </div>
