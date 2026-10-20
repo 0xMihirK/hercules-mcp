@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import io
 import json
-import re
 import math
+import re
 from collections.abc import Mapping
 
 
@@ -17,8 +17,15 @@ class JsonDocument:
     """JSON plus comments/trailing commas, with exact source spans for edits."""
 
     def __init__(self, text: str):
-        if len(text) > 8 * 1024 * 1024:
-            raise ConfigError("Client configuration exceeds the 8 MiB safety limit")
+        # Bounds the hand-rolled JSONC parser. Claude Code's own ~/.claude.json
+        # (shared with history/project state) routinely runs to tens of MiB, so
+        # the cap must comfortably clear a live user file rather than block setup.
+        if len(text) > 64 * 1024 * 1024:
+            raise ConfigError(
+                f"Client configuration is {len(text) // (1024 * 1024)} MiB, past the "
+                "64 MiB parser limit; the oversized file is the client's own config, "
+                "not the Hercules entry"
+            )
         self.text = text
         self.spans = {}
         self.members = {}

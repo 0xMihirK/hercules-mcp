@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
+import hashlib
 import json
 import os
 import socket
@@ -32,9 +34,9 @@ def cleanup_verification(directory: Path, metadata: dict):
     if metadata.get("runtime"):
         import docker
         from hercules.core.docker_manager import (
-            _project_hash,
             _is_process_running,
             _process_start_token,
+            _project_hash,
         )
 
         expected = {
@@ -113,6 +115,13 @@ def image_status(facts: dict) -> str:
             )
             if actual_platform != expected["target_platform"]:
                 return "mismatch"
+            from hercules.core.build_info import locally_built_image
+            from hercules.setup.images import prebuilt_references
+
+            known_local = locally_built_image(expected["fingerprint"], image.id)
+            known_release = bool(set(image.attrs.get("RepoDigests") or []) & set(prebuilt_references(facts)))
+            if not (known_local or known_release):
+                return "unverified"
             return (
                 "ready"
                 if all(
@@ -128,27 +137,46 @@ def image_status(facts: dict) -> str:
 
 
 def assets_ready(root: Path, capabilities: list[str]) -> bool:
-    from hercules.core.tool_catalog import required_wordlists
-    from hercules.core.wordlists import (
-        WORDLIST_FILES,
-        validate_wordlist_archive,
-        _seclists_ready,
-        _rockyou_ready,
-    )
+    from hercules.core.wordlists import cached_wordlists
 
-    for name in required_wordlists(capabilities):
-        archive = root / WORDLIST_FILES[name]
-        if not validate_wordlist_archive(archive.name, archive):
-            return False
-        if name == "seclists" and not _seclists_ready(
-            root / "SecLists", root / "SecLists/.hercules-ready", archive
-        ):
-            return False
-        if name == "rockyou" and not _rockyou_ready(
-            root / "rockyou.txt", root / ".rockyou.hercules-ready.json", archive
-        ):
-            return False
+    try:
+        cached_wordlists(root, capabilities)
+    except (OSError, RuntimeError, ValueError):
+        return False
     return True
+
+
+def verification_binding(facts: dict) -> dict:
+    """Observe identity in the candidate's own environment and Docker context."""
+    import docker
+    from hercules.core.config import HerculesConfig
+    from hercules.core.setup_info import _source_facts
+
+    source = _source_facts(Path(facts["source"]["checkout"]))
+    if not source["clean"] or source["revision"] != facts["source"]["revision"]:
+        raise SetupError("verification_source_changed", "Candidate source changed", "Prepare and verify a clean candidate again.")
+    if image_status(facts) != "ready":
+        raise SetupError("verification_image_changed", "Runtime image is not the verified candidate", "Run runtime prepare and verify --runtime --pending again.")
+    config = HerculesConfig.from_env()
+    from hercules.core.config_io import dotenv_path
+
+    # Also bind the persisted file: an inherited override can temporarily mask
+    # an operator edit that a reloaded client would otherwise observe.
+    dotenv_sha256 = hashlib.sha256(dotenv_path(config.project_root).read_bytes()).hexdigest()
+    values = dataclasses.asdict(config)
+    if config.skip_metasploit:
+        values.pop("msf_password")  # Unused ephemeral defaults must not stale proof.
+    values["transport_environment"] = {key: os.getenv(key, "") for key in (
+        "DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH",
+        "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE",
+    )}
+    encoded = json.dumps(values, sort_keys=True, default=lambda v: sorted(v) if isinstance(v, (set, frozenset)) else str(v)).encode()
+    with closing(docker.from_env(timeout=10)) as client:
+        image_id = client.images.get(facts["image"]["tag"]).id
+        daemon_id = client.info()["ID"]
+    return {"revision": source["revision"], "image_id": image_id, "docker_daemon_id": daemon_id, "dotenv_sha256": dotenv_sha256,
+            "configuration_sha256": hashlib.sha256(encoded).hexdigest(),
+            "network": config.docker_network or "bridge"}
 
 
 async def verify(
@@ -173,7 +201,7 @@ async def verify(
         env.update(
             ALLOWED_TARGETS="127.0.0.1",
             BLOCKED_TARGETS="",
-            HERCULES_DOCKER_NETWORK="",
+            HERCULES_DOCKER_NETWORK=environment.get("HERCULES_DOCKER_NETWORK", os.environ.get("HERCULES_DOCKER_NETWORK", "bridge")),
             USE_PRIVILEGED="false",
             BROWSER_PROXY_URL="",
             BROWSER_PROXY="",
@@ -208,6 +236,11 @@ async def verify(
             checks.append("cold_stdio_surface")
             if not runtime:
                 return {"host": "passed", "runtime": "not_run", "checks": checks}
+            blockers = facts.get("browser", {}).get("release_blockers", [])
+            if blockers:
+                return {"host": "passed", "runtime": "blocked", "checks": checks,
+                        "blockers": blockers,
+                        "next_action": "Keep the working installation; wait for verified browser scope enforcement. Do not clear target restrictions."}
             try:
                 cold = (
                     await client.call_tool(
@@ -354,7 +387,10 @@ async def verify(
                         )
                     probe.bind(("127.0.0.1", int(port)))
             checks.append("stop_and_ports_released")
-        return {"host": "passed", "runtime": "passed", "checks": checks}
+        return {"host": "passed", "runtime": "passed", "checks": checks,
+                "fixture_overrides": ["disposable_workspace", "preservation_disabled", "scope_127.0.0.1_only", "privileged_disabled", "upstream_proxy_disabled"],
+                "network_selection": env.get("HERCULES_DOCKER_NETWORK", "bridge"),
+                "verification_scope": "Local fixtures only; configured external targets and upstream proxies were not contacted."}
     finally:
         # Graceful STDIO shutdown is allowed to settle before the owner check.
         from hercules.core.workspace import WorkspaceManager
@@ -368,7 +404,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("assets", "assets-ready", "verify"))
+    parser.add_argument("action", choices=("assets", "assets-ready", "verify", "binding"))
     parser.add_argument("--facts", required=True, type=Path)
     parser.add_argument("--workspace", type=Path)
     parser.add_argument("--runtime", action="store_true")
@@ -383,6 +419,8 @@ def main():
         )
     elif args.action == "assets-ready":
         result = {"ready": assets_ready(Path(os.environ["HERCULES_WORDLIST_ROOT"]), facts["selection"]["capabilities"])}
+    elif args.action == "binding":
+        result = verification_binding(facts)
     else:
         root = Path(facts["source"]["checkout"])
         launcher = (

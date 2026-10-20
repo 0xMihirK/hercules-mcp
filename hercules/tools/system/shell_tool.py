@@ -8,8 +8,8 @@ installing additional tools via apt, downloading scripts, etc.
 
 from __future__ import annotations
 
-import logging
 import hashlib
+import logging
 import re
 import uuid
 from typing import TYPE_CHECKING

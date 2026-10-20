@@ -45,6 +45,15 @@ exclude = [
     ".github/**",
     "website",
     "website/**",
+    "artifacts",
+    "artifacts/**",
+    "workspace",
+    "workspace/**",
+    "wordlists",
+    "wordlists/**",
+    "resources_cache",
+    "resources_cache/**",
+    ".env",
 ]
 
 [tool.hatch.build.targets.wheel]

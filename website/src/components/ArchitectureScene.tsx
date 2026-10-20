@@ -11,7 +11,7 @@ const asset = (path: string) => import.meta.env.BASE_URL + "assets/" + path;
 const details = {
   hercules: { title: "Your agent directs. Hercules connects.", text: "Hercules exposes tools over STDIO MCP and manages their execution. Connecting loads the tool schemas; your agent explicitly starts the Docker runtime when it needs it." },
   docker: { title: "A tool environment inside Docker.", text: "Selected Kali tools run in a session-owned container rather than being installed on your host. You control networking, permissions, and target scope; Docker is not an absolute security boundary." },
-  browser: { title: "Control a real browser.", text: "The optional CloakBrowser runtime supports navigation, snapshots, clicks, form filling, screenshots, and browser sessions. It reduces common automation signals without guaranteeing CAPTCHA or bot-detection avoidance." },
+  browser: { title: "Browser replacement pending verification.", text: "The full Kali candidate confines an unprivileged Obscura engine through a validating gateway and firewall inside one bridge-network container. Keep the working installation until acceptance passes. CSP is not enforced; Chromium parity and native downloads are not supported." },
   network: { title: "From a target to a service map.", text: "Use Amass and DNS tools to discover hosts, then Nmap to inspect reachable services. The agent can follow up with curl or Ncat to check what a service actually returns." },
   web: { title: "Discover, then verify web issues.", text: "Use ffuf for endpoint discovery, Nuclei for template-based checks, and SQLMap for database injection testing. Browser checks can help the agent verify a result instead of treating every scanner alert as a finding." },
   files: { title: "Follow clues inside files.", text: "Binwalk, ExifTool, and Steghide help examine embedded data, metadata, and hidden content. Shell and workspace tools let the agent inspect extracted files and continue an investigation." },
@@ -23,7 +23,7 @@ const details = {
 };
 type Feature = keyof typeof details;
 const capabilities = [
-  { key: "browser", title: "Browser control", tools: "CloakBrowser" },
+  { key: "browser", title: "Browser control", tools: "Obscura · no CSP" },
   { key: "network", title: "Recon & services", tools: "Amass · DNS · Nmap" },
   { key: "web", title: "Web assessment", tools: "ffuf · Nuclei · SQLMap" },
   { key: "files", title: "Files & forensics", tools: "Binwalk · ExifTool · Steghide" },

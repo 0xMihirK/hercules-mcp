@@ -50,11 +50,13 @@ instead of masking errors with a final `echo DONE` or `2>/dev/null`.
 
 After explicit startup, authorized `shell_exec` commands can install packages,
 run custom clients, and download verified tools. It is a noninteractive root
-shell, not a new host installer. Capability selections describe preinstalled
-packages, not a security sandbox against root. Do not silently expand the
+shell, not a new host installer. Capability selections control exposed tools,
+not the full image's physical packages or a security sandbox against root. Do not silently expand the
 operator's chosen setup or weaken target/approval controls.
 
-The baseline includes SSH, unzip, and Python virtual-environment support.
+The baseline includes SSH, jq, unzip, and Python virtual-environment support.
+Check the locked toolbox at `/opt/hercules-python/bin/python` before installing
+HTTP/WebSocket/JWT/cryptography/Paramiko/Pillow/flask-unsign dependencies again.
 Check availability first. For additional system packages use a deliberate
 noninteractive install with a suitable timeout (or one background job), retain
 stderr, and record versions. Prefer workspace-local Python environments:
@@ -77,3 +79,18 @@ fixed 60-second cap. Use background jobs for long listeners/observers, namespace
 IDs by challenge, back off unchanged polls, and confirm termination. Save progress
 before final shutdown; inspect retained files offline rather than starting a
 container only to read notes.
+
+`requested_timeout_seconds` and `effective_timeout_seconds` expose any clamp by
+the configured server ceiling (default 1200 seconds). Harness deadlines are a
+separate limit. Hercules job IDs and harness-deferred task IDs are not interchangeable.
+
+## Custom TCP/TLS protocols
+
+Use the existing `ncat` tool for ordinary connects/listeners. For protocol-specific
+framing, keep a small script under the challenge directory and run it through
+`shell_exec` with explicit socket and outer timeouts. For TLS use Python's
+`ssl.create_default_context()`, the authorized server hostname for SNI, a bounded
+receive loop, and a verified trust bundle when required. Do not disable certificate
+verification or infer that a sibling service belongs to the challenge.
+Save sent/received bytes in private artifacts before parsing, distinguish EOF
+from timeout, and test against a local fixture before drawing conclusions.

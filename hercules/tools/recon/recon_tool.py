@@ -92,7 +92,7 @@ def register_recon_tools(mcp: FastMCP) -> None:
 
         async with concurrency.acquire_heavy("recon_amass"):
             # Amass can take a very long time
-            result = await docker.exec_command(cmd, timeout=1200)
+            result = await docker.exec_command(cmd, timeout=1200, tool_name="recon_amass")
 
         return {"tool": "recon_amass", "domain": domain, **result.to_dict()}
 

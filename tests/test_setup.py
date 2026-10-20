@@ -22,6 +22,7 @@ def test_browser_only_runtime_verification_does_not_require_curl(monkeypatch, tm
     from unittest.mock import Mock
 
     import fastmcp
+
     from hercules.setup.runtime import verify
 
     opener = Mock()
@@ -60,7 +61,7 @@ def test_browser_only_runtime_verification_does_not_require_curl(monkeypatch, tm
                     readiness_commands.append(command)
                     executable, flag, code = shlex.split(command)
                     assert (executable, flag) == ("python3", "-c")
-                    exec(code, {})
+                    exec(code, {})  # noqa: S102 — execute only the literal local readiness fixture
             elif name == "system_network_info":
                 result["port_allocation"] = {"effective": {"metasploit_rpc": 0, "browser_stream": 0, "listeners": []}}
             elif name == "system_stop_container":
@@ -258,10 +259,8 @@ def test_committed_transaction_survives_recovery(tmp_path):
 
 
 def test_installation_lock_prevents_concurrent_writers(tmp_path):
-    with InstallLock(tmp_path / "setup.lock"):
-        with pytest.raises(SetupError, match="Another setup"):
-            with InstallLock(tmp_path / "setup.lock"):
-                pass
+    with InstallLock(tmp_path / "setup.lock"), pytest.raises(SetupError, match="Another setup"), InstallLock(tmp_path / "setup.lock"):
+        pass
 
 
 @pytest.fixture
@@ -316,6 +315,173 @@ def test_first_install_only_writes_current_client(fake_engine, isolated_home):
     state = json.loads(fake_engine.state_path.read_text())
     assert state["clients"] == ["claude-code"]
     assert state["schema_version"] == 4
+
+
+def test_bridge_override_is_selected_client_only(fake_engine):
+    fake_engine.args.capabilities = "all"
+    fake_engine.args.docker_network = "chosen-lab"
+    result = fake_engine.execute("install")
+    assert result["registration"] == "configured"
+    entry = fake_engine.adapter.entry()
+    assert entry["env"]["HERCULES_DOCKER_NETWORK"] == "chosen-lab"
+    state = json.loads(fake_engine.state_path.read_text())
+    assert "HERCULES_DOCKER_NETWORK" not in Path(state["env_file"]).read_text()
+    assert state["clients"] == ["claude-code"]
+
+
+def test_fresh_selected_root_does_not_adopt_unrelated_legacy_home(fake_engine, isolated_home):
+    legacy = isolated_home / ".hercules-mcp"
+    (legacy / "workspace").mkdir(parents=True)
+    environment = legacy / ".env"
+    original = b"HERCULES_INSTALLED_CAPABILITIES=all\nMSF_PASSWORD=unrelated-fixture-secret\n"
+    environment.write_bytes(original)
+    (legacy / "workspace/retained.txt").write_text("unrelated evidence")
+    fake_engine.execute("install")
+    state = json.loads(fake_engine.state_path.read_text())
+    assert Path(state["env_file"]) == fake_engine.root / "data/.env"
+    assert Path(state["workspace_root"]) == fake_engine.root / "data/workspace"
+    assert Path(state["wordlist_root"]) == fake_engine.root / "data/wordlists"
+    assert environment.read_bytes() == original
+    assert (legacy / "workspace/retained.txt").read_text() == "unrelated evidence"
+
+
+def test_existing_linux_host_network_is_not_silently_migrated(fake_engine, monkeypatch):
+    monkeypatch.setattr("hercules.setup.engine.platform.system", lambda: "Linux")
+    fake_engine.args.capabilities = "all"
+    fake_engine.old = {"image_fingerprint": "old"}
+    fake_engine.execute("install")
+    assert fake_engine.pending()["environment"]["HERCULES_DOCKER_NETWORK"] == "host"
+
+
+def test_pending_runtime_verification_does_not_touch_active_state(fake_engine, monkeypatch):
+    fake_engine.old = {"image_fingerprint": "old"}
+    fake_engine.execute("install")
+    before = (fake_engine.adapter.path.read_bytes() if fake_engine.adapter.path.exists() else None)
+    fake_engine.args.pending, fake_engine.args.runtime = True, True
+    def verified(candidate, facts, **kwargs):
+        assert kwargs["runtime"] is True
+        candidate["verification"] = {"host": "passed", "runtime": "passed"}
+        candidate["runtime_verification"] = {"runtime": "passed", "binding": {"image_id": "immutable"}}
+        return candidate["verification"]
+    monkeypatch.setattr(fake_engine, "verify_candidate", verified)
+    result = fake_engine.execute("verify")
+    assert result["registration"] == "unchanged"
+    assert not fake_engine.state_path.exists()
+    assert (fake_engine.adapter.path.read_bytes() if fake_engine.adapter.path.exists() else None) == before
+    assert fake_engine.pending()["runtime_verification"]["binding"]["image_id"] == "immutable"
+
+
+def test_stale_pending_browser_proof_blocks_resume(fake_engine, monkeypatch):
+    fake_engine.args.capabilities = "all"
+    source, _ = fake_engine.source()
+    fake_engine.old = {"checkout": str(source), "commit": "old", "image_fingerprint": "old"}
+    fake_engine.execute("install")
+    candidate = fake_engine.pending()
+    candidate["runtime_verification"] = {"runtime": "passed", "binding": {"image_id": "old-image"}}
+    fake_engine.save_pending(candidate)
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
+    monkeypatch.setattr(fake_engine, "verification_binding", lambda *args: {"image_id": "changed-image"})
+    with pytest.raises(SetupError) as caught:
+        fake_engine.execute("resume")
+    assert caught.value.code == "verification_stale"
+    assert not fake_engine.adapter.path.exists()
+
+
+def test_runtime_binding_rejects_dotenv_edits_masked_by_inherited_values(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    import docker
+    from hercules.core.config import HerculesConfig
+    from hercules.setup.runtime import verification_binding
+
+    environment = tmp_path / ".env"
+    environment.write_text("MAX_CONCURRENT_LIGHT=10\n")
+    monkeypatch.setenv("HERCULES_ENV_FILE", str(environment))
+    config = HerculesConfig(project_root=tmp_path, skip_metasploit=True, max_concurrent_light=10)
+    monkeypatch.setattr(HerculesConfig, "from_env", classmethod(lambda cls: config))
+    monkeypatch.setattr("hercules.core.setup_info._source_facts", lambda path: {"clean": True, "revision": "fixture"})
+    monkeypatch.setattr("hercules.setup.runtime.image_status", lambda facts: "ready")
+    client = Mock()
+    client.info.return_value = {"ID": "local-daemon"}
+    client.images.get.return_value.id = "sha256:immutable"
+    monkeypatch.setattr(docker, "from_env", lambda **kwargs: client)
+    facts = {"source": {"checkout": str(tmp_path), "revision": "fixture"}, "image": {"tag": "fixture"}}
+    before = verification_binding(facts)
+    environment.write_text("MAX_CONCURRENT_LIGHT=7\n")
+    after = verification_binding(facts)
+    assert before["configuration_sha256"] == after["configuration_sha256"]
+    assert before["dotenv_sha256"] != after["dotenv_sha256"]
+
+
+def test_same_image_browser_update_stays_pending_when_docker_is_unavailable(fake_engine, monkeypatch):
+    from hercules.core.tool_catalog import ALL_CAPABILITIES
+
+    fake_engine.args.capabilities = "all"
+    source, _ = fake_engine.source()
+    fake_engine.old = {"checkout": str(source), "commit": "previous", "image_fingerprint": "a",
+                       "installed_capabilities": list(ALL_CAPABILITIES)}
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "docker_unavailable")
+    result = fake_engine.execute("install")
+    assert result["status"] == "pending" and result["registration"] == "unchanged"
+    assert not fake_engine.adapter.path.exists()
+    assert "verify --runtime --pending" in result["next_action"]
+
+
+def test_unsupported_browser_config_keeps_candidate_pending(fake_engine, monkeypatch):
+    original = fake_engine.facts
+
+    def incompatible(candidate):
+        return {**original(candidate), "browser": {"unsupported_configurations": ["BROWSER_LOCALE"]}}
+
+    monkeypatch.setattr(fake_engine, "facts", incompatible)
+    with pytest.raises(SetupError, match="Replacement not activated"):
+        fake_engine.execute("install")
+    assert not fake_engine.adapter.path.exists()
+    assert fake_engine.pending()["activation_blockers"] == ["BROWSER_LOCALE"]
+
+
+def test_browser_release_blocker_prevents_activation_even_with_ready_image(fake_engine, monkeypatch):
+    original = fake_engine.facts
+
+    def blocked(candidate):
+        return {**original(candidate), "browser": {"release_blockers": ["obscura_network_scope_not_enforced"]}}
+
+    monkeypatch.setattr(fake_engine, "facts", blocked)
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
+    with pytest.raises(SetupError) as caught:
+        fake_engine.execute("install")
+    assert caught.value.code == "runtime_compatibility_blocked"
+    assert not fake_engine.adapter.path.exists()
+    assert fake_engine.pending()["activation_blockers"] == ["obscura_network_scope_not_enforced"]
+    status = fake_engine.status()
+    assert status["pending_activation_blockers"] == ["obscura_network_scope_not_enforced"]
+    assert "runtime preparation cannot resolve it" in status["next_action"]
+
+
+def test_unpublished_image_never_silently_builds(fake_engine, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    fake_engine.args = SimpleNamespace(image_source="auto", build_ca_bundle=None)
+    fake_engine.transaction = Mock()
+    facts = {"source": {"checkout": str(tmp_path)}, "image": {
+        "tag": "fixture", "fingerprint": "a" * 64, "target_platform": "linux/amd64",
+        "custom_ca": {"configured": False}}}
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "missing")
+    with pytest.raises(SetupError, match="no published matching image"):
+        fake_engine.prepare_runtime({}, facts)
+    fake_engine.transaction.run.assert_not_called()
+
+
+def test_new_asset_requirement_keeps_same_image_update_pending(fake_engine, monkeypatch):
+    fake_engine.old = {"image_fingerprint": "a", "installed_capabilities": ["shell", "session", "workspace"]}
+    fake_engine.args.capabilities = "shell,session,workspace,fuzz"
+    monkeypatch.setattr(fake_engine, "assets_ready", lambda *args: False)
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
+    result = fake_engine.execute("install")
+    assert result["status"] == "pending"
+    assert result["registration"] == "unchanged"
+    assert not fake_engine.adapter.path.exists()
 
 
 def test_candidate_workers_use_isolated_revision_environments(fake_engine, tmp_path, monkeypatch):
@@ -616,9 +782,22 @@ def test_process_timeout_terminates_exact_child(tmp_path):
     from hercules.core.docker_manager import _is_process_running
 
     tx = Transaction(tmp_path / "tx")
-    with pytest.raises(subprocess.TimeoutExpired):
+    with pytest.raises(SetupError) as caught:
         tx.run([sys.executable, "-c", "import time; time.sleep(30)"], timeout=0.1)
+    assert caught.value.code == "command_timeout"
     assert not _is_process_running(tx.data["processes"][0]["pid"])
+
+
+def test_atomic_private_temp_name_can_exceed_windows_path_limit(tmp_path):
+    from hercules.core.config_io import atomic_write_private_bytes
+
+    # The destination remains readable by ordinary Windows callers; only the
+    # UUID-bearing atomic temp name crosses the legacy 260-character limit.
+    destination = tmp_path / ("v" * max(1, 230 - len(str(tmp_path)))) / "settings.json"
+    atomic_write_private_bytes(destination, b"first")
+    atomic_write_private_bytes(destination, b"replacement")
+    assert destination.read_bytes() == b"replacement"
+    assert not list(destination.parent.glob("*.tmp"))
 
 
 def test_unknown_profiles_and_inline_overrides_require_manual_selection(
@@ -710,6 +889,7 @@ def test_pending_candidate_rejects_changed_configuration(fake_engine):
 
 def test_git_source_update_reinstall_and_divergence(fake_engine, tmp_path, monkeypatch):
     import tempfile
+
     from hercules.setup.engine import launcher
 
     def git(root, *args):
@@ -774,9 +954,15 @@ def test_bootstrap_shell_syntax():
                 check=True,
                 capture_output=True,
             )
-        bash = Path(shutil.which("git")).parents[1] / "bin/bash.exe"
+        bash = shutil.which("bash")
+        if not bash:
+            git = shutil.which("git")
+            candidate = Path(git).parents[1] / "bin/bash.exe" if git else None
+            bash = str(candidate) if candidate and candidate.exists() else None
+        if not bash:
+            pytest.skip("bash unavailable for setup.sh syntax check")
         subprocess.run(
-            [str(bash), "-n", str(root / "scripts/setup.sh")],
+            [bash, "-n", str(root / "scripts/setup.sh")],
             check=True,
             capture_output=True,
         )

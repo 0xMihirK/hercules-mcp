@@ -20,6 +20,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from hercules.core.build_info import (
+    AGENT_BROWSER_VERSION,
+    BROWSER_ASSETS,
+    BROWSER_ASSETS_SHA256,
     CLOAKBROWSER_PROJECT_URL,
     CLOAKBROWSER_REPOSITORY_URL,
     CLOAKBROWSER_VERSION,
@@ -28,17 +31,19 @@ from hercules.core.build_info import (
     IMAGE_APT_SUITE_LABEL,
     IMAGE_BASE_DIGEST_LABEL,
     IMAGE_BASE_REPOSITORY_LABEL,
+    IMAGE_BROWSER_ASSETS_LABEL,
+    IMAGE_BROWSER_LABEL,
     IMAGE_BUILD_CA_LABEL,
     IMAGE_CAPABILITIES_LABEL,
     IMAGE_CAPABILITY_MANIFEST_LABEL,
-    IMAGE_CLOAKBROWSER_SHA256_LABEL,
-    IMAGE_CLOAKBROWSER_VERSION_LABEL,
     IMAGE_FINGERPRINT_LABEL,
     IMAGE_INPUTS,
+    IMAGE_OBSCURA_VERSION_LABEL,
     IMAGE_PLATFORM_LABEL,
     KALI_APT_SUITE,
     KALI_BASE_DIGEST,
     KALI_BASE_REPOSITORY,
+    OBSCURA_VERSION,
     SUPPORTED_IMAGE_PLATFORMS,
     capability_manifest_sha256,
     default_image_platform,
@@ -48,12 +53,13 @@ from hercules.core.build_info import (
 )
 from hercules.core.config_io import (
     SETUP_STATE_SCHEMA_VERSION,
-    dotenv_value_status,
     dotenv_path,
+    dotenv_value_status,
     load_setup_state,
     read_dotenv_value,
 )
 from hercules.core.tool_catalog import (
+    ALL_CAPABILITIES,
     METASPLOIT_TOOLS,
     REGISTRARS,
     TOOL_SELECTORS,
@@ -647,7 +653,8 @@ def setup_information(
         for logical in wordlists
     }
     browser_selected = "browser" in selected
-    manifest_sha256 = capability_manifest_sha256(selected)
+    physical_capabilities = format_capabilities(ALL_CAPABILITIES)
+    manifest_sha256 = capability_manifest_sha256(ALL_CAPABILITIES)
     surface = capture_surface()
     skill_validation = validate_skill_routing(root, surface)
     environment_file = dotenv_path(root)
@@ -708,6 +715,9 @@ def setup_information(
             "errors": surface["errors"],
         },
         "image": {
+            "flavor": "full",
+            "installed_capabilities": list(physical_capabilities.split(",")),
+            "exposed_capabilities": formatted.split(","),
             "tag": image,
             "fingerprint": fingerprint,
             "legacy_checkout_compatibility": {
@@ -730,26 +740,25 @@ def setup_information(
             },
             "build_inputs": list(IMAGE_INPUTS),
             "build_arguments": {
-                "HERCULES_CAPABILITIES": formatted,
+                "HERCULES_CAPABILITIES": physical_capabilities,
                 "HERCULES_BUILD_FINGERPRINT": fingerprint,
                 "HERCULES_BUILD_CA_SHA256": ca_sha256,
                 "HERCULES_TARGET_PLATFORM": selected_platform,
                 "HERCULES_CAPABILITY_MANIFEST_SHA256": manifest_sha256,
-                "CLOAKBROWSER_PY_VERSION": cloak_version,
-                "CLOAKBROWSER_WHEEL_URL": cloak_url,
-                "CLOAKBROWSER_WHEEL_SHA256": cloak_sha,
+                "HERCULES_BROWSER_ASSETS_SHA256": BROWSER_ASSETS_SHA256,
             },
             "labels": {
                 IMAGE_FINGERPRINT_LABEL: fingerprint,
-                IMAGE_CAPABILITIES_LABEL: formatted,
+                IMAGE_CAPABILITIES_LABEL: physical_capabilities,
                 IMAGE_BUILD_CA_LABEL: ca_sha256,
                 IMAGE_BASE_REPOSITORY_LABEL: KALI_BASE_REPOSITORY,
                 IMAGE_BASE_DIGEST_LABEL: KALI_BASE_DIGEST,
                 IMAGE_APT_SUITE_LABEL: KALI_APT_SUITE,
                 IMAGE_PLATFORM_LABEL: selected_platform,
                 IMAGE_CAPABILITY_MANIFEST_LABEL: manifest_sha256,
-                IMAGE_CLOAKBROWSER_VERSION_LABEL: cloak_version,
-                IMAGE_CLOAKBROWSER_SHA256_LABEL: cloak_sha,
+                IMAGE_BROWSER_LABEL: "obscura",
+                IMAGE_OBSCURA_VERSION_LABEL: OBSCURA_VERSION,
+                IMAGE_BROWSER_ASSETS_LABEL: BROWSER_ASSETS_SHA256,
             },
             "custom_ca": {
                 "configured": ca_configured,
@@ -766,7 +775,9 @@ def setup_information(
             },
         },
         "cloakbrowser": {
-            "required": browser_selected,
+            "required": False,
+            "deprecated": True,
+            "active": False,
             "package": "cloakbrowser",
             "package_source": "PyPI",
             "version": cloak_version,
@@ -775,16 +786,25 @@ def setup_information(
             "pypi": CLOAKBROWSER_PROJECT_URL,
             "repository": CLOAKBROWSER_REPOSITORY_URL,
             "allow_prerelease": False,
-            "readiness": (
-                [
-                    "Python package version matches the image label",
-                    "managed Chromium reports Installed: True",
-                    "agent-browser is present and uses the CloakBrowser executable",
-                    "browser remains headless-only",
-                ]
-                if browser_selected
-                else []
+            "readiness": [],
+        },
+        "browser": {
+            "backend": "obscura", "required": browser_selected,
+            "version": OBSCURA_VERSION, "controller_version": AGENT_BROWSER_VERSION,
+            "assets": BROWSER_ASSETS[selected_platform],
+            "csp_enforced": False, "native_browser_downloads": False,
+            "scope_enforced": False,
+            "boundary": "unprivileged-engine + generation-owned inet firewall + validating SOCKS5 gateway",
+            "boundary_readiness": "not_observed",
+            "runtime_verification": "not_run",
+            "network": os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or ("host" if platform.system() == "Linux" else "bridge")),
+            "release_blockers": (["browser_requires_explicit_bridge_network"] if browser_selected and os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or ("host" if platform.system() == "Linux" else "bridge")) == "host" else []),
+            "unsupported_configurations": (
+                (["BROWSER_LOCALE"] if browser_selected and os.getenv("BROWSER_LOCALE", read_dotenv_value(environment_file, "BROWSER_LOCALE") or "").strip() else [])
+                + (["unverifiable_remote_dns_proxy"] if browser_selected and (os.getenv("BROWSER_PROXY_URL", read_dotenv_value(environment_file, "BROWSER_PROXY_URL") or "") or os.getenv("BROWSER_PROXY", read_dotenv_value(environment_file, "BROWSER_PROXY") or "")).startswith("socks5h:") else [])
             ),
+            "warnings": ["CSP is not enforced. Obscura execution is not proof of a Chromium CSP bypass.",
+                         "Legacy Cloakbrowser settings are retained for compatibility but are inactive."],
         },
         "environment": {
             "non_secret_values": environment_values,

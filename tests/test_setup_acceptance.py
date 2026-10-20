@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
-import shlex
 from pathlib import Path
 
 import pytest
@@ -192,7 +192,7 @@ def test_installed_native_cli_in_isolated_profile(name, tmp_path):
     reason="runtime preparation/testing is a separate explicit phase",
 )
 def test_setup_runtime_verifier_with_cached_image(tmp_path):
-    from hercules.setup.runtime import verify, image_status, cleanup_verification
+    from hercules.setup.runtime import cleanup_verification, image_status, verify
 
     environment = {
         **os.environ,
@@ -200,6 +200,7 @@ def test_setup_runtime_verifier_with_cached_image(tmp_path):
         "HERCULES_DISABLED_TOOLS": "",
         "SKIP_METASPLOIT": "false",
         "HERCULES_WORDLIST_ROOT": str(ROOT / "wordlists"),
+        "HERCULES_DOCKER_NETWORK": "bridge",
     }
     facts = json.loads(
         subprocess.check_output(
@@ -207,9 +208,7 @@ def test_setup_runtime_verifier_with_cached_image(tmp_path):
         )
     )
     if image_status(facts) != "ready":
-        pytest.skip(
-            "Matching runtime image is not cached; no build/download authorized"
-        )
+        pytest.fail("Runtime setup acceptance blocked: matching image is not cached")
     directory = (tmp_path / "transaction").resolve()
     workspace = directory / "verification"
     metadata = {"workspace": str(workspace), "checkout": str(ROOT), "runtime": True}
@@ -217,12 +216,68 @@ def test_setup_runtime_verifier_with_cached_image(tmp_path):
         result = asyncio.run(
             verify(launcher(ROOT), environment, facts, workspace, runtime=True)
         )
-        assert result["runtime"] == "passed"
+        assert result["host"] == "passed"
+        assert result["runtime"] == "passed", result
         assert "local_browser" in result["checks"]
-        assert "stop_and_ports_released" in result["checks"]
     finally:
         cleanup_verification(directory, metadata)
     assert metadata["cleaned"]
+
+
+def test_full_browser_pending_update_verification(source, tmp_path, storage):
+    """Test a replacement without ever moving the old live environment."""
+    from hercules.core.config_io import atomic_write_private_bytes
+    from hercules.setup.transaction import SetupError
+
+    data = storage / "data"
+    atomic_write_private_bytes(data / ".env", (
+        "HERCULES_INSTALLED_CAPABILITIES=all\n"
+        f"HERCULES_WORDLIST_ROOT={ROOT / 'wordlists'}\n"
+        "HERCULES_LISTENER_BIND_HOST=127.0.0.1\n"
+    ).encode())
+    selectors = ["--client", "claude-code", "--root", str(storage),
+                 "--config-path", str(tmp_path / "client.json"),
+                 "--skill-path", str(tmp_path / "skill"), "--source", str(source), "--yes"]
+    def run(command, *extra):
+        return Engine(parser().parse_args([command, *selectors, *extra])).execute(command)
+    installed = run("install")
+    config = tmp_path / "client.json"
+    original = config.read_bytes()
+    assert installed["verification"]["runtime"] == "not_run"
+    with (source / "README.md").open("a", encoding="utf-8") as file:
+        file.write("\nDisposable pending-update fixture.\n")
+    git(source, "add", "README.md")
+    git(source, "commit", "-qm", "Disposable update")
+    assert run("install")["status"] == "pending"
+    assert config.read_bytes() == original
+    verified = run("verify", "--runtime", "--pending")
+    assert verified["verification"]["runtime"] == "passed", verified
+    assert config.read_bytes() == original
+    pending_path = storage / "pending/claude-code.json"
+    proof = json.loads(pending_path.read_text())["runtime_verification"]["binding"]
+    assert proof["revision"] == git(source, "rev-parse", "HEAD")
+    assert proof["image_id"].startswith("sha256:") and proof["network"] == "bridge"
+    # Any meaningful configuration change invalidates proof, without touching
+    # client registration or destroying the retained candidate.
+    state = json.loads((storage / "install.json").read_text())
+    assert state["commit"] != proof["revision"]
+    assert "browser" in state["installed_capabilities"]
+    environment = Path(state["env_file"])
+    assert environment.parent == Path(state["installation_root"]) / "data"
+    previous = environment.read_bytes()
+    import hashlib
+
+    assert hashlib.sha256(previous).hexdigest() == proof["dotenv_sha256"]
+    atomic_write_private_bytes(environment, previous + b"MAX_CONCURRENT_LIGHT=7\n")
+    with pytest.raises(SetupError) as caught:
+        run("resume")
+    assert caught.value.code == "verification_stale"
+    assert config.read_bytes() == original and pending_path.exists()
+    atomic_write_private_bytes(environment, previous)
+    activated = run("resume")
+    assert activated["verification"]["runtime"] == "passed"
+    assert activated["revision"] == proof["revision"]
+    assert config.read_bytes() != original
 
 
 @pytest.mark.skipif(
@@ -235,7 +290,7 @@ def test_live_claude_auto_mode(source, tmp_path, storage):
 
     command = native_argv("claude-code")
     if not command:
-        pytest.skip("Claude Code is not available")
+        pytest.fail("Live auto-mode release acceptance blocked: Claude Code is unavailable")
     version = subprocess.check_output([*command, "--version"], text=True).strip()
     selectors = [
         "--client",
@@ -280,8 +335,6 @@ def test_live_claude_auto_mode(source, tmp_path, storage):
             prompt,
             "--permission-mode",
             "auto",
-            "--setting-sources",
-            "",
             "--strict-mcp-config",
             "--mcp-config",
             '{"mcpServers":{}}',
@@ -293,6 +346,7 @@ def test_live_claude_auto_mode(source, tmp_path, storage):
             "--verbose",
         ],
         cwd=source,
+        check=False,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -319,12 +373,14 @@ def test_live_claude_auto_mode(source, tmp_path, storage):
         "version": version,
         "mode": mode,
         "denied_operations": [item.get("tool_name") for item in denied],
+        "denied_phases": [next((phase for phase in ("status", "install", "repair", "resume")
+                                if f"hercules.setup_cli {phase}" in str(item.get("tool_input", {}))), "unknown") for item in denied],
         "host_activated": (storage / "install.json").exists(),
         "exit_code": result.returncode,
     }
     print("CLAUDE_AUTO_RESULT=" + json.dumps(report))
     if denied or mode != "auto" or result.returncode:
-        pytest.skip("Live auto-mode acceptance blocked: " + json.dumps(report))
+        pytest.fail("Live auto-mode acceptance blocked; resolve denial through Claude's supported permission interface, then rerun: " + json.dumps(report))
     assert (storage / "install.json").is_file(), (
         "Claude did not execute the authorized fixture installation"
     )

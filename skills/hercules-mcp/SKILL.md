@@ -17,6 +17,9 @@ New installs default to full capabilities. Do not move a live virtual environmen
 
 Host setup and cold `verify` never start a container or call `shell_exec`.
 Ask separately before `runtime prepare` downloads/builds or `verify --runtime`.
+The runtime is one full Kali image; selections hide tools, not packages.
+Use `--image-source build` explicitly for an unpublished local revision;
+`auto` uses only a validated cache or published digest and never hides a pull failure.
 If a harness denies an operation, stop that action and name the blocked phase;
 do not change permission modes, add blanket allow rules, or retry another tool.
 Resume only after the user resolves the denial through the harness's own controls.
@@ -40,8 +43,13 @@ need a client reload; a cold connection does not establish runtime readiness.
 - Inspect current or retained files with `workspace_inspect` before startup.
   Keep related challenge folders together; coordinate workers before rotation or shutdown.
 - Prefer a structured Hercules tool. Use `shell_exec` only when the typed surface cannot express the operation.
-- Check the tools currently exposed before planning. Optional capabilities may be uninstalled or independently hidden; do not invent a missing tool or assume its binary exists. Use an available structured alternative. Use the administrator escape hatch only when the necessary backend is installed and the raw operation is authorized.
+- Check the tools currently exposed before planning. Optional tools may be hidden; do not invent a missing tool. The full image's inventory is separate from MCP visibility. Check the actual backend before using an authorized shell escape hatch.
 - Use `network_curl` for deterministic HTTP requests. Use browser tools when JavaScript, authentication state, DOM interaction, or visual evidence matters.
+- The browser is Obscura: **CSP is not enforced** and native downloads are
+  unsupported (limits in [browser.md](references/browser.md)). Browsing needs the
+  container's bridge/firewall/gateway and explicit IP/CIDR authorization for private
+  targets; if enforcement is unavailable, stop and report it — never remove scope
+  settings to proceed.
 - Use installed Nmap scripts or Nuclei templates before authoring custom content.
 - Use foreground calls for bounded work. Use `shell_exec_background` plus `shell_check_job` for long-running commands.
 - Preserve useful evidence. Follow `raw_artifact`, `stdout_artifact`, or `stderr_artifact` paths when output is filtered or truncated.

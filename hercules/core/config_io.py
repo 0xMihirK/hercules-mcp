@@ -39,6 +39,11 @@ def dotenv_path(project_root: Path) -> Path:
 def atomic_write_private_bytes(path: Path, content: bytes) -> None:
     """Atomically replace a file through a private, exclusively created temp."""
     destination = Path(path)
+    if os.name == "nt":
+        # Atomic temp names add a UUID; managed version paths can exceed MAX_PATH.
+        absolute = str(destination.absolute())
+        if not absolute.startswith("\\\\?\\"):
+            destination = Path("\\\\?\\UNC\\" + absolute[2:] if absolute.startswith("\\\\") else "\\\\?\\" + absolute)
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
     descriptor = os.open(

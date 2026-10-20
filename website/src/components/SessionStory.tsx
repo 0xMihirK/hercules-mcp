@@ -38,7 +38,7 @@ export default function SessionStory({recording,time,base,title}:{recording:Nati
         })}
       </ol>}
       {picture && <a className="story-evidence" href={base+picture.file} target="_blank" rel="noreferrer">
-        <div className="story-evidence-chrome" aria-hidden="true"><span/><span/><span/><b>CloakBrowser capture</b></div>
+        <div className="story-evidence-chrome" aria-hidden="true"><span/><span/><span/><b>Browser capture</b></div>
         <div className="story-evidence-preview"><img src={base+picture.file} alt="Verified local dashboard" loading="lazy"/></div>
         <span>View full browser capture <ArrowUpRight size={16}/></span>
       </a>}

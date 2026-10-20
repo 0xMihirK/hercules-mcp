@@ -34,23 +34,28 @@ from docker.errors import APIError, DockerException, ImageNotFound, NotFound
 
 import docker
 from hercules.core.build_info import (
+    AGENT_BROWSER_VERSION,
+    BROWSER_ASSETS_SHA256,
     IMAGE_APT_SUITE_LABEL,
     IMAGE_BASE_DIGEST_LABEL,
     IMAGE_BASE_REPOSITORY_LABEL,
+    IMAGE_BROWSER_ASSETS_LABEL,
+    IMAGE_BROWSER_LABEL,
     IMAGE_BUILD_CA_LABEL,
     IMAGE_CAPABILITIES_LABEL,
     IMAGE_CAPABILITY_MANIFEST_LABEL,
-    IMAGE_CLOAKBROWSER_SHA256_LABEL,
-    IMAGE_CLOAKBROWSER_VERSION_LABEL,
     IMAGE_FINGERPRINT_LABEL,
+    IMAGE_OBSCURA_VERSION_LABEL,
     IMAGE_PLATFORM_LABEL,
     KALI_APT_SUITE,
     KALI_BASE_DIGEST,
     KALI_BASE_REPOSITORY,
+    OBSCURA_VERSION,
     capability_manifest_sha256,
     image_build_fingerprint,
     image_identity,
     legacy_raw_image_identity,
+    locally_built_image,
 )
 from hercules.core.instance_lock import HerculesPortAllocationLock
 from hercules.core.security import redact_secrets, safe_filename
@@ -59,7 +64,7 @@ from hercules.core.tool_catalog import (
     format_capabilities,
     required_backends,
 )
-from hercules.core.wordlists import provision_wordlists
+from hercules.core.wordlists import cached_wordlists
 from hercules.core.workspace import WorkspaceManager, utc_now
 from hercules.output.banners import strip_known_banners
 from hercules.output.filters import apply_tool_filter
@@ -81,6 +86,7 @@ _SERVICE_FALLBACK_MAX = 32_767
 _SERVICE_FALLBACK_STRIDE = 131
 _RPC_FALLBACK_SEED = 15_553
 _STREAM_FALLBACK_SEED = 17_553
+_PROC_START_TICKS = """awk '{sub(/^.*\\) /, ""); print $20}'"""
 
 
 class ContainerUnavailable(RuntimeError):
@@ -269,6 +275,8 @@ class ExecResult:
     status: str = ""
     timed_out: bool = False
     timeout_seconds: int | float | None = None
+    requested_timeout_seconds: int | float | None = None
+    effective_timeout_seconds: int | float | None = None
     terminated: bool = False
     partial_output: bool = False
     container_recovered: bool = False
@@ -303,6 +311,13 @@ class ExecResult:
         }
         if self.status:
             d["status"] = self.status
+        if self.requested_timeout_seconds is not None:
+            d["requested_timeout_seconds"] = self.requested_timeout_seconds
+            d["effective_timeout_seconds"] = self.effective_timeout_seconds
+            if self.effective_timeout_seconds < self.requested_timeout_seconds:
+                d["warnings"] = [
+                    "Requested timeout was clamped to MAX_EXEC_TIMEOUT; use a managed background job for longer work."
+                ]
         if self.timed_out:
             d["timed_out"] = True
             d["timeout_seconds"] = self.timeout_seconds
@@ -642,7 +657,8 @@ class DockerManager:
         configured = str(getattr(self._config, "docker_network", "") or "")
         if configured:
             return configured
-        return "host" if platform.system() == "Linux" else "bridge"
+        browser = "browser" in (self._config.installed_capabilities or ALL_CAPABILITIES)
+        return "host" if platform.system() == "Linux" and not browser else "bridge"
 
     @property
     def container_running(self) -> bool:
@@ -1244,7 +1260,7 @@ class DockerManager:
         configured_network = str(
             getattr(self._config, "docker_network", "") or ""
         )
-        if platform.system() == "Linux" and not configured_network:
+        if self.network_mode == "host":
             kwargs["network_mode"] = "host"
         else:
             # Docker Desktop provides this name automatically. The explicit
@@ -1278,6 +1294,10 @@ class DockerManager:
             kwargs["ports"] = ports
             if configured_network:
                 kwargs["network"] = configured_network
+
+        # Never rely on Docker daemon defaults for browser isolation.
+        if self.network_mode != "host" and not configured_network:
+            kwargs["network"] = "bridge"
 
         # Capabilities
         if self._config.use_privileged:
@@ -2077,6 +2097,7 @@ class DockerManager:
         preserve_raw: bool = False,
         require_ready: bool = True,
         sensitive_values: tuple[str, ...] | list[str] = (),
+        expected_generation: int | None = None,
     ) -> ExecResult:
         """
         Execute a command inside the running Kali container.
@@ -2100,7 +2121,7 @@ class DockerManager:
             if require_ready:
                 await self.ensure_ready()
         except Exception as exc:
-            if require_ready and _recoverable_docker_error(exc):
+            if require_ready and expected_generation is None and _recoverable_docker_error(exc):
                 recovery_meta = await self._recover_container(str(exc))
                 await self._ensure_container_running()
                 await self.ensure_ready()
@@ -2122,8 +2143,11 @@ class DockerManager:
         safe_cmd = escape_display_controls(redact_secrets(cmd, secret_values))
 
         async def _run_once():
+            if expected_generation is not None and self._generation != expected_generation:
+                raise ContainerUnavailable("Generation changed; PID-sensitive command was not replayed")
+            container = self._container
             api = self._client.api
-            container_id = self._container.id
+            container_id = container.id
             exec_token = uuid.uuid4().hex
             control_dir = "/run/hercules/exec"
             pid_path = f"{control_dir}/{exec_token}.pgid"
@@ -2204,7 +2228,7 @@ class DockerManager:
                 pid = 0
                 try:
                     pid_result = await asyncio.to_thread(
-                        self._container.exec_run,
+                        container.exec_run,
                         ["cat", pid_path],
                         stdout=True,
                         stderr=False,
@@ -2227,7 +2251,7 @@ class DockerManager:
                         f"kill -KILL -- -{pid} 2>/dev/null || kill -KILL {pid} 2>/dev/null || true"
                     )
                     await asyncio.to_thread(
-                        self._container.exec_run,
+                            container.exec_run,
                         ["bash", "-c", kill_cmd],
                         stdout=False,
                         stderr=False,
@@ -2237,7 +2261,7 @@ class DockerManager:
                     terminated = not bool(final_info.get("Running", False))
                 else:
                     await asyncio.to_thread(
-                        self._container.exec_run,
+                        container.exec_run,
                         [
                             "bash",
                             "-c",
@@ -2266,7 +2290,7 @@ class DockerManager:
                 stream_task.result()
             info = await asyncio.to_thread(api.exec_inspect, exec_id)
             await asyncio.to_thread(
-                self._container.exec_run,
+                container.exec_run,
                 ["rm", "-f", pid_path],
                 stdout=False,
                 stderr=False,
@@ -2306,7 +2330,7 @@ class DockerManager:
                 stream_meta,
             ) = await _run_once()
         except Exception as exc:
-            if require_ready and _recoverable_docker_error(exc):
+            if require_ready and expected_generation is None and _recoverable_docker_error(exc):
                 recovery_meta = await self._recover_container(str(exc))
                 await self._ensure_container_running()
                 await self.ensure_ready()
@@ -2671,6 +2695,8 @@ class DockerManager:
             status="timeout" if timed_out else "",
             timed_out=timed_out,
             timeout_seconds=effective_timeout if timed_out else None,
+            requested_timeout_seconds=requested_timeout,
+            effective_timeout_seconds=effective_timeout,
             terminated=terminated,
             partial_output=bool(timed_out and (stdout_raw or stderr_raw)),
             **recovery_meta,
@@ -2685,7 +2711,7 @@ class DockerManager:
             return False
         command = (
             f"test -r /proc/{pid}/stat || exit 3; "
-            f"test \"$(awk '{{print $22}}' /proc/{pid}/stat)\" = {ticks} || exit 4; "
+            f"test \"$({_PROC_START_TICKS} /proc/{pid}/stat)\" = {ticks} || exit 4; "
             f"test \"$(ps -o pgid= -p {pid} 2>/dev/null | tr -d ' ')\" = {pgid} "
             "|| exit 5; "
             f"state=$(ps -o stat= -p {pid} 2>/dev/null | tr -d ' '); "
@@ -2714,7 +2740,7 @@ class DockerManager:
         command = (
             "verify_relay() { "
             f"test -r /proc/{pid}/stat || return 3; "
-            f"test \"$(awk '{{print $22}}' /proc/{pid}/stat)\" = {ticks} || return 4; "
+            f"test \"$({_PROC_START_TICKS} /proc/{pid}/stat)\" = {ticks} || return 4; "
             f"test \"$(ps -o pgid= -p {pid} 2>/dev/null | tr -d ' ')\" = {pgid} "
             "|| return 5; "
             "}; "
@@ -2739,6 +2765,41 @@ class DockerManager:
         )
         return result.exit_code == 0
 
+    async def ensure_browser_boundary(self, *, proxy: str = "", protected_ports: tuple[int, ...] = ()) -> dict:
+        """Attest the actual network before any container firewall mutation."""
+        await self.ensure_ready()
+        generation, container = self.generation, self._container
+        if container is None:
+            raise RuntimeError("Browser container is not running")
+        await asyncio.to_thread(container.reload)
+        mode = container.attrs.get("HostConfig", {}).get("NetworkMode", "")
+        networks = container.attrs.get("NetworkSettings", {}).get("Networks", {})
+        if mode in {"host", "none", "default", ""} or mode.startswith("container:") or not networks:
+            raise RuntimeError("Protected browsing requires an isolated Docker bridge network")
+        for name in networks:
+            network = await asyncio.to_thread(self._client.networks.get, name)
+            if network.attrs.get("Driver") != "bridge":
+                raise RuntimeError("Protected browsing requires a bridge network; no firewall rules were installed")
+        config = {
+            "generation": f"{container.id}:{generation}",
+            "allowed": list(self._config.allowed_targets),
+            "blocked": list(self._config.blocked_targets),
+            "proxy": proxy,
+            "protected_ports": [p for p in {self.msf_rpc_port, self.browser_stream_relay_port, *protected_ports} if p],
+        }
+        result = await self.exec_command(
+            "python3 /opt/hercules/browser_boundary.py ensure",
+            env={"HERCULES_BOUNDARY_CONFIG": json.dumps(config)},
+            timeout=20, clean_output=False, expected_generation=generation,
+            sensitive_values=[proxy] if proxy else (),
+        )
+        if result.exit_code != 0:
+            raise RuntimeError("Browser gateway/firewall readiness failed; browsing remains blocked")
+        proof = json.loads(result.stdout)
+        if proof.get("generation") != config["generation"] or proof.get("scope_enforced") is not True:
+            raise RuntimeError("Browser boundary returned stale or invalid readiness")
+        return proof
+
     async def ensure_browser_stream_relay(
         self,
         *,
@@ -2753,6 +2814,8 @@ class DockerManager:
             raise RuntimeError("browser streaming is not configured")
         if not 1 <= backend_port <= 65_535:
             raise ValueError("agent-browser returned an invalid stream port")
+
+        await self.ensure_browser_boundary(protected_ports=(backend_port, relay_port))
 
         async with self._get_browser_stream_lock():
             state = dict(getattr(self, "_browser_stream_relay_state", {}))
@@ -2806,7 +2869,7 @@ class DockerManager:
                 f"--sh-exec {shlex.quote(relay_target)} "
                 f">>{shlex.quote(log_path)} 2>&1 < /dev/null & "
                 "pid=$!; sleep 0.25; kill -0 \"$pid\" 2>/dev/null || exit 9; "
-                "ticks=$(awk '{print $22}' /proc/\"$pid\"/stat) || exit 10; "
+                f"ticks=$({_PROC_START_TICKS} /proc/\"$pid\"/stat) || exit 10; "
                 "pgid=$(ps -o pgid= -p \"$pid\" | tr -d ' ') || exit 11; "
                 "printf '%s %s %s\\n' \"$pid\" \"$pgid\" \"$ticks\""
             )
@@ -2995,7 +3058,7 @@ class DockerManager:
             "set +e\n"
             "pid=$$\n"
             "pgid=$(ps -o pgid= -p \"$$\" | tr -d '[:space:]')\n"
-            "ticks=$(awk '{print $22}' /proc/\"$$\"/stat)\n"
+            f"ticks=$({_PROC_START_TICKS} /proc/\"$$\"/stat)\n"
             "[ \"$pgid\" = \"$pid\" ] && [ -n \"$ticks\" ] || exit 125\n"
             f"printf '%s\\n' \"$pid\" > {shlex.quote(pid_file)}\n"
             f"printf '%s\\n' \"$pgid\" > {shlex.quote(pgid_file)}\n"
@@ -3165,31 +3228,37 @@ class DockerManager:
 
     async def _job_process_status(self, metadata: dict) -> dict:
         if metadata.get("generation") != self._generation:
-            return {"running": False, "stale": True, "pid_reused": False}
+            return {"running": False, "stale": True, "pid_reused": False, "confirmed": False}
         try:
             pid = int(metadata.get("pid", 0))
+            pgid = int(metadata.get("pgid") or pid)
         except (TypeError, ValueError):
-            return {"running": False, "stale": False, "pid_reused": False}
+            return {"running": False, "stale": False, "pid_reused": False, "confirmed": False}
         expected_ticks = str(metadata.get("start_ticks", ""))
         if pid <= 0 or not expected_ticks:
-            return {"running": False, "stale": False, "pid_reused": False}
+            return {"running": False, "stale": False, "pid_reused": False, "confirmed": False}
+        if pgid != pid or not expected_ticks.isdigit():
+            return {"running": False, "stale": False, "pid_reused": False, "confirmed": False}
         command = (
-            f"test -r /proc/{pid}/stat || exit 3; "
-            f"ticks=$(awk '{{print $22}}' /proc/{pid}/stat); "
+            f"if test -e /proc/{pid}; then "
+            f"test -r /proc/{pid}/stat || exit 7; "
+            f"ticks=$({_PROC_START_TICKS} /proc/{pid}/stat); "
             f"test \"$ticks\" = {shlex.quote(expected_ticks)} || exit 4; "
-            f"kill -0 {pid} 2>/dev/null || exit 5; "
-            f"state=$(ps -o stat= -p {pid} 2>/dev/null | tr -d ' '); "
-            'case "$state" in *Z*) exit 6;; esac; echo running'
+            "fi; members=$(ps -eo pid=,pgid=,stat=) || exit 7; "
+            f"printf '%s\\n' \"$members\" | awk '$2 == {pgid} && $3 !~ /^Z/ {{print $1}}' | grep -q . || exit 3; echo running"
         )
         result = await self.exec_command(
             command,
             clean_output=False,
             timeout=15,
+            require_ready=False,
+            expected_generation=metadata["generation"],
         )
         return {
-            "running": result.exit_code == 0,
+            "running": result.exit_code == 0 and result.stdout.strip() == "running",
             "stale": False,
             "pid_reused": result.exit_code == 4,
+            "confirmed": not result.timed_out and (result.exit_code in {3, 4} or (result.exit_code == 0 and result.stdout.strip() == "running")),
         }
 
     async def check_job(self, job_id: str, tail_lines: int = 50) -> dict:
@@ -3217,6 +3286,8 @@ class DockerManager:
             metadata["state"] = "stale"
         elif process["pid_reused"]:
             metadata["state"] = "stale_pid"
+        elif not process["confirmed"]:
+            metadata["state"] = "unknown"
         elif is_running:
             metadata["state"] = "running"
         else:
@@ -3226,7 +3297,7 @@ class DockerManager:
             except (OSError, ValueError):
                 exit_code = None
             metadata["exit_code"] = exit_code
-            metadata["state"] = (
+            metadata["state"] = "terminated" if metadata.get("state") == "terminated" else (
                 "completed"
                 if exit_code == 0
                 else "failed" if exit_code is not None else "unknown"
@@ -3272,6 +3343,12 @@ class DockerManager:
 
     async def terminate_job(self, job_id: str) -> dict:
         """Terminate one verified current-generation process group."""
+        # Rotation/recovery cannot change the workspace or PID namespace while
+        # a verified group is being signaled. These probes never auto-recover.
+        async with self._get_recovery_lock():
+            return await self._terminate_current_job(job_id)
+
+    async def _terminate_current_job(self, job_id: str) -> dict:
         job_id = safe_filename(job_id, label="job_id", maximum=64)
         metadata = await asyncio.to_thread(self._load_job_metadata, job_id)
         if metadata is None:
@@ -3280,6 +3357,8 @@ class DockerManager:
                 "terminated": False,
                 "confirmed": False,
                 "state": "missing",
+                "known_job_ids": [item["job_id"] for item in (await asyncio.to_thread(self.job_inventory))["jobs"]],
+                "next_steps": ["Use a Hercules shell_exec_background job_id, not a harness-deferred task ID."],
             }
         process = await self._job_process_status(metadata)
         if process["stale"] or process["pid_reused"]:
@@ -3293,12 +3372,13 @@ class DockerManager:
                 "stale": True,
             }
         if not process["running"]:
-            status = await self.check_job(job_id, tail_lines=1)
+            if not process["confirmed"]:
+                return {"killed": False, "terminated": False, "confirmed": False, "state": "unknown"}
             return {
                 "killed": False,
                 "terminated": True,
                 "confirmed": True,
-                "state": status["state"],
+                "state": metadata["state"] if metadata.get("state") in {"terminated", "completed", "failed"} else "not_running",
             }
         pid = int(metadata["pid"])
         pgid = int(metadata.get("pgid") or pid)
@@ -3308,27 +3388,33 @@ class DockerManager:
         command = (
             "verify_job() { "
             f"test -r /proc/{pid}/stat || return 3; "
-            f"ticks=$(awk '{{print $22}}' /proc/{pid}/stat) || return 3; "
+            f"ticks=$({_PROC_START_TICKS} /proc/{pid}/stat) || return 3; "
             f"test \"$ticks\" = {expected_ticks} || return 4; "
             f"current_pgid=$(ps -o pgid= -p {pid} 2>/dev/null | tr -d ' ') || return 3; "
             f"test \"$current_pgid\" = {pgid} || return 5; "
             "}; "
             "verify_job || exit $?; "
-            f"kill -TERM {pid} 2>/dev/null || exit 6; "
+            # Record exact members before signaling; if the leader exits, a
+            # recycled group ID alone is never sufficient authority to kill.
+            f"members=$(ps -eo pid=,pgid= | awk '$2 == {pgid} {{print $1}}') || exit 7; identities=''; "
+            f"for member in $members; do ticks=$({_PROC_START_TICKS} /proc/$member/stat 2>/dev/null) || continue; identities=\"$identities $member:$ticks\"; done; "
+            f"kill -TERM -- -{pgid} 2>/dev/null || exit 6; "
             "for _ in $(seq 1 20); do "
-            f"kill -0 {pid} 2>/dev/null || exit 0; sleep 0.1; done; "
-            "verify_job || exit $?; "
-            f"kill -KILL -- -{pgid} 2>/dev/null || exit 7; "
-            "for _ in $(seq 1 20); do "
-            f"kill -0 {pid} 2>/dev/null || exit 0; sleep 0.1; done; exit 1"
+            f"active=$(ps -eo pgid=,stat=) || exit 7; printf '%s\\n' \"$active\" | awk '$1 == {pgid} && $2 !~ /^Z/ {{print}}' | grep -q . || exit 0; sleep 0.1; done; "
+            "for identity in $identities; do member=${identity%:*}; expected=${identity#*:}; "
+            f"ticks=$({_PROC_START_TICKS} /proc/$member/stat 2>/dev/null) || continue; "
+            f"current_pgid=$(ps -o pgid= -p $member | tr -d ' '); "
+            f"if test \"$ticks\" = \"$expected\" && test \"$current_pgid\" = {pgid}; then kill -KILL $member 2>/dev/null || true; fi; done; sleep 0.1"
         )
         termination_result = await self.exec_command(
             command,
             clean_output=False,
             timeout=15,
+            require_ready=False,
+            expected_generation=metadata["generation"],
         )
         final = await self._job_process_status(metadata)
-        confirmed = termination_result.exit_code == 0 and not final["running"]
+        confirmed = final["confirmed"] and not final["running"] and not final["stale"] and not final["pid_reused"]
         metadata.update(
             {
                 "state": "terminated" if confirmed else "termination_failed",
@@ -3345,6 +3431,7 @@ class DockerManager:
             "terminated": confirmed,
             "confirmed": confirmed,
             "state": metadata["state"],
+            "signal_exit_code": termination_result.exit_code,
         }
 
     # ------------------------------------------------------------------
@@ -3659,7 +3746,7 @@ class DockerManager:
         # otherwise identical pre-canonicalization image may be reused from the
         # same checkout after every security/capability label is revalidated.
         try:
-            capabilities = self._config.installed_capabilities or ALL_CAPABILITIES
+            capabilities = ALL_CAPABILITIES
             expected_fingerprint = image_build_fingerprint(
                 self._config.project_root,
                 capabilities,
@@ -3706,13 +3793,23 @@ class DockerManager:
                     or (
                         "browser" in capabilities
                         and (
-                            labels.get(IMAGE_CLOAKBROWSER_VERSION_LABEL)
-                            != self._config.cloakbrowser_version
-                            or labels.get(IMAGE_CLOAKBROWSER_SHA256_LABEL)
-                            != self._config.cloakbrowser_sha256
+                            labels.get(IMAGE_BROWSER_LABEL) != "obscura"
+                            or labels.get(IMAGE_OBSCURA_VERSION_LABEL) != OBSCURA_VERSION
+                            or labels.get(IMAGE_BROWSER_ASSETS_LABEL) != BROWSER_ASSETS_SHA256
                         )
                     )
                 ):
+                    continue
+                from hercules.setup.images import prebuilt_references
+
+                references = prebuilt_references({
+                    "source": {"checkout": str(self._config.project_root)},
+                    "image": {"fingerprint": candidate_fingerprint,
+                              "target_platform": self._config.image_platform,
+                              "custom_ca": {"configured": bool(self._config.build_ca_sha256)}},
+                })
+                if not (locally_built_image(candidate_fingerprint, image.id)
+                        or set(getattr(image, "attrs", {}).get("RepoDigests") or []) & set(references)):
                     continue
                 self.IMAGE = candidate_tag
                 selected = True
@@ -3728,7 +3825,6 @@ class DockerManager:
                     "no local Hercules image matches the selected runtime inputs"
                 )
             logger.info("Image '%s' found locally. Ready for instant startup.", self.IMAGE)
-            await self._verify_image_runtime_ready()
         except ImageNotFound:
             error_msg = (
                 "\n" + "=" * 60 + "\n"
@@ -3745,7 +3841,7 @@ class DockerManager:
 
     async def _verify_image_runtime_ready(self) -> None:
         """Fail early if a stale local image is missing required runtime files."""
-        capabilities = self._config.installed_capabilities or ALL_CAPABILITIES
+        capabilities = ALL_CAPABILITIES
         checks = [
             "test -x /entrypoint.sh",
             "! head -n 1 /entrypoint.sh | od -An -tx1 | grep -qi '0d'",
@@ -3771,35 +3867,17 @@ class DockerManager:
         )
         if "browser" in capabilities:
             checks.extend((
-                "python3 -c 'import cloakbrowser'",
-                (
-                    "python3 -c \"import importlib.metadata as m; "
-                    f"assert m.version('cloakbrowser') == "
-                    f"'{self._config.cloakbrowser_version}'\""
-                ),
-                "python3 -m cloakbrowser info 2>/dev/null | grep -qi 'Installed: *True'",
-                (
-                    "cloak_binary=$(python3 -m cloakbrowser info 2>/dev/null | "
-                    "sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1); "
-                    "test -n \"$cloak_binary\" && test -x \"$cloak_binary\""
-                ),
-                (
-                    "cloak_binary=$(python3 -m cloakbrowser info 2>/dev/null | "
-                    "sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1); "
-                    "AGENT_BROWSER_EXECUTABLE_PATH=\"$cloak_binary\" "
-                    "agent-browser --help >/dev/null"
-                ),
+                f"obscura --version | grep -F {shlex.quote(OBSCURA_VERSION)}",
+                f"agent-browser --version | grep -F {shlex.quote(AGENT_BROWSER_VERSION)}",
+                "agent-browser skills get core >/dev/null",
+                "/opt/hercules-python/bin/python -c 'import requests, httpx, websockets, jwt, cryptography, paramiko, PIL, flask_unsign'",
                 "command -v agent-browser >/dev/null",
             ))
         check_cmd = " && ".join(checks)
         try:
-            await asyncio.to_thread(
-                self._client.containers.run,
-                self.IMAGE,
-                ["-c", check_cmd],
-                entrypoint="/bin/sh",
-                remove=True,
-            )
+            result = await self.exec_command(check_cmd, timeout=60, require_ready=False, clean_output=False)
+            if result.exit_code != 0:
+                raise RuntimeError("Owned runtime failed image readiness checks")
         except Exception as exc:
             error_msg = (
                 "\n" + "=" * 60 + "\n"
@@ -3814,20 +3892,18 @@ class DockerManager:
             raise RuntimeError(error_msg) from exc
 
     async def _ensure_wordlists(self) -> dict[str, Path]:
-        """Prepare only wordlists required by the installed capability profile."""
-        result = await asyncio.to_thread(
-            provision_wordlists,
+        """Use prepared assets; startup never downloads or extracts wordlists."""
+        return await asyncio.to_thread(
+            cached_wordlists,
             self._config.wordlist_root or self._config.project_root / "wordlists",
             self._config.installed_capabilities or ALL_CAPABILITIES,
-            dry_run=False,
         )
-        return {
-            key: Path(value)
-            for key, value in result.get("paths", {}).items()
-        }
 
     async def _wait_for_ready(self, timeout: int = 300) -> None:
         """Wait for the entrypoint script to finish initial setup."""
+        # Check inside the exact-owned, guardian-protected container rather
+        # than creating an extra unowned readiness container at every start.
+        await self._verify_image_runtime_ready()
         logger.info("Waiting for container entrypoint to complete...")
 
         for _ in range(timeout):

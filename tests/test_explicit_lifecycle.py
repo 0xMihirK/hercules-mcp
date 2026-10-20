@@ -561,6 +561,10 @@ def test_install_update_contract_is_documented() -> None:
     install_text = " ".join(install.split())
 
     assert readme.count("Install or update Hercules MCP using") == 1
+    prompt = readme.split("```text\n", 1)[1].split("```", 1)[0]
+    assert len(prompt.split()) <= 35
+    assert "Configure only this agent" in prompt
+    assert "## Instructions for the installing agent" in install
     for phrase in (
         "hercules-setup",
         "--reinstall",

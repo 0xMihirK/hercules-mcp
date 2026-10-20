@@ -238,8 +238,8 @@ class Transaction:
 
         staging = self.data.get("workspace_staging")
         if staging:
-            from hercules.core.workspace import WorkspaceManager, _is_reparse_or_symlink
             from hercules.core.instance_lock import workspace_lock
+            from hercules.core.workspace import WorkspaceManager, _is_reparse_or_symlink
 
             path = Path(staging["path"])
             destination = Path(self.data["operation"]["destination"])
@@ -273,8 +273,17 @@ class Transaction:
         env: dict | None = None,
         timeout: int = 120,
         capture: bool = True,
+        minimum_free_bytes: int = 0,
     ) -> str:
+        import shutil
+
         from hercules.core.docker_manager import _process_start_token
+
+        def check_disk():
+            if minimum_free_bytes and any(shutil.disk_usage(path).free < minimum_free_bytes for path in (Path.home(), cwd or self.directory)):
+                raise SetupError("disk_reserve", "8 GiB free-disk safety reserve reached", "Free space through your normal process; do not prune unrelated Docker data. Then resume.")
+
+        check_disk()
 
         output = subprocess.PIPE if capture else None
         process = subprocess.Popen(
@@ -301,15 +310,18 @@ class Transaction:
             self.save()
             started = time.monotonic()
             while True:
+                check_disk()
                 remaining = timeout - (time.monotonic() - started)
                 if remaining <= 0:
                     raise subprocess.TimeoutExpired(argv, timeout)
                 try:
-                    stdout, stderr = process.communicate(timeout=min(20, remaining))
+                    stdout, stderr = process.communicate(timeout=min(2 if minimum_free_bytes else 20, remaining))
                     break
                 except subprocess.TimeoutExpired:
                     if time.monotonic() - started >= timeout:
                         raise
+                    if minimum_free_bytes:
+                        continue
                     print(
                         f"{Path(argv[0]).name} is still running ({int(time.monotonic() - started)}s); waiting for its result.",
                         file=sys.stderr,
@@ -328,6 +340,12 @@ class Transaction:
                     f"Review the private diagnostic at {diagnostic}; correct the cause, then resume. Do not bypass a harness denial.",
                 )
             return (stdout or "").strip()
+        except subprocess.TimeoutExpired as exc:
+            raise SetupError(
+                "command_timeout",
+                f"{Path(argv[0]).name} did not complete within {timeout} seconds",
+                "Run status, inspect the named phase, then resume after resolving resource or process delays. Do not reinstall, bypass a denial, or stop live user MCP sessions.",
+            ) from exc
         finally:
             if process.poll() is None:
                 process.terminate()
@@ -371,13 +389,12 @@ def recover(root: Path):
             transaction.save()
         if transaction.data["phase"] == "committed":
             transaction.clear_backups()
-        elif transaction.data["writes"]:
-            if transaction.rollback():
-                raise SetupError(
-                    "rollback_conflict",
-                    "Recovery found concurrent edits; original private backups were retained",
-                    f"Review {path.parent} before resuming.",
-                )
+        elif transaction.data["writes"] and transaction.rollback():
+            raise SetupError(
+                "rollback_conflict",
+                "Recovery found concurrent edits; original private backups were retained",
+                f"Review {path.parent} before resuming.",
+            )
 
 
 def new_transaction(root: Path, operation: dict) -> Transaction:
