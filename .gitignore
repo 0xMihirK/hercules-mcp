@@ -68,15 +68,8 @@ snapshot_report.html
 .github/*
 !.github/workflows/
 .github/workflows/*
-!.github/workflows/pages.yml
 !.github/workflows/runtime-image.yml
+!.github/workflows/site-sync.yml
 
-# Website dependencies and generated public/build output
+# Runtime probe artifacts
 artifacts/runtime-probes/
-website/node_modules/
-website/public/
-website/dist/
-website/test-results/
-website/capture/hercules-surface.json
-website/src/bootstrap.json
-website/src/site-facts.json

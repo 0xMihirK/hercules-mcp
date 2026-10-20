@@ -1,0 +1,53 @@
+name: Sync website data
+
+# The showcase website lives on the standalone `website` branch, whose build
+# reuses a committed website/src/site-facts.json instead of importing the
+# Hercules package. This job regenerates that file from source whenever the
+# catalog or the install prompt changes on main, and commits it to the website
+# branch (which triggers that branch's Pages build).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - hercules/core/tool_catalog.py
+      - scripts/gen_site_data.py
+      - .github/workflows/site-sync.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: site-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main (source)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+      - name: Generate site-facts.json from source
+        run: uv run python scripts/gen_site_data.py "$RUNNER_TEMP/site-facts.json"
+      - name: Check out the website branch
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: website
+          path: website-branch
+      - name: Commit refreshed data to the website branch
+        working-directory: website-branch
+        run: |
+          mkdir -p website/src
+          cp "$RUNNER_TEMP/site-facts.json" website/src/site-facts.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f website/src/site-facts.json
+          if git diff --cached --quiet; then
+            echo "site-facts.json unchanged; nothing to sync."
+          else
+            git commit -m "site-sync: refresh website/src/site-facts.json from main"
+            git push origin HEAD:website
+          fi
