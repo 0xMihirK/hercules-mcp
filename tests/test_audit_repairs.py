@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import shlex
 import subprocess
 import tempfile
 import threading
@@ -20,7 +21,7 @@ from test_lifecycle_regressions import runtime as lifecycle_runtime
 from hercules.core.concurrency import ConcurrencyManager
 from hercules.core.config import HerculesConfig, _target_matches
 from hercules.core.config_io import read_dotenv_value, render_dotenv
-from hercules.core.docker_manager import DockerManager, ExecResult
+from hercules.core.docker_manager import DockerManager, ExecResult, RuntimeNotStarted
 from hercules.core.instance_lock import workspace_lock
 from hercules.core.workspace import WorkspaceManager
 from hercules.output.sanitizer import render_terminal_result
@@ -818,3 +819,77 @@ def test_migration_can_replace_an_empty_destination(migration):
     migration.destination.mkdir()
     assert migration.manager.migrate(migration.destination)["migrated"]
     assert (migration.destination / migration.session / "handout.bin").read_bytes() == b"\x00\xffevidence"
+
+
+# --- /ponytail-audit safe-set regression tests ---
+
+
+def test_browser_ref_selector_is_shlex_quoted():
+    """#1: a ref selector with shell metacharacters stays one quoted argument."""
+    from hercules.tools.browser.browser_tool import _selector_token
+
+    token = _selector_token("e1; id #", "ref")
+    assert token == shlex.quote("@e1; id #")
+    assert shlex.split(f"agent-browser click {token}") == [
+        "agent-browser",
+        "click",
+        "@e1; id #",
+    ]
+
+
+def test_render_terminal_drops_bidi_controls():
+    """#5: a Trojan-Source RTL override must not survive into returned output."""
+    spoof = "safe‮evil‬ text"
+    rendered = render_terminal_result(spoof).text
+    assert "‮" not in rendered
+    assert "‬" not in rendered
+
+
+def test_nmap_format_result_flags_second_truncation_incomplete():
+    """#6: the second stdout trim must flip output_complete, not leave it True."""
+    from hercules.tools.network import nmap_tool
+
+    class _Res:
+        exit_code = 0
+        stdout = "A" * 9000
+
+        def to_dict(self):
+            return {
+                "stdout": self.stdout,
+                "output_complete": True,
+                "stdout_truncated": False,
+                "exit_code": 0,
+            }
+
+    base = nmap_tool._format_result(_Res())
+    assert base["truncated"] is True
+    assert base["stdout_truncated"] is True
+    assert base["output_complete"] is False
+    assert len(base["stdout"]) < 9000
+
+
+def test_background_job_before_start_reports_runtime_not_started(runtime):
+    """#9: a background job before start returns the actionable guidance."""
+    manager = runtime.manager
+    assert manager._operator_stopped is True
+    with pytest.raises(RuntimeNotStarted, match="system_start_container"):
+        asyncio.run(manager.exec_background("sleep 1", "job-guidance"))
+
+
+def test_secret_values_are_redacted_in_returned_output(runtime):
+    """#2: a secret in command output is redacted in the returned stream."""
+    manager = runtime.manager
+    manager._config = replace(manager._config, msf_password="s3cr3t-pw-42")
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            runtime.client.api.exec_start.side_effect = lambda *a, **k: iter(
+                [(b"found pass=s3cr3t-pw-42 in config", b"")]
+            )
+            result = await manager.exec_command("cat creds", clean_output=True)
+            assert "s3cr3t-pw-42" not in result.stdout
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())

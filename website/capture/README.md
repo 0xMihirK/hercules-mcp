@@ -25,7 +25,7 @@ cd website
 npm run dev
 ```
 
-`frame-review.html` compares the player canvas with independently decoded graphical master PNGs at native size. Matching two ANSI reconstructions is not a fidelity check. Review startup, logos, MCP inventory, native detail/menu states, task changes, progress, and reports against the native captures and supplied reference.
+Review the player canvas against independently decoded graphical master PNGs at native size. Matching two ANSI reconstructions is not a fidelity check. Review startup, logos, MCP inventory, native detail/menu states, task changes, progress, and reports against the native captures and supplied reference.
 
 After pilot acceptance, capture the full matrix, validate it, and stage production assets:
 

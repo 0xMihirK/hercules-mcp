@@ -114,15 +114,15 @@ jobs:
           subject-name: ${{ inputs.ghcr_repository }}
           subject-digest: ${{ env.PUBLISHED_DIGEST }}
           push-to-registry: true
-      - name: Catalog update reminder (publishing does not make --image-source auto work yet)
+      - name: Catalog update reminder (keep --image-source auto pointing at this digest)
         if: inputs.publish
         run: |
           {
-            echo "## Published — one manual step remains";
-            echo "The image is pushed by digest, but \`--image-source auto\` reads";
-            echo "\`hercules/core/prebuilt_images.json\`, which is still empty.";
-            echo "Add this run's \`catalog-entry.json\` (in the uploaded artifact) to that";
-            echo "file's \`images\` array and release, or \`auto\` keeps requiring \`build\`.";
+            echo "## Published — check the catalog";
+            echo "The image is pushed by digest. \`--image-source auto\` reads";
+            echo "\`hercules/core/prebuilt_images.json\` (already populated for amd64 + arm64).";
+            echo "If this run's digest/fingerprint below differs from the matching entry in";
+            echo "that file, update the entry and release, or \`auto\` will fall back to \`build\`.";
             echo '```json'; cat "$RUNNER_TEMP/runtime-build/catalog-entry.json"; echo '```';
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Retain build, inventory, and verification evidence

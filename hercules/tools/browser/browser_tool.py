@@ -210,7 +210,10 @@ def _selector_token(target: str, target_type: str) -> str:
     """Build the agent-browser selector token from a ref/css target."""
     t = (target or "").lstrip("@")
     if target_type == "ref":
-        return "@" + t
+        # Quote the ref token too: agent-browser still receives it as one arg
+        # (@e1), but a malicious ref like "e1; id #" can no longer break out of
+        # the command that _run_agent_browser builds.
+        return shlex.quote("@" + t)
     return shlex.quote(target)
 
 

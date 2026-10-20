@@ -189,7 +189,15 @@ def render_terminal_result(
             continue
 
         code = ord(char)
-        if code == 0 or code == 0x7F or code < 0x20 or 0x80 <= code <= 0x9F:
+        if (
+            code == 0
+            or code == 0x7F
+            or code < 0x20
+            or 0x80 <= code <= 0x9F
+            or _BIDI_CONTROLS_RE.fullmatch(char)
+        ):
+            # Drop bidi/RTL-override controls too, so returned tool output cannot
+            # carry a Trojan-Source display spoof into the agent or transcript.
             index += 1
             continue
         column_clipped |= cursor >= max_columns
