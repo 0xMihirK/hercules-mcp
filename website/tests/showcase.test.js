@@ -7,6 +7,10 @@ import {execFileSync} from "node:child_process";
 import ts from "typescript";
 const data=JSON.parse(await readFile(new URL("../src/showcase-content.json",import.meta.url),"utf8"));
 const manifest=JSON.parse(await readFile(new URL("../assets/recordings/manifest.json",import.meta.url),"utf8"));
+// The showcase↔source filter check needs the Hercules package. It runs on main;
+// on the standalone website branch (package absent) it is skipped, since the
+// site-sync workflow already derives the committed data from the real source.
+const HERCULES_AVAILABLE=(()=>{try{execFileSync("python",["-c","import hercules.output.filters"],{cwd:new URL("../../",import.meta.url),stdio:"ignore"});return true;}catch{return false;}})();
 async function component(path,replacements={}){
   let source=await readFile(new URL(path,import.meta.url),"utf8");
   for(const [from,to] of Object.entries(replacements))source=source.replace(from,to);
@@ -107,7 +111,7 @@ test("the real companion component gates discoveries, screenshots and verified r
   assert.ok(browserRender(picture.availableAt+.01).includes('alt="Verified local dashboard"'));
   assert.doesNotMatch(render(report+1),/nuclei_run|scriptedObservation|output_complete|matcher-status/);
 });
-test("the showcased filtering example is produced by the registered Hercules filter",async()=>{
+test("the showcased filtering example is produced by the registered Hercules filter",{skip:HERCULES_AVAILABLE?false:"Hercules package not present (website branch)"},async()=>{
   const specimen=JSON.parse(await readFile(new URL("../assets/filter-example.json",import.meta.url),"utf8"));
   const actual=execFileSync("python",["-c","import json,sys;from hercules.output.filters import filter_nikto;s=json.load(sys.stdin);print(json.dumps(filter_nikto(s['raw'])))"],{cwd:new URL("../../",import.meta.url),input:JSON.stringify(specimen),encoding:"utf8"});
   assert.equal(JSON.parse(actual),specimen.filtered);
