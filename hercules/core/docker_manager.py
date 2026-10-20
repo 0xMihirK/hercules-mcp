@@ -1490,8 +1490,12 @@ class DockerManager:
                         self._session_id,
                         self._generation,
                     )
-                except ValueError:
-                    pass
+                except ValueError as exc:
+                    logger.warning(
+                        "Could not mark session %s inactive: %s",
+                        self._session_id,
+                        exc,
+                    )
             settled = await self._settle_orphan_guardian()
             self._last_cleanup.update({
                 "container_disposition": "not_attached", "guardian_settled": settled,
@@ -1557,8 +1561,12 @@ class DockerManager:
                     self._session_id,
                     self._generation,
                 )
-            except ValueError:
-                pass
+            except ValueError as exc:
+                logger.warning(
+                    "Could not mark session %s inactive: %s",
+                    self._session_id,
+                    exc,
+                )
 
     async def operator_stop(self) -> None:
         """Operator-requested stop serialized against every recovery path."""
@@ -2555,6 +2563,13 @@ class DockerManager:
                         )
                         filter_notes.append(f"{stdout_filter.note} on stdout")
 
+        # Secrets must not reach the agent in the returned streams, only in the
+        # host-side raw evidence (0o700 session dir). Redact stdout/stderr with
+        # the same secret list used for the echoed command above. Runs for both
+        # clean_output paths; empty secret values are no-ops.
+        stdout = redact_secrets(stdout, secret_values)
+        stderr = redact_secrets(stderr, secret_values)
+
         semantic_filtered = any(item["semantic"] for item in transforms)
         output_filtered = any(
             item["type"] != "terminal_render" for item in transforms
@@ -2979,8 +2994,12 @@ class DockerManager:
         workdir: str | None,
         env: dict[str, str] | None,
     ) -> str:
+        # Mirror _ensure_container_running so a pre-start background job returns
+        # the actionable "call system_start_container" guidance instead of a bare
+        # "Container is not running." with no next step.
+        self.require_runtime_started()
         if self._container is None:
-            raise RuntimeError("Container is not running.")
+            raise ContainerUnavailable("Container is not running.")
         job_id = safe_filename(job_id, label="job_id", maximum=64)
         existing = await asyncio.to_thread(self._load_job_metadata, job_id)
         if existing and existing.get("state") in {
@@ -3295,37 +3314,51 @@ class DockerManager:
                     "For harness-deferred calls use that harness's task completion interface.",
                 ],
             }
-        process = await self._job_process_status(metadata)
-        is_running = process["running"]
-        if process["stale"]:
-            metadata["state"] = "stale"
-        elif process["pid_reused"]:
-            metadata["state"] = "stale_pid"
-        elif not process["confirmed"]:
-            metadata["state"] = "unknown"
-        elif is_running:
-            metadata["state"] = "running"
-        else:
-            exit_path = f"/opt/workspace/jobs/{job_id}.exit"
-            try:
-                exit_code = int((await self.read_file(exit_path, max_bytes=64)).strip())
-            except (OSError, ValueError):
-                exit_code = None
-            metadata["exit_code"] = exit_code
-            metadata["state"] = "terminated" if metadata.get("state") == "terminated" else (
-                "completed"
-                if exit_code == 0
-                else "failed" if exit_code is not None else "unknown"
-            )
-            if not metadata.get("finished_at"):
-                finished_path = f"/opt/workspace/jobs/{job_id}.finished"
+        # Serialize the read-modify-write under the same job lock that
+        # exec_background's stale-scan uses, so the two cannot clobber each
+        # other's state write (terminate_job runs under the recovery lock and
+        # cannot share this one — it is itself called from inside this lock on
+        # the exec_background cancellation path). Re-load inside the lock so the
+        # save is based on the current record, not a stale pre-lock read.
+        async with self._get_job_lock():
+            metadata = await asyncio.to_thread(self._load_job_metadata, job_id) or metadata
+            process = await self._job_process_status(metadata)
+            is_running = process["running"]
+            if process["stale"]:
+                metadata["state"] = "stale"
+            elif process["pid_reused"]:
+                metadata["state"] = "stale_pid"
+            elif not process["confirmed"]:
+                metadata["state"] = "unknown"
+            elif is_running:
+                metadata["state"] = "running"
+            else:
+                exit_path = f"/opt/workspace/jobs/{job_id}.exit"
                 try:
-                    metadata["finished_at"] = (
-                        await self.read_file(finished_path, max_bytes=128)
-                    ).strip()
-                except OSError:
-                    metadata["finished_at"] = utc_now()
-        await asyncio.to_thread(self._save_job_metadata, job_id, metadata)
+                    exit_code = int((await self.read_file(exit_path, max_bytes=64)).strip())
+                except (OSError, ValueError):
+                    exit_code = None
+                metadata["exit_code"] = exit_code
+                metadata["state"] = "terminated" if metadata.get("state") == "terminated" else (
+                    "completed"
+                    if exit_code == 0
+                    else "failed" if exit_code is not None else "unknown"
+                )
+                if not metadata.get("finished_at"):
+                    finished_path = f"/opt/workspace/jobs/{job_id}.finished"
+                    try:
+                        metadata["finished_at"] = (
+                            await self.read_file(finished_path, max_bytes=128)
+                        ).strip()
+                    except OSError:
+                        metadata["finished_at"] = utc_now()
+            await asyncio.to_thread(self._save_job_metadata, job_id, metadata)
+            # A naturally-finished job keeps .log/.json/.exit/.finished but no
+            # longer needs its launch controls; prune them so a long session's
+            # jobs/ dir cannot grow without bound (the terminate path already
+            # does this on a confirmed kill).
+            if metadata.get("state") in {"completed", "failed", "terminated"}:
+                await self._cleanup_job_control_files(job_id)
 
         log_path = str(metadata.get("log_path") or f"/opt/workspace/jobs/{job_id}.log")
         out_res = await self.exec_command(

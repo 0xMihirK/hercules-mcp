@@ -291,7 +291,13 @@ def _format_result(result) -> dict:
         )
         base["stdout"] = stdout
         if truncated:
+            # Keep the completeness flags consistent: this second cut drops
+            # characters, so output is no longer complete and the stream is
+            # marked truncated (an agent keying on output_complete must not
+            # conclude it saw everything).
             base["truncated"] = True
+            base["stdout_truncated"] = True
+            base["output_complete"] = False
     return base
 
 

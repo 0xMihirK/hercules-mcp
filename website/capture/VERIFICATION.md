@@ -73,4 +73,4 @@ The existing capture's largest sampling gap is still 2.333 seconds; missing moti
 
 Genuine browser zoom and a real hidden-document transition are unavailable through the in-app browser controls. CSS width and DPR tests are not browser zoom. Offscreen behavior and visibility-clock regressions remain independently checkable.
 
-Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval is fabricated. The manual disposition is recorded in `.impeccable/review/finish-verdict.md`.
+Impeccable's automated adapter does not support this React/Canvas entry. The user explicitly approved browser review. Automated phases remain open; no receipt or automated visual approval is fabricated. The manual disposition was recorded during the user-approved browser review.

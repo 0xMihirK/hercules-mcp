@@ -29,7 +29,7 @@ order is hero, agent player, tool chains, architecture, evidence and setup.
 Architecture and evidence use separate scoped GSAP timelines. Mobile and
 reduced-motion layouts present complete information without scroll pinning.
 Generated supporting illustrations are labeled and have embedded prompts.
-`../DESIGN.md` and `../PRODUCT.md` document the design and product facts.
+`DESIGN.md` and `PRODUCT.md` document the design and product facts.
 
 `recipe.json` preserves the supplied procedural background parameters. The
 independent Canvas2D recreation renders seeded domain-warped smoke, samples
@@ -76,4 +76,4 @@ fixed geometry, shuffle cycling, source provenance, all published artifact
 hashes, CTF checksums and native VT frame equivalence. The capture program has
 additional Python regressions for evidence-gated advancement and recovery.
 Browser review covers desktop/mobile, controls, resizing, fonts, DPR, reduced
-motion and failure states. `REPO_ANALYSIS.md` records source-grounded claims.
+motion and failure states.
