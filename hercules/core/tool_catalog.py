@@ -181,7 +181,7 @@ CATEGORIES: tuple[ToolCategory, ...] = (
         title="Stealth Browser",
         capabilities=(
             Capability("browser", "Stealth browser",
-                       "agent-browser + cloakbrowser (stealth Chromium)",
+                       "agent-browser + Obscura (CSP not enforced)",
                        ("browser_open", "browser_snapshot", "browser_act", "browser_read",
                         "browser_screenshot", "browser_eval", "browser_wait",
                         "browser_session", "browser_skill", "browser_cmd"),
@@ -194,7 +194,7 @@ CATEGORIES: tuple[ToolCategory, ...] = (
 # public catalog remains readable while image/runtime checks use exact command
 # names. Core commands are supplied by the base image and are always present.
 CAPABILITY_INSTALL: dict[str, CapabilityInstall] = {
-    "shell": CapabilityInstall(("bash", "python3", "ssh", "unzip")),
+    "shell": CapabilityInstall(("bash", "python3", "ssh", "unzip", "jq")),
     "session": CapabilityInstall(("ip", "ps")),
     "workspace": CapabilityInstall(("base64", "sha256sum")),
     "dns": CapabilityInstall(("dig", "dnsx")),
@@ -219,7 +219,7 @@ CAPABILITY_INSTALL: dict[str, CapabilityInstall] = {
     "steghide": CapabilityInstall(("steghide", "exiftool", "xxd")),
     # ncat is an internal stream-relay dependency. Installing it here does not
     # register the separate ncat MCP tool unless the ncat bundle is selected.
-    "browser": CapabilityInstall(("agent-browser", "ncat"), browser=True),
+    "browser": CapabilityInstall(("agent-browser", "obscura", "nft", "setpriv", "ncat"), browser=True),
 }
 
 # Informational estimates only. They help an agent compare profiles without

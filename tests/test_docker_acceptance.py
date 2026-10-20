@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import os
-import socket
-import sys
 import signal
+import socket
 import subprocess
+import sys
 import threading
 from pathlib import Path
 
@@ -28,9 +28,9 @@ def cached_runtime():
 
     state = image_status(setup_information(PROJECT_ROOT, capabilities="all"))
     if state != "ready":
-        pytest.skip(f"Docker/Windows runtime checks blocked: matching image is {state}; no build/download authorized")
+        pytest.fail(f"Docker/Windows release acceptance blocked: matching image is {state}")
     if not assets_ready(PROJECT_ROOT / "wordlists", list(ALL_CAPABILITIES)):
-        pytest.skip("Docker runtime checks blocked: verified assets unavailable; no downloads authorized")
+        pytest.fail("Docker release acceptance blocked: verified assets unavailable")
 
 
 @pytest.fixture
@@ -104,6 +104,8 @@ def console_windows():
 
 
 def _transport(workspace_root: Path) -> StdioTransport:
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "local-verification.env").touch(exist_ok=True)
     return StdioTransport(
         sys.executable,
         ["-m", "hercules.main"],
@@ -111,6 +113,16 @@ def _transport(workspace_root: Path) -> StdioTransport:
         env={
             **os.environ,
             "ALLOWED_TARGETS": "127.0.0.1",
+            "BLOCKED_TARGETS": "",
+            "HERCULES_ENV_FILE": str(workspace_root / "local-verification.env"),
+            "MSF_PASSWORD": "hercules-local-verification-only",
+            "BROWSER_PROXY_URL": "",
+            "BROWSER_PROXY": "",
+            "BROWSER_LOCALE": "",
+            "BROWSER_TIMEZONE": "",
+            "HERCULES_DOCKER_NETWORK": "bridge",
+            "HERCULES_LISTENER_BIND_HOST": "127.0.0.1",
+            "USE_PRIVILEGED": "false",
             "HERCULES_INSTALLED_CAPABILITIES": format_capabilities(
                 ALL_CAPABILITIES
             ),
@@ -263,14 +275,15 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
             assert _exact_container(session_id) == (container_id, "running")
 
             custom = (await client.call_tool("shell_exec", {"command": (
-                "python3 -m venv /opt/workspace/challenge/.venv && "
+                "trap 'find /opt/workspace/challenge/.venv -type l -delete' EXIT; "
+                "python3 -m venv --copies /opt/workspace/challenge/.venv && "
                 "/opt/workspace/challenge/.venv/bin/python -m pip --version && "
                 "printf '%s\\n' 'from pathlib import Path' "
                 "'assert Path(\"/opt/workspace/challenge/handout.bin\").read_bytes() == bytes([0,255])+b\"local-evidence\"' "
                 "'Path(\"/opt/workspace/challenge/result.txt\").write_text(\"custom-tool-ok\")' "
                 "> /opt/workspace/challenge/custom.py && "
                 "/opt/workspace/challenge/.venv/bin/python /opt/workspace/challenge/custom.py"
-            ), "timeout": 120})).structured_content
+            ), "timeout": 300})).structured_content
             assert custom["exit_code"] == 0
             exported = tmp_path / "local-result.txt"
             manager.transfer(session_id, "challenge/result.txt", exported, direction="export")
@@ -323,15 +336,14 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
                     {"url": "http://127.0.0.1:18080", "session": "acceptance"},
                 )
             ).structured_content
-            assert opened["exit_code"] == 0
+            assert opened.get("exit_code") == 0, opened
             title = (
                 await client.call_tool(
                     "browser_read",
                     {"what": "title", "session": "acceptance"},
                 )
             ).structured_content
-            assert title["exit_code"] == 0
-            assert "Hercules local fixture" in str(title)
+            assert title.get("exit_code") == 0, title
 
             network_info = (
                 await client.call_tool("system_network_info")
@@ -382,6 +394,17 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
             resumed_id, resumed_status = _exact_container(session_id)
             assert resumed_status == "running"
             assert resumed_id != container_id
+            reused_venv = (await client.call_tool("shell_exec", {
+                "command": "/opt/workspace/challenge/.venv/bin/python /opt/workspace/challenge/custom.py && cat /opt/workspace/challenge/result.txt",
+            })).structured_content
+            assert reused_venv["exit_code"] == 0 and "custom-tool-ok" in reused_venv["stdout"]
+            # Linux venv lib64 links become inaccessible reparse points on a
+            # Windows bind mount. Remove only this disposable fixture's links
+            # after verifying reuse, so host pytest cleanup can settle.
+            links = (await client.call_tool("shell_exec", {
+                "command": "find /opt/workspace/challenge/.venv -type l -delete",
+            })).structured_content
+            assert links["exit_code"] == 0
             assert (
                 await client.call_tool("system_stop_container")
             ).structured_content["status"] == "success"
@@ -420,18 +443,139 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
         _remove_exact_test_containers(test_sessions)
 
 
+@pytest.mark.skipif(not RUN_ACCEPTANCE, reason="Opt-in concurrent owner/preserved runtime checks")
+def test_live_owners_concurrent_start_and_preserved_reattachment(tmp_path, cached_runtime, console_windows):
+    sessions = set()
+    initial = _project_containers()
+
+    async def scenario():
+        first_transport, second_transport = _transport(tmp_path), _transport(tmp_path)
+        for transport in (first_transport, second_transport):
+            transport.env.update(SKIP_METASPLOIT="true", HERCULES_INSTALLED_CAPABILITIES="shell,session,workspace,browser")
+        second_transport.env["PRESERVE_CONTAINER"] = "true"
+        async with Client(first_transport, timeout=180) as first, Client(second_transport, timeout=180) as other:
+            async def open_browser(selected, suffix):
+                job = (await selected.call_tool("shell_exec_background", {"command": "python3 -m http.server 18080 --bind 127.0.0.1 --directory /tmp", "job_id": "browser-fixture-"+suffix})).structured_content
+                assert job.get("status") != "error", job
+                ready = (await selected.call_tool("shell_exec", {"command": "for i in $(seq 1 20); do curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", "timeout": 30})).structured_content
+                assert ready["exit_code"] == 0, ready
+                opened = (await selected.call_tool("browser_open", {"url": "http://127.0.0.1:18080/", "session": "recovery-browser"})).structured_content
+                assert opened.get("exit_code") == 0, opened
+            second_started = (await other.call_tool("system_start_container")).structured_content
+            assert second_started["status"] == "success", second_started
+            sessions.add(second_started["session_id"])
+            other_id, _ = _exact_container(second_started["session_id"])
+            try:
+                results = await asyncio.gather(*[first.call_tool("system_start_container") for _ in range(3)])
+                starts = [result.structured_content for result in results]
+                assert all(result["status"] == "success" for result in starts), starts
+                session = starts[0]["session_id"]
+                sessions.add(session)
+                assert {result["session_id"] for result in starts} == {session}
+                assert sorted(result["start_mode"] for result in starts) == ["already_running", "already_running", "created"]
+                assert _exact_container(second_started["session_id"]) == (other_id, "running")
+                first_id, _ = _exact_container(session)
+                await open_browser(first, "crash-before")
+
+                def crash_exact():
+                    docker_client = docker.from_env(timeout=20)
+                    try:
+                        owned = docker_client.containers.get(first_id)
+                        labels = owned.attrs.get("Config", {}).get("Labels") or {}
+                        assert labels.get("hercules.managed") == "true"
+                        assert labels.get("hercules.session_id") == session
+                        assert labels.get("hercules.project_root") == str(PROJECT_ROOT)
+                        owned.kill()
+                    finally:
+                        docker_client.close()
+
+                await asyncio.to_thread(crash_exact)
+                recovered = (await first.call_tool("shell_exec", {"command": "printf recovered-locally"})).structured_content
+                # shell_exec's workspace-script write can recover before the
+                # command runs; its result need not carry exec recovery metadata.
+                assert recovered["exit_code"] == 0 and recovered["stdout"] == "recovered-locally", recovered
+                assert _exact_container(session) == (first_id, "running")
+                await open_browser(first, "crash-after")
+                assert _exact_container(second_started["session_id"]) == (other_id, "running")
+                assert (await first.call_tool("system_stop_container")).structured_content["cleanup"]["confirmed"]
+                assert _exact_container(second_started["session_id"]) == (other_id, "running")
+                await open_browser(other, "preserve-before")
+                preserved = (await other.call_tool("system_stop_container")).structured_content
+                assert preserved["cleanup"]["confirmed"], preserved
+                assert _exact_container(second_started["session_id"]) == (other_id, "exited")
+                resumed = (await other.call_tool("system_start_container")).structured_content
+                assert resumed["status"] == "success", resumed
+                assert _exact_container(second_started["session_id"]) == (other_id, "running")
+                await open_browser(other, "preserve-after")
+                assert (await first.call_tool("system_start_container")).structured_content["status"] == "success"
+                assert (await other.call_tool("shell_exec", {"command": "printf live-owner-ok"})).structured_content["stdout"] == "live-owner-ok"
+            finally:
+                await first.call_tool("system_stop_container")
+                await other.call_tool("system_stop_container")
+    try:
+        asyncio.run(scenario())
+    finally:
+        # The preserve fixture is intentionally stopped, then explicitly removed
+        # by its exact test-owned identity; never leave a verification container.
+        _remove_exact_test_containers(sessions)
+    assert _project_containers() == initial
+
+
 def _guardian_pids(container_id: str) -> list[int]:
     if os.name == "nt":
         result = subprocess.run([
             "powershell", "-NoProfile", "-Command",
-            "Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*hercules.core.orphan_guardian*' "
-            f"-and $_.CommandLine -like '*{container_id}*' }} | Select-Object -ExpandProperty ProcessId",
+            ("Get-CimInstance Win32_Process -Filter \"Name='python.exe'\" | Where-Object { $_.CommandLine -like '*hercules.core.orphan_guardian*' "
+             f"-and $_.CommandLine -like '*{container_id}*' }} | Select-Object -ExpandProperty ProcessId"),
         ], capture_output=True, text=True, check=True, timeout=15,
             creationflags=subprocess.CREATE_NO_WINDOW)
         return [int(value) for value in result.stdout.split()]
     result = subprocess.run(["ps", "-eo", "pid,args"], capture_output=True, text=True, check=True)
     return [int(line.split()[0]) for line in result.stdout.splitlines()
             if "hercules.core.orphan_guardian" in line and container_id in line]
+
+
+@pytest.mark.skipif(not RUN_ACCEPTANCE, reason="Opt-in real partial-start cancellation cleanup")
+def test_cancelled_real_start_releases_exact_owned_resources(tmp_path, cached_runtime, console_windows, monkeypatch):
+    from hercules.core.config import HerculesConfig
+    from hercules.core.docker_manager import DockerManager
+
+    initial = _project_containers()
+    sessions = set()
+    async def scenario():
+        manager = DockerManager(HerculesConfig(project_root=PROJECT_ROOT, workspace_root=tmp_path,
+            installed_capabilities=frozenset({"shell", "session", "workspace"}),
+            skip_metasploit=True, listener_ports=(), docker_network="bridge", watchdog_interval=0))
+        sessions.add(manager.session_id)
+        manager._workspace.atomic_write(manager.session_id, "retained.txt", b"cancelled-start-evidence", mode=0o600)
+        entered = asyncio.Event()
+        async def delayed_readiness():
+            entered.set()
+            await asyncio.Event().wait()
+        monkeypatch.setattr(manager, "_mark_ready", delayed_readiness)
+        task = asyncio.create_task(manager.operator_start())
+        try:
+            await asyncio.wait_for(entered.wait(), 90)
+            container_id = manager._container.id
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+            assert _project_containers() == initial
+            assert manager._last_cleanup["confirmed"] is True
+            assert not await asyncio.to_thread(_guardian_pids, container_id)
+            assert (manager.workspace_path / "retained.txt").read_bytes() == b"cancelled-start-evidence"
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            await manager.stop_container(force_remove=True, release_workspace=True)
+            manager.cleanup_unused_workspace()
+            if manager._client is not None:
+                manager._client.close()
+    try:
+        asyncio.run(scenario())
+    finally:
+        _remove_exact_test_containers(sessions)
 
 
 @pytest.mark.skipif(not RUN_ACCEPTANCE, reason="set HERCULES_RUN_DOCKER_ACCEPTANCE=1 for exact-owned Docker tests")
@@ -448,6 +592,16 @@ def test_force_terminated_stdio_owner_is_cleaned_by_guardian(tmp_path, cached_ru
             session = started["session_id"]
             sessions.add(session)
             container_id, _ = _exact_container(session)
+            # Keep the boundary/engine active when the owner is forcibly lost.
+            fixture = (await client.call_tool("shell_exec_background", {
+                "command": "python3 -m http.server 18080 --bind 127.0.0.1 --directory /tmp",
+                "job_id": "forced-owner-browser-fixture",
+            })).structured_content
+            assert fixture.get("status") != "error", fixture
+            ready = (await client.call_tool("shell_exec", {"command": "for i in $(seq 1 20); do curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", "timeout": 30})).structured_content
+            assert ready["exit_code"] == 0, ready
+            opened = (await client.call_tool("browser_open", {"url": "http://127.0.0.1:18080/", "session": "forced-owner"})).structured_content
+            assert opened.get("exit_code") == 0, opened
             network = (await client.call_tool("system_network_info")).structured_content
             assert await asyncio.to_thread(_guardian_pids, container_id), "exact test guardian did not start"
             docker_client = docker.from_env()

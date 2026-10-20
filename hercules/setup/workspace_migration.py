@@ -87,13 +87,13 @@ def _discover(config, source, states, clients, project):
             )
             entry = adapter.entry()
             if not isinstance(entry, dict):
-                raise ValueError(
+                raise ValueError(  # noqa: TRY004 -- migration reports invalid configuration through ValueError
                     f"{client} registration cannot be verified: {configured}"
                 )
             env_key = "environment" if client == "opencode" else "env"
             environment = entry.get(env_key, {})
             if not isinstance(environment, dict):
-                raise ValueError(f"{client} environment is not an object")
+                raise ValueError(f"{client} environment is not an object")  # noqa: TRY004
             env_file = environment.get("HERCULES_ENV_FILE") or association.get(
                 "env_file"
             )

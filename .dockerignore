@@ -1,17 +1,13 @@
-# Don't send these to the Docker build context
-.venv/
-.git/
-.env
-__pycache__/
-*.pyc
-workspace/
-wordlists/
-*.egg-info/
-dist/
-build/
-tests/
-spectifcations/
-.gemini/
-.pytest_cache/
-.ruff_cache/
-website/
+# Send only declared runtime inputs, never checkout evidence, client settings,
+# environment files, credentials, or unrelated assets.
+**
+!Dockerfile
+!docker/
+!docker/entrypoint.sh
+!docker/install-browser.py
+!docker/python-toolbox.lock
+!hercules/
+!hercules/core/
+!hercules/core/browser_assets.json
+!hercules/core/target_policy.py
+!hercules/core/browser_boundary.py

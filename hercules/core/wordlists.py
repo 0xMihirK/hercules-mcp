@@ -397,6 +397,25 @@ def ensure_extracted_wordlists(wordlists_dir: Path) -> dict[str, Path]:
         return prepared
 
 
+def cached_wordlists(wordlists_dir: Path, capabilities: Iterable[str]) -> dict[str, Path]:
+    """Validate prepared assets without downloads, extraction, or cache mutation."""
+    root = Path(wordlists_dir).expanduser().resolve()
+    prepared = {}
+    for name in required_wordlists(normalize_capabilities(capabilities)):
+        archive = root / WORDLIST_FILES[name]
+        ready = validate_wordlist_archive(archive.name, archive)
+        if name == "seclists":
+            path = root / "SecLists"
+            ready = ready and _seclists_ready(path, path / ".hercules-ready", archive)
+        else:
+            path = root / "rockyou.txt"
+            ready = ready and _rockyou_ready(path, root / ".rockyou.hercules-ready.json", archive)
+        if not ready:
+            raise RuntimeError("Verified wordlists are not prepared; run hercules-setup runtime prepare before starting the container.")
+        prepared[name] = path
+    return prepared
+
+
 def provision_wordlists(
     wordlists_dir: Path,
     capabilities: Iterable[str],

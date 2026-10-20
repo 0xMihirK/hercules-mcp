@@ -18,9 +18,9 @@ import uuid
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import wraps
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO
-from functools import wraps
 
 from hercules.core.instance_lock import workspace_lock, workspace_state_path
 

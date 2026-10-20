@@ -20,14 +20,27 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from fastmcp.exceptions import ValidationError as ToolValidationError
 from fastmcp.server.middleware.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.tools.base import ToolResult
-from fastmcp.exceptions import ValidationError as ToolValidationError
 
 from hercules.core.guidance import backend_unavailable, usage_error
 from hercules.core.tool_catalog import all_tool_names
 
 logger = logging.getLogger("hercules.firewall")
+
+BROWSER_WARNING = "Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsupported. Browser-generated traffic requires the isolated bridge/gateway boundary; privileged shell commands are not confined by it."
+
+
+def _browser_metadata(result: ToolResult, tool_name: str) -> ToolResult:
+    if not tool_name.startswith("browser_") or not isinstance(result.structured_content, dict):
+        return result
+    payload = dict(result.structured_content)
+    payload.update(browser_backend="obscura", csp_enforced=False, native_browser_downloads=False, scope_enforced=payload.get("scope_enforced", False))
+    payload["warnings"] = [*payload.get("warnings", []), BROWSER_WARNING]
+    annotated = ToolResult(structured_content=payload, meta=result.meta, is_error=result.is_error)
+    annotated.content.extend(block for block in result.content if block.type != "text")
+    return annotated
 
 _HOST_ONLY_TOOLS = frozenset(
     {
@@ -115,6 +128,10 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
             next_steps=[
                 "Retry the same tool call in a few seconds.",
                 "If it persists, call system_list_sessions to check session state.",
+                (
+                    "Repeated crashes after heavy scans can be memory pressure: "
+                    "set CONTAINER_MEM_LIMIT or raise the Docker/WSL VM memory."
+                ),
             ],
         )
 
@@ -196,8 +213,15 @@ class ToolExceptionFirewall(Middleware):
                 except Exception:
                     registered = None
                 if registered is not None:
-                    fastmcp_context.lifespan_context["docker"].require_runtime_started()
-            return await call_next(context)
+                    docker_manager = fastmcp_context.lifespan_context.get("docker")
+                    if docker_manager is None:
+                        # classify_exception maps this message to runtime_not_started;
+                        # a plain RuntimeError avoids the optional-import fallback above.
+                        raise RuntimeError(
+                            "call system_start_container before using docker-backed tools"
+                        )
+                    docker_manager.require_runtime_started()
+            return _browser_metadata(await call_next(context), tool_name)
         except Exception as exc:  # NOT BaseException: let CancelledError/SystemExit propagate
             try:
                 payload = classify_exception(exc, tool_name)
@@ -205,7 +229,7 @@ class ToolExceptionFirewall(Middleware):
                     logger.info("Tool '%s' rejected: %s.", tool_name, payload["error_type"])
                 else:
                     logger.exception("Firewall caught exception in tool '%s'", tool_name)
-                return ToolResult(structured_content=payload)
+                return _browser_metadata(ToolResult(structured_content=payload), tool_name)
             except Exception:
                 # Last resort — the firewall must NEVER raise.
                 return ToolResult(

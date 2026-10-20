@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Capability-specific Kali runtime for Hercules MCP.
+# One full Kali runtime for Hercules MCP. Tool exposure is configured at runtime.
 #
 # The pinned Kali layer does not currently contain a CA bundle. Bootstrap the
 # public trust store from a second pinned, multi-architecture image before the
@@ -14,19 +14,20 @@ FROM kalilinux/kali-last-release@sha256:01a402ec78a2b3bd86394f34f8c3d6adefe3c593
 COPY --from=trust-bootstrap /cacert.pem /etc/ssl/certs/ca-certificates.crt
 
 LABEL maintainer="Hercules MCP Server"
-LABEL description="Selective tooling image for the Hercules offensive security MCP server"
+LABEL description="Full Kali tooling with the Obscura browser for Hercules MCP"
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG HERCULES_CAPABILITIES=shell,session,workspace,dns,whois,amass,nmap,curl,ncat,hping3,whatweb,fuzz,webvuln,nuclei,sqlmap,searchsploit,metasploit,hydra,john,binwalk,steghide,browser
 ARG HERCULES_BUILD_FINGERPRINT=unknown
 ARG HERCULES_BUILD_CA_SHA256=
-ARG HERCULES_CAPABILITY_MANIFEST_SHA256=ed224ba949c69fffa5d5519b09d9aeffe81db5e75243f766d13ccf233ab72ebb
+ARG HERCULES_CAPABILITY_MANIFEST_SHA256=7282773f3b52a79cc4eb514620eed88f0518b773e6f1a19e73e5484e9be31ebf
 ARG TARGETPLATFORM
 ARG HERCULES_TARGET_PLATFORM=${TARGETPLATFORM}
 
 # Core is mandatory. Optional apt packages are added only for selected bundles.
 RUN --mount=type=secret,id=hercules_build_ca \
     set -eux; \
+    test "$HERCULES_CAPABILITIES" = 'shell,session,workspace,dns,whois,amass,nmap,curl,ncat,hping3,whatweb,fuzz,webvuln,nuclei,sqlmap,searchsploit,metasploit,hydra,john,binwalk,steghide,browser'; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
     case "$HERCULES_TARGET_PLATFORM" in linux/amd64|linux/arm64) ;; *) echo "unsupported Hercules image platform: $HERCULES_TARGET_PLATFORM" >&2; exit 1 ;; esac; \
     test -z "$TARGETPLATFORM" || test "$TARGETPLATFORM" = "$HERCULES_TARGET_PLATFORM"; \
@@ -66,7 +67,7 @@ RUN --mount=type=secret,id=hercules_build_ca \
     has_cap john && packages="$packages john" || true; \
     has_cap binwalk && packages="$packages binwalk binutils" || true; \
     has_cap steghide && packages="$packages steghide libimage-exiftool-perl xxd" || true; \
-    has_cap browser && packages="$packages nodejs npm chromium fonts-liberation ncat" || true; \
+    has_cap browser && packages="$packages fonts-liberation ncat nftables util-linux" || true; \
     for attempt in 1 2 3; do \
       rm -rf /var/lib/apt/lists/*; \
       if apt-get update -qq --allow-releaseinfo-change && \
@@ -108,20 +109,22 @@ RUN set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
     if has_cap webvuln; then case "$(dpkg --print-architecture)" in amd64) asset_arch=x86_64 ;; arm64) asset_arch=aarch64 ;; *) exit 1 ;; esac; archive="dalfox-${DALFOX_VERSION}-linux-${asset_arch}.tar.gz"; base="https://github.com/hahwul/dalfox/releases/download/${DALFOX_VERSION}"; curl -fL --retry 4 "${base}/${archive}" -o "/tmp/${archive}"; curl -fL --retry 4 "${base}/${archive}.sha256" -o "/tmp/${archive}.sha256"; (cd /tmp && sha256sum -c "${archive}.sha256"); tar -xzf "/tmp/${archive}" -C /tmp; binary="$(find /tmp -type f -name dalfox -print -quit)"; test -n "$binary"; install -m 0755 "$binary" /usr/local/bin/dalfox; rm -rf /tmp/dalfox-*; fi
 
-# Browser support is headless-only. Chromium still supplies the shared-library
-# closure required by the pinned cloakbrowser binary; no X server is installed.
-ARG AGENT_BROWSER_VERSION=0.33.1
-ARG AGENT_BROWSER_SHA512=952d0a6d4f507640f42369febb3ae635728d1918ec77a19c07b6d1e969b57b22dc6b14c249fdb3bb16d6cdfefa7c70ab0c0e18a18dd38a4a0e31203ca80fb014
-ARG CLOAKBROWSER_PY_VERSION=0.5.3
-ARG CLOAKBROWSER_WHEEL_URL=https://files.pythonhosted.org/packages/93/e8/f0d86ca18b3a1e132ffd965268f621897f60c47ea8c61b1ee9a786fffb36/cloakbrowser-0.5.3-py3-none-any.whl
-ARG CLOAKBROWSER_WHEEL_SHA256=9082cfd2f104342fd718d9882984da7674ef6616308dd7932bff4b8bd5cf3cfe
-ENV CLOAKBROWSER_AUTO_UPDATE=false
-RUN set -eux; \
-    has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
-    if has_cap browser; then \
-      archive="/tmp/agent-browser-${AGENT_BROWSER_VERSION}.tgz"; curl -fL --retry 4 "https://registry.npmjs.org/agent-browser/-/agent-browser-${AGENT_BROWSER_VERSION}.tgz" -o "$archive"; printf '%s  %s\n' "$AGENT_BROWSER_SHA512" "$archive" | sha512sum -c -; npm install -g "$archive"; rm -f "$archive"; \
-      wheel="/tmp/cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; test "$(basename "$CLOAKBROWSER_WHEEL_URL")" = "cloakbrowser-${CLOAKBROWSER_PY_VERSION}-py3-none-any.whl"; curl -fL --retry 4 "$CLOAKBROWSER_WHEEL_URL" -o "$wheel"; printf '%s  %s\n' "$CLOAKBROWSER_WHEEL_SHA256" "$wheel" | sha256sum -c -; pip3 install --no-cache-dir "$wheel" --break-system-packages; rm -f "$wheel"; python3 -m cloakbrowser install; \
-    fi
+COPY hercules/core/browser_assets.json /opt/hercules/browser-assets.json
+COPY docker/install-browser.py /opt/hercules/install-browser.py
+COPY docker/python-toolbox.lock /opt/hercules/python-toolbox.lock
+COPY hercules/core/target_policy.py hercules/core/browser_boundary.py /opt/hercules/
+ENV AGENT_BROWSER_ENGINE=obscura \
+    AGENT_BROWSER_EXECUTABLE_PATH=/opt/hercules/browser_boundary.py \
+    AGENT_BROWSER_SKILLS_DIR=/opt/hercules/browser/skill-data \
+    AGENT_BROWSER_OBSCURA_STEALTH=1 \
+    OBSCURA_BLOCK_TRACKERS=0
+RUN python3 /opt/hercules/install-browser.py "$HERCULES_TARGET_PLATFORM" && \
+    chmod 0755 /opt/hercules/browser_boundary.py && \
+    install -d -m 0700 /run/hercules-browser && \
+    install -d -o 19731 -g 19731 -m 0700 /tmp/hercules-browser-home && \
+    python3 -m venv /opt/hercules-python && \
+    /opt/hercules-python/bin/pip install --no-cache-dir --require-hashes --only-binary=:all: -r /opt/hercules/python-toolbox.lock && \
+    /opt/hercules-python/bin/pip check
 
 # Remove a download helper only when APT proves that doing so cannot remove any
 # other package. Runtime dependencies such as git (required by commix and
@@ -147,12 +150,12 @@ RUN mkdir -p /opt/workspace/{py,sh,nuclei-templates,sqlmap-results,nmap-scripts,
 # Validate exactly the backends selected by the catalog and persist evidence.
 RUN set -eux; \
     has_cap() { [ "$HERCULES_CAPABILITIES" = all ] || case ",$HERCULES_CAPABILITIES," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }; \
-    required="bash python3 ssh unzip ip ps base64 sha256sum"; \
+    required="bash python3 ssh unzip jq ip ps base64 sha256sum"; \
     has_cap dns && required="$required dig dnsx" || true; has_cap whois && required="$required whois" || true; has_cap amass && required="$required amass" || true; \
     has_cap nmap && required="$required nmap" || true; has_cap curl && required="$required curl" || true; has_cap ncat && required="$required ncat" || true; has_cap hping3 && required="$required hping3" || true; \
     has_cap whatweb && required="$required httpx whatweb wafw00f nikto wpscan arjun" || true; has_cap fuzz && required="$required ffuf gobuster" || true; has_cap webvuln && required="$required dalfox commix" || true; has_cap nuclei && required="$required nuclei" || true; has_cap sqlmap && required="$required sqlmap" || true; \
     has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; \
-    if has_cap browser; then required="$required agent-browser"; has_cap ncat || required="$required ncat"; fi; \
+    if has_cap browser; then required="$required agent-browser obscura nft setpriv"; has_cap ncat || required="$required ncat"; fi; \
     test -n "$HERCULES_CAPABILITY_MANIFEST_SHA256"; \
     python3 -m venv /tmp/hercules-venv-check; /tmp/hercules-venv-check/bin/python -m pip --version >/dev/null; rm -rf /tmp/hercules-venv-check; \
     spec=/opt/hercules-capability-manifest.spec; printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > "$spec"; for tool in $required; do printf 'binary=%s\n' "$tool" >> "$spec"; done; \
@@ -161,11 +164,14 @@ RUN set -eux; \
     cat /opt/hercules-build-helpers.txt >> /opt/hercules-capabilities.txt; \
     for tool in $required; do path="$(command -v "$tool")"; printf '%s=%s\n' "$tool" "$path" >> /opt/hercules-capabilities.txt; done; \
     if has_cap browser; then \
-      python3 -c "import importlib.metadata as m; assert m.version('cloakbrowser') == '$CLOAKBROWSER_PY_VERSION'"; \
-      cloak_info="$(python3 -m cloakbrowser info 2>/dev/null)"; printf '%s\n' "$cloak_info" | grep -qi 'Installed: *True'; \
-      cloak_binary="$(printf '%s\n' "$cloak_info" | sed -n 's/^[Bb]inary:[[:space:]]*//p' | head -n 1)"; test -n "$cloak_binary"; test -x "$cloak_binary"; \
-      AGENT_BROWSER_EXECUTABLE_PATH="$cloak_binary" agent-browser --help >/dev/null; \
-    fi
+      obscura --version | grep -F '0.2.5'; agent-browser --version | grep -F '0.39.1'; \
+      agent-browser skills get core >/dev/null; \
+    fi; \
+    ssh -V; test "$(printf '{"ok":true}' | jq -r .ok)" = true; \
+    /opt/hercules-python/bin/python -c 'import requests, httpx, websockets, jwt, cryptography, paramiko, PIL, flask_unsign'; \
+    dpkg-query -W -f='${Package}\t${Version}\n' > /opt/hercules/packages.tsv; \
+    /opt/hercules-python/bin/pip list --format=json > /opt/hercules/python-packages.json; \
+    mkdir -p /opt/hercules/licenses; cp /usr/share/common-licenses/* /opt/hercules/licenses/
 
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
@@ -173,8 +179,10 @@ RUN sed -i 's/\r$//' /entrypoint.sh && chmod +x /entrypoint.sh
 LABEL hercules.build_fingerprint="${HERCULES_BUILD_FINGERPRINT}"
 LABEL hercules.capabilities="${HERCULES_CAPABILITIES}"
 LABEL hercules.build_ca_sha256="${HERCULES_BUILD_CA_SHA256}"
-LABEL hercules.cloakbrowser.version="${CLOAKBROWSER_PY_VERSION}"
-LABEL hercules.cloakbrowser.sha256="${CLOAKBROWSER_WHEEL_SHA256}"
+ARG HERCULES_BROWSER_ASSETS_SHA256
+LABEL hercules.browser.engine="obscura"
+LABEL hercules.obscura.version="0.2.5"
+LABEL hercules.browser.assets_sha256="${HERCULES_BROWSER_ASSETS_SHA256}"
 LABEL hercules.base.repository="kalilinux/kali-last-release"
 LABEL hercules.base.digest="sha256:01a402ec78a2b3bd86394f34f8c3d6adefe3c593ae259ac0779c4d1f971c8ff5"
 LABEL hercules.apt.suite="kali-last-snapshot"

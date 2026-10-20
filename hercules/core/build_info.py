@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import platform
 import re
 from collections.abc import Iterable
@@ -15,7 +16,14 @@ from hercules.core.tool_catalog import (
     required_backends,
 )
 
-IMAGE_INPUTS = ("Dockerfile", "docker/entrypoint.sh")
+IMAGE_INPUTS = ("Dockerfile", "docker/entrypoint.sh", "hercules/core/browser_assets.json", "docker/install-browser.py", "docker/python-toolbox.lock", "hercules/core/target_policy.py", "hercules/core/browser_boundary.py")
+BROWSER_ASSETS = json.loads(Path(__file__).with_name("browser_assets.json").read_text(encoding="utf-8"))
+OBSCURA_VERSION = BROWSER_ASSETS["obscura_version"]
+AGENT_BROWSER_VERSION = BROWSER_ASSETS["controller_version"]
+IMAGE_BROWSER_LABEL = "hercules.browser.engine"
+IMAGE_OBSCURA_VERSION_LABEL = "hercules.obscura.version"
+IMAGE_BROWSER_ASSETS_LABEL = "hercules.browser.assets_sha256"
+BROWSER_ASSETS_SHA256 = hashlib.sha256(json.dumps(BROWSER_ASSETS, sort_keys=True).encode()).hexdigest()
 IMAGE_FINGERPRINT_LABEL = "hercules.build_fingerprint"
 IMAGE_CAPABILITIES_LABEL = "hercules.capabilities"
 IMAGE_BUILD_CA_LABEL = "hercules.build_ca_sha256"
@@ -108,7 +116,8 @@ def _image_build_fingerprint(
     """Hash the build inputs whose changes require a new runtime image."""
     root = Path(project_root).resolve()
     digest = hashlib.sha256()
-    selected = normalize_capabilities(capabilities)
+    # One physical full image; capability selection controls MCP visibility only.
+    selected = ALL_CAPABILITIES
     normalized = format_capabilities(selected)
     normalized_platform = normalize_image_platform(target_platform)
     normalized_ca = build_ca_sha256.strip().lower()
@@ -131,18 +140,9 @@ def _image_build_fingerprint(
     digest.update(b"\0")
     digest.update(capability_manifest_payload(selected))
     digest.update(b"\0")
-    if "browser" in selected:
-        normalized_cloak_version = cloakbrowser_version.strip()
-        normalized_cloak_sha = cloakbrowser_sha256.strip().lower()
-        if not re.fullmatch(r"\d+\.\d+\.\d+", normalized_cloak_version):
-            raise ValueError("CloakBrowser version must be an exact stable release")
-        if not re.fullmatch(r"[0-9a-f]{64}", normalized_cloak_sha):
-            raise ValueError("CloakBrowser fingerprint must be a SHA-256 hex digest")
-        digest.update(b"cloakbrowser\0")
-        digest.update(normalized_cloak_version.encode("ascii"))
-        digest.update(b"\0")
-        digest.update(normalized_cloak_sha.encode("ascii"))
-        digest.update(b"\0")
+    digest.update(b"obscura\0")
+    digest.update(BROWSER_ASSETS_SHA256.encode("ascii"))
+    digest.update(b"\0")
     for relative in IMAGE_INPUTS:
         path = root / relative
         digest.update(relative.encode())
@@ -218,3 +218,30 @@ def image_identity(
         cloakbrowser_sha256=cloakbrowser_sha256,
     )
     return f"hercules-kali:{fingerprint[:16]}", fingerprint
+
+
+def record_local_image(fingerprint: str, image_id: str) -> None:
+    """Trust only the immutable ID returned by our successfully completed build."""
+    from hercules.core.config_io import atomic_write_private_bytes
+    from hercules.core.instance_lock import _persistent_state_root
+
+    if not re.fullmatch(r"[0-9a-f]{64}", fingerprint) or not re.fullmatch(r"sha256:[0-9a-f]{64}", image_id):
+        raise ValueError("Invalid local image build receipt")
+    path = _persistent_state_root() / "images" / (fingerprint + ".json")
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    atomic_write_private_bytes(path, json.dumps({"fingerprint": fingerprint, "image_id": image_id}).encode())
+
+
+def locally_built_image(fingerprint: str, image_id: str) -> bool:
+    from hercules.core.instance_lock import _persistent_state_root
+
+    if not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+        return False
+    path = _persistent_state_root() / "images" / (fingerprint + ".json")
+    try:
+        if path.is_symlink():
+            return False
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        return receipt == {"fingerprint": fingerprint, "image_id": image_id}
+    except (OSError, ValueError):
+        return False

@@ -14,6 +14,20 @@ Use `network_curl`, `web_scan`, or a focused scanner when a direct request provi
 
 The browser improves fingerprint and proxy configuration consistency. It does not guarantee CAPTCHA or bot-detection avoidance. Do not claim that Docker supplies residential egress.
 
+The sole backend is pinned **Obscura 0.2.5**, driven by agent-browser **0.39.1**.
+**CSP is not enforced**: executing a script here does not demonstrate a CSP
+bypass in Chromium. Every response advertises this. Rendering, iframe/AX
+behavior, storage-state support, media, and service workers are not Chromium
+parity; an unsupported feature is not evidence that the target is broken.
+Tracker blocking is disabled so a target's requests are not silently filtered.
+
+The pinned controller's domain filter leaks image and redirected requests. Do not
+trust it as enforcement. Hercules requires an isolated bridge and a container-local
+validating SOCKS gateway/firewall for the unprivileged engine. All browser traffic
+must pass it; missing enforcement fails closed. Never clear scope restrictions or
+switch to raw shell browsing to bypass the guard. Root shell commands remain
+administrator escape hatches, not confined browser operations.
+
 ## Reliable interaction loop
 
 1. Call `browser_open` with the authorized URL and a stable session name.
@@ -47,20 +61,26 @@ or use CSS. Keep separate authentication contexts in separate sessions.
 
 Proxy precedence is `browser_open(proxy=...)`, then `BROWSER_PROXY_URL`, then
 direct host egress. Responses expose only sanitized proxy state/host. When
-proxy, locale, timezone, allowed domains, or container generation changes,
+proxy, timezone, allowed domains, or container generation changes,
 Hercules relaunches the affected session. The pinned controller does not expose
 deterministic fingerprint selection; a non-empty `fingerprint` is rejected
 rather than reported as applied.
+Explicit locale is also rejected. The adapter rejects persistent profiles,
+storage-state launch flags, custom CAs, Chrome arguments, extensions, and proxy
+bypass (including inherited `NO_PROXY`). Do not remove meaningful operator
+settings or disable TLS to work around an error. There is no automatic fallback.
 
-When a proxy is active, non-proxied WebRTC UDP is blocked by default. Public egress verification must be user-initiated against an authorized IP-check page.
+Obscura has no WebRTC media stack; Chromium's UDP policy flag is not passed.
+Public egress verification must be user-initiated against an authorized IP-check page.
 
 Call `system_network_info` before assuming where a local service lives. In
 bridge mode, `localhost` and `127.0.0.1` are inside the Hercules container; use
 `host.docker.internal` for a service on the Docker engine host. With a remote
 Docker context, that alias reaches the remote engine rather than the coding-agent
-machine. Do not rewrite localhost implicitly. Scoped private/gateway addresses
-still require explicit authorization. A proxy hosted on the engine host follows
-the same rule.
+machine. Do not rewrite localhost implicitly. Private browser destinations require
+explicit IP/CIDR authorization and the active boundary. Host networking cannot
+provide that boundary. Upstream HTTP(S) CONNECT and locally resolved SOCKS5 are
+supported; unverifiable remote-DNS modes are rejected, never silently changed.
 
 Use `browser_session` to list, inspect, close, or close all sessions. A live stream works when `BROWSER_STREAM_PORT` was configured before container startup. Hercules discovers the selected session's actual loopback WebSocket, replaces the generation-bound relay when the session changes, and exposes only the configured host-loopback port.
 
@@ -73,5 +93,27 @@ Use an IIFE for statements, `return`, or `await`; top-level `return`/`await`
 may be rejected. Do not repeatedly retry the same invalid syntax.
 
 Call `browser_skill(name="core", full=true)` before `browser_cmd` when the structured browser surface is insufficient. Treat `browser_cmd` arguments as raw trusted-administrator input.
+The packaged upstream command reference is version-matched, but Chrome-only
+features described there are not promises of Obscura support. Use browser
+responses and the limitations above as the effective capability contract.
+
+### Downloads
+
+Native browser download events/paths are unsupported; a CDP acknowledgement
+does not prove bytes were saved. For a direct authorized URL, use `network_curl`
+with its file-output option or `shell_exec` to save the complete response:
+
+```sh
+curl --fail --location --output /opt/workspace/challenge/handout.bin https://authorized.example/handout.bin
+test -s /opt/workspace/challenge/handout.bin && sha256sum /opt/workspace/challenge/handout.bin
+```
+
+Validate every redirected target against scope. `shell_exec` is privileged and
+does not automatically scope-check arbitrary curl redirects. For authenticated
+files, deliberately supply the required private headers/cookies without printing
+them; there is no automatic credential replay. Save POST/API response bytes
+when applicable. Blob/generated downloads may not be reproducible: report
+unsupported rather than inventing a file or success. Check expected size/type
+as well as the checksum; an HTML login page is not the requested binary.
 
 After container replacement or `system_start_new_session`, open the page again and rebuild browser state from workspace evidence. Do not assume old refs, daemons, cookies, or tabs survived.

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import os
 import hashlib
+import os
 import platform
 import threading
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 from typing import BinaryIO, Self
 
 _PORT_ALLOCATION_THREAD_LOCK = threading.Lock()
@@ -95,7 +95,15 @@ class HerculesPortAllocationLock:
         if platform.system() == "Windows":
             import msvcrt
 
-            msvcrt.locking(self._file.fileno(), msvcrt.LK_LOCK, 1)
+            # LK_LOCK blocks ~10s then raises; retry so cross-process waiters
+            # block instead of failing a start under brief contention.
+            for attempt in range(6):
+                try:
+                    msvcrt.locking(self._file.fileno(), msvcrt.LK_LOCK, 1)
+                    break
+                except OSError:
+                    if attempt == 5:
+                        raise
         else:
             import fcntl
 

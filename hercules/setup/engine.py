@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
+import json
 import os
 import platform
 import secrets
@@ -19,7 +19,11 @@ from hercules.core.config_io import (
     read_dotenv_value,
 )
 from hercules.core.setup_info import setup_state_locations
-from hercules.core.tool_catalog import format_capabilities, parse_capabilities
+from hercules.core.tool_catalog import (
+    format_capabilities,
+    parse_capabilities,
+    required_wordlists,
+)
 from hercules.setup.clients import duplicate_entries, resolve, validate_native_entry
 from hercules.setup.runtime import image_status
 from hercules.setup.transaction import (
@@ -80,6 +84,7 @@ def readonly(argv, cwd=None, env=None):
     try:
         result = subprocess.run(
             argv,
+            check=False,
             cwd=cwd,
             env=env,
             stdin=subprocess.DEVNULL,
@@ -283,8 +288,16 @@ class Engine:
         if pending:
             self.result["pending_revision"] = pending.get("commit")
             self.result["next_action"] = (
-                "Run runtime prepare for the pending version, then resume."
+                "Run runtime prepare for the pending version, verify --runtime --pending for a browser replacement, then resume."
             )
+            self.result["pending_runtime_verification"] = pending.get("runtime_verification", {"runtime": "not_run"})
+            blockers = pending.get("activation_blockers", [])
+            if blockers:
+                self.result["pending_activation_blockers"] = blockers
+                self.result["next_action"] = (
+                    "Pending activation is blocked: " + ", ".join(blockers)
+                    + ". Keep the working version and review the blocker; runtime preparation cannot resolve it. Do not erase scope settings."
+                )
         if not self.result["next_action"]:
             self.result["next_action"] = (
                 "Run install to update or repair only this client."
@@ -354,13 +367,12 @@ class Engine:
                     "The installed checkout has uncommitted work; it was not changed",
                     "Preserve/review that work, or explicitly request install --reinstall.",
                 )
-        if repair:
-            if not old_root or not old_root.exists():
-                raise SetupError(
-                    "source_missing",
-                    "Repair needs the existing source",
-                    "Run install to prepare a new version.",
-                )
+        if repair and (not old_root or not old_root.exists()):
+            raise SetupError(
+                "source_missing",
+                "Repair needs the existing source",
+                "Run install to prepare a new version.",
+            )
         source = str(self.args.source.resolve()) if self.args.source else REPOSITORY
         if repair:
             source = str(old_root)
@@ -409,9 +421,11 @@ class Engine:
         if old_root and self.old.get("commit") and not self.args.reinstall:
             result = subprocess.run(
                 [git, "merge-base", "--is-ancestor", self.old["commit"], revision],
+                check=False,
                 cwd=candidate,
                 capture_output=True,
                 timeout=30,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
             if result.returncode:
                 raise SetupError(
@@ -425,7 +439,7 @@ class Engine:
         old_root = (
             Path(self.old["checkout"])
             if self.old.get("checkout")
-            else Path.home() / ".hercules-mcp"
+            else self.root / "data"
         )
         current_entry = self.adapter.entry() or {}
         old_environment = current_entry.get(
@@ -527,6 +541,19 @@ class Engine:
             "HERCULES_WORDLIST_ROOT": str(Path(wordlists).absolute()),
             "HERCULES_INSTALLED_CAPABILITIES": capabilities,
         }
+        selected_network = getattr(self.args, "docker_network", None)
+        existing_network = old_environment.get("HERCULES_DOCKER_NETWORK", self.old.get("docker_network") or read_dotenv_value(env_file, "HERCULES_DOCKER_NETWORK") or "")
+        previous_network = existing_network or ("host" if (self.old or current_entry) and platform.system() == "Linux" else "bridge")
+        if selected_network is not None:
+            from hercules.core.config import _parse_docker_network
+
+            environment["HERCULES_DOCKER_NETWORK"] = _parse_docker_network(selected_network)
+        elif existing_network:
+            environment["HERCULES_DOCKER_NETWORK"] = existing_network
+        elif "browser" in capabilities.split(","):
+            # Existing native-Linux installs historically implied host mode.
+            # Preserve that choice until the operator explicitly selects bridge.
+            environment["HERCULES_DOCKER_NETWORK"] = "host" if (self.old or current_entry) and platform.system() == "Linux" else "bridge"
         for state_key, env_key in [
             ("image_platform", "HERCULES_IMAGE_PLATFORM"),
             ("build_ca_sha256", "HERCULES_BUILD_CA_SHA256"),
@@ -550,6 +577,8 @@ class Engine:
             "checkout": str(root),
             "commit": revision,
             "environment": environment,
+            "docker_network": environment.get("HERCULES_DOCKER_NETWORK", ""),
+            "network_changed": bool(self.old or current_entry) and environment.get("HERCULES_DOCKER_NETWORK", previous_network) != previous_network,
             "env_file": str(env_file),
             "workspace_root": environment["HERCULES_WORKSPACE_ROOT"],
             "wordlist_root": environment["HERCULES_WORDLIST_ROOT"],
@@ -634,6 +663,7 @@ class Engine:
                 [str(python), "-I", "-m", "hercules.setup.runtime", action,
                  "--facts", str(facts_path), *extra],
                 cwd=Path(candidate["checkout"]), env=self.environment(candidate), timeout=timeout,
+                minimum_free_bytes=8 * 1024**3 if action == "assets" else 0,
             )
             result = json.loads(output)
             if not isinstance(result, dict):
@@ -666,7 +696,13 @@ class Engine:
         if runtime:
             arguments.append("--runtime")
         try:
+            binding = self.verification_binding(candidate, facts) if runtime else None
             result = self.candidate_worker(candidate, facts, "verify", *arguments)
+            if runtime and result.get("runtime") == "passed":
+                if binding != self.verification_binding(candidate, facts):
+                    raise SetupError("verification_stale", "Image or configuration changed during verification", "Verify the pending candidate again before activation.")
+                result["binding"] = binding
+                candidate["runtime_verification"] = result
             candidate["verification"] = result
             self.result["verification"] = result
             return result
@@ -683,6 +719,13 @@ class Engine:
                 self.transaction.directory, self.transaction.data["verification"]
             )
             self.transaction.save()
+
+    def verification_binding(self, candidate, facts):
+        """Observe effective settings in the candidate, not the setup process."""
+        result = self.candidate_worker(candidate, facts, "binding", timeout=60)
+        if not all(result.get(key) for key in ("revision", "image_id", "docker_daemon_id", "dotenv_sha256", "configuration_sha256", "network")):
+            raise SetupError("verification_binding_invalid", "Candidate identity observation is incomplete", "Repair the candidate before verification.")
+        return result
 
     def activate(self, candidate, facts):
         if duplicate_entries(self.adapter):
@@ -724,18 +767,17 @@ class Engine:
                 if any(
                     Path(path).resolve() == self.adapter.skill.resolve()
                     for path in association.get("skill_paths", [])
-                ):
-                    if any(
+                ) and any(
                         read(self.adapter.skill / item.relative_to(source))
                         != item.read_bytes()
                         for item in source.rglob("*")
                         if item.is_file()
-                    ):
-                        raise SetupError(
-                            "shared_skill_path",
-                            "Another client uses this skill directory; its guidance was not replaced",
-                            "Select a client-specific --skill-path or explicitly coordinate both client updates.",
-                        )
+                ):
+                    raise SetupError(
+                        "shared_skill_path",
+                        "Another client uses this skill directory; its guidance was not replaced",
+                        "Select a client-specific --skill-path or explicitly coordinate both client updates.",
+                    )
             previous = self.old.get("skill_files", {})
             hashes = {}
             from hercules.setup.transaction import digest
@@ -852,6 +894,38 @@ class Engine:
                 "Docker is not available; host installation remains intact",
                 "Start your approved Docker daemon, then run runtime prepare.",
             )
+        if status in {"mismatch", "unverified"}:
+            raise SetupError("image_unverified", "The existing runtime tag has a mismatched or unverified identity", "Inspect that exact image without pruning; retain the working installation. Prepare a trusted published digest or an explicitly reviewed rebuild.")
+        if status != "ready":
+            from hercules.setup.images import prebuilt_references
+
+            source = getattr(self.args, "image_source", "auto")
+            references = prebuilt_references(facts) if source != "build" else []
+            if source == "prebuilt" and not references:
+                raise SetupError("prebuilt_unavailable", "No trusted prebuilt digest matches this runtime", "Use --image-source build explicitly, or select a published release. The working installation remains active.")
+            if references:
+                # A transport failure can use an identical digest mirror. An
+                # identity/label failure is never retried via a different image.
+                last_error = None
+                for reference in references:
+                    try:
+                        self.transaction.run([executable("docker"), "pull", "--platform", facts["image"]["target_platform"], reference], timeout=7200, minimum_free_bytes=8 * 1024**3)
+                    except SetupError as exc:
+                        if exc.code != "command_failed":
+                            raise
+                        last_error = exc
+                        continue
+                    self.transaction.run([executable("docker"), "tag", reference, facts["image"]["tag"]])
+                    if image_status(facts) != "ready":
+                        raise SetupError("image_mismatch", "Pulled digest failed runtime identity validation; activation stopped")
+                    last_error = None
+                    break
+                if last_error:
+                    raise last_error
+                candidate["image_source"] = "prebuilt"
+                status = "ready"
+            elif source == "auto":
+                raise SetupError("prebuilt_unavailable", "This revision has no published matching image", "Run runtime prepare with --image-source build to authorize a local full-image build. The working installation remains active.")
         if status != "ready":
             command = [
                 executable("docker"),
@@ -877,7 +951,13 @@ class Engine:
                     f"id=hercules_build_ca,src={self.args.build_ca_bundle.resolve()}",
                 ]
             command += [candidate["checkout"]]
-            self.transaction.run(command, timeout=7200)
+            self.transaction.run(command, timeout=7200, minimum_free_bytes=8 * 1024**3)
+            from hercules.core.build_info import record_local_image
+
+            image_id = self.transaction.run([executable("docker"), "image", "inspect", "--format", "{{.Id}}", facts["image"]["tag"]])
+            record_local_image(facts["image"]["fingerprint"], image_id)
+            candidate["image_id"] = image_id
+            candidate["image_source"] = "build"
         if image_status(facts) != "ready":
             raise SetupError(
                 "image_mismatch", "Built image labels/platform do not match setup facts"
@@ -922,8 +1002,13 @@ class Engine:
                 },
             )
             try:
-                if command in ("runtime", "resume") and self.pending():
+                pending_verification = command == "verify" and getattr(self.args, "pending", False)
+                if pending_verification and not self.pending():
+                    raise SetupError("no_pending_candidate", "No pending candidate exists", "Run install to prepare a candidate first.")
+                if (command in ("runtime", "resume") or pending_verification) and self.pending():
                     candidate = self.pending()
+                    if getattr(self.args, "docker_network", None) is not None and self.args.docker_network != candidate["environment"].get("HERCULES_DOCKER_NETWORK", ""):
+                        raise SetupError("pending_network_changed", "Pending network selection changed", "Run install --docker-network with the desired bridge, then prepare and verify that candidate.")
                     if "skill_paths" not in candidate or "skill_fingerprint" not in candidate:
                         raise SetupError("pending_skill_unknown", "Pending candidate has no verified guidance destination", "Run install with an explicit --skill-path to prepare a new candidate.")
                     saved_skill = Path(candidate["skill_paths"][0]) if candidate["skill_paths"] else None
@@ -969,6 +1054,16 @@ class Engine:
                     self.save_pending(candidate)
                     self.sync(root)
                 facts = self.facts(candidate)
+                release_blockers = facts.get("browser", {}).get("release_blockers", [])
+                if release_blockers and command in {"install", "repair", "resume"}:
+                    candidate["activation_blockers"] = release_blockers
+                    self.save_pending(candidate)
+                    raise SetupError("runtime_compatibility_blocked", "Replacement not activated: " + ", ".join(release_blockers), "Keep the working version active. Run install --docker-network bridge (or an explicitly selected bridge network), prepare, then verify --runtime --pending. Do not clear target restrictions.")
+                blockers = facts.get("browser", {}).get("unsupported_configurations", [])
+                if blockers and command != "runtime":
+                    candidate["activation_blockers"] = blockers
+                    self.save_pending(candidate)
+                    raise SetupError("browser_configuration_unsupported", "Replacement not activated: " + ", ".join(blockers), "Keep the working version active. Review the unsupported Obscura settings deliberately, then resume; setup will not silently erase them.")
                 if command == "verify":
                     verification = self.verify_candidate(
                         candidate, facts, runtime=self.args.runtime
@@ -976,8 +1071,14 @@ class Engine:
                     self.result.update(
                         host="installed",
                         verification=verification,
-                        next_action="Reload the selected client if its current session has not loaded Hercules.",
+                        next_action=verification.get("next_action", "Reload the selected client if its current session has not loaded Hercules."),
                     )
+                    if pending_verification:
+                        self.save_pending(candidate)
+                        self.result.update(host="candidate_prepared", registration="unchanged",
+                                           next_action="Run resume only after pending runtime verification passes.")
+                        self.transaction.commit()
+                        return self.result
                     state = {
                         **self.state,
                         "verification": verification,
@@ -999,7 +1100,9 @@ class Engine:
                     self.result.update(
                         host="prepared",
                         runtime_preparation="ready",
-                        next_action="Run resume to activate this prepared version, then verify --runtime if desired.",
+                        next_action=("Image/assets are prepared, but browser activation remains blocked. Keep the working version; a verified scope-enforcement repair is required."
+                                     if facts.get("browser", {}).get("release_blockers")
+                                     else "Run verify --runtime --pending before resuming a browser replacement; the working registration is unchanged."),
                     )
                     self.transaction.commit()
                     return self.result
@@ -1010,10 +1113,33 @@ class Engine:
                     else "required"
                 )
                 self.verify_candidate(candidate, facts)
+                replacing_browser = bool(self.old.get("checkout")) and "browser" in candidate["installed_capabilities"] and (
+                    candidate["commit"] != self.old.get("commit") or
+                    candidate["image_fingerprint"] != self.old.get("image_fingerprint") or
+                    candidate.get("network_changed", False)
+                )
+                if replacing_browser and candidate["runtime_preparation"] != "ready":
+                    self.save_pending(candidate)
+                    self.transaction.commit()
+                    self.result.update(status="pending", registration="unchanged", host="update_prepared", runtime_preparation="required",
+                                       next_action="Working version kept active. Restore Docker access/prepare the candidate runtime, then verify --runtime --pending and resume.")
+                    return self.result
+                if replacing_browser:
+                    proof = candidate.get("runtime_verification", {})
+                    if proof.get("runtime") != "passed":
+                        self.save_pending(candidate)
+                        self.transaction.commit()
+                        self.result.update(status="pending", registration="unchanged", host="update_prepared", runtime_preparation="ready",
+                                           next_action="Working version kept active. Run verify --runtime --pending, then resume.")
+                        return self.result
+                    if proof.get("binding") != self.verification_binding(candidate, facts):
+                        raise SetupError("verification_stale", "Pending verification no longer matches source, image or configuration", "Run verify --runtime --pending again; the working version is unchanged.")
+                    candidate["verification"] = proof
                 old_image = self.old.get("image_fingerprint")
+                added_assets = set(required_wordlists(candidate["installed_capabilities"])) - set(required_wordlists(self.old.get("installed_capabilities", [])))
                 if (
                     old_image
-                    and old_image != candidate["image_fingerprint"]
+                    and (old_image != candidate["image_fingerprint"] or added_assets)
                     and candidate["runtime_preparation"] != "ready"
                 ):
                     self.save_pending(candidate)

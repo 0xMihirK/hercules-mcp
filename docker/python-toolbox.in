@@ -1,0 +1,9 @@
+# Container-only tools; never modify the host Python environment.
+requests==2.34.2
+httpx==0.28.1
+websockets==17.3
+PyJWT==2.15.1
+cryptography==50.0.2
+paramiko==5.1.0
+Pillow==13.0.0
+flask-unsign==1.2.1

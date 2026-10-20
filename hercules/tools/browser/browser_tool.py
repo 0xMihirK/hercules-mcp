@@ -1,26 +1,15 @@
 """
-Stealth browser automation tools for Hercules MCP.
+Obscura browser automation. CSP is NOT enforced; this is not Chromium parity.
 
-Combines two tools so the agent can drive a fingerprint-reduced Chromium:
-
-  * cloakbrowser  — a fingerprint-patched stealth Chromium (compile-time C++
-    patches: navigator.webdriver=false, canvas/WebGL/audio/font spoofing, ...).
-    The verified package manages a patched Chromium build; its installed path
-    is reported by `python3 -m cloakbrowser info`.
-  * agent-browser — a Rust CLI/daemon that launches and drives a browser,
-    exposing an agent-friendly accessibility `snapshot` (@e refs) plus the full
-    interaction/inspection command surface.
-
-Bridge: agent-browser launches the cloak stealth Chromium directly via
-`AGENT_BROWSER_EXECUTABLE_PATH` and manages its lifecycle. agent-browser's
+agent-browser owns the pinned Obscura process and its CDP connection. Its
 daemon persists the browser/page/session across separate CLI invocations, so
 state survives across MCP tool calls (the Kali container PID1 is `sleep
 infinity`). Each tool here is a thin wrapper around
 `docker.exec_command("agent-browser ...")`.
 
 The convenience tools cover the common loop (open -> snapshot -> act/read ->
-screenshot). `browser_cmd` is the escape hatch to EVERY other agent-browser
-feature, and `browser_skill` lets the agent self-load agent-browser's own,
+screenshot). `browser_cmd` exposes supported advanced agent-browser commands,
+not Chrome-only features. `browser_skill` loads the controller's own,
 version-matched command reference.
 """
 
@@ -40,6 +29,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from fastmcp import Context
 
+from hercules.core.build_info import OBSCURA_VERSION
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
     backend_unavailable,
@@ -67,9 +57,9 @@ logger = logging.getLogger("hercules.tools.browser")
 _BROWSER_DIR = "/opt/workspace/browser"
 _LOG_DIR = "/opt/workspace/logs"
 
-# Resolve the cloak stealth-Chromium binary once per process and cache it.
-_cloak_lock = asyncio.Lock()
-_cloak_cache: dict = {"resolved": False, "path": ""}
+# Verify the fixed image executable once per container generation.
+_backend_lock = asyncio.Lock()
+_backend_cache: dict = {"resolved": False, "path": ""}
 _runtime_generation: dict = {"value": None}
 _session_profiles: dict[str, dict] = {}
 
@@ -90,7 +80,7 @@ class BrowserBackendError(RuntimeError):
 
 def reset_browser_runtime_state() -> None:
     """Forget process-local state tied to a previous container generation."""
-    _cloak_cache.update({"resolved": False, "path": ""})
+    _backend_cache.update({"resolved": False, "path": ""})
     _session_profiles.clear()
 
 
@@ -101,53 +91,39 @@ def _sync_container_generation(docker) -> None:
         _runtime_generation["value"] = generation
 
 
-async def _resolve_cloak(docker) -> str:
+async def _resolve_obscura(docker) -> str:
     """
-    Resolve and cache the path to the cloak stealth-Chromium binary (via
-    `python3 -m cloakbrowser info`) and ensure the workspace dirs exist.
-    Returns the verified executable path, or "" if the stealth binary is
-    unavailable. Hercules does not silently use agent-browser's fallback.
+    Verify the pinned Obscura executable and ensure workspace directories exist.
+    Returns the verified executable path or raises; never substitutes an engine.
     """
-    if _cloak_cache["resolved"]:
-        return _cloak_cache["path"]
-    async with _cloak_lock:
-        if _cloak_cache["resolved"]:
-            return _cloak_cache["path"]
-        await docker.exec_command(
+    if _backend_cache["resolved"]:
+        return _backend_cache["path"]
+    async with _backend_lock:
+        if _backend_cache["resolved"]:
+            return _backend_cache["path"]
+        directory = await docker.exec_command(
             f"mkdir -p {_BROWSER_DIR} {_LOG_DIR}", timeout=15, clean_output=False,
         )
+        if directory.exit_code != 0:
+            raise BrowserBackendError("Browser workspace directories are not writable")
         res = await docker.exec_command(
-            "python3 -m cloakbrowser info", timeout=40, clean_output=False,
+            f"test -x /opt/hercules/browser/obscura && /opt/hercules/browser/obscura --version | grep -F {shlex.quote(OBSCURA_VERSION)}", timeout=40, clean_output=False,
         )
         if res.exit_code != 0:
-            raise BrowserBackendError("cloakbrowser readiness information failed")
-        path = ""
-        for line in (res.stdout or "").splitlines():
-            stripped = line.strip()
-            if stripped.lower().startswith("binary:"):
-                path = stripped.split(":", 1)[1].strip()
-                break
-        if path:
-            executable = await docker.exec_command(
-                f"test -x {shlex.quote(path)}", timeout=15, clean_output=False,
-            )
-            if executable.exit_code != 0:
-                path = ""
-        _cloak_cache["path"] = path
-        _cloak_cache["resolved"] = True
-        if path:
-            logger.info("Stealth browser binary resolved: %s", path)
-        else:
-            logger.warning("cloakbrowser stealth binary not found via 'cloakbrowser info'.")
+            raise BrowserBackendError("Pinned Obscura readiness check failed")
+        path = "/opt/hercules/browser/obscura"
+        _backend_cache["path"] = path
+        _backend_cache["resolved"] = True
+        logger.info("Verified Obscura binary: %s", path)
         return path
 
 
-async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = None):
+async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = None, session: str = "default"):
     """
     Prepare the stealth browser backend for a tool call.
 
     Returns (docker, concurrency, env) or a structured error dict.
-    `env` carries AGENT_BROWSER_EXECUTABLE_PATH (the cloak binary) plus any
+    `env` carries AGENT_BROWSER_EXECUTABLE_PATH (the Obscura binary) plus any
     launch_env (TZ/LANG/proxy) — these only take effect when a session's
     browser is first launched.
     """
@@ -156,28 +132,31 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
     docker = ctx.lifespan_context["docker"]
     _sync_container_generation(docker)
     concurrency = ctx.lifespan_context["concurrency"]
+    config = ctx.lifespan_context.get("config")
     try:
-        cloak = await _resolve_cloak(docker)
+        await _resolve_obscura(docker)
+        upstream = (launch_env or {}).get("HERCULES_BROWSER_UPSTREAM", _session_profiles.get(session, {}).get("proxy", getattr(config, "browser_proxy", "")))
+        proof = await docker.ensure_browser_boundary(proxy=upstream)
     except Exception as exc:
         return backend_unavailable(
-            tool, f"Failed to resolve the stealth browser binary: {exc}",
+            tool, f"Browser binary or network boundary is not ready: {exc}",
             next_steps=[
-                "Rebuild the browser capability using the outcomes in install.md.",
-                "Check workspace/logs via workspace_read_file.",
-            ],
-        )
-    if not cloak:
-        return backend_unavailable(
-            tool,
-            "The cloakbrowser Chromium binary is unavailable; Hercules will not "
-            "silently fall back while reporting a stealth browser.",
-            next_steps=[
-                "Inspect the local browser readiness outcomes described in install.md.",
-                "Rebuild the image if cloakbrowser is missing.",
+                "Use setup status to check the prepared full image and isolated bridge selection; do not clear target restrictions.",
+                "After coordinating parallel work, stop/start this session if its gateway failed. The workspace is retained.",
+                "Inspect runtime verification diagnostics before rebuilding; never change harness permissions automatically.",
             ],
         )
     env: dict = {}
-    env["AGENT_BROWSER_EXECUTABLE_PATH"] = cloak
+    env["AGENT_BROWSER_ENGINE"] = "obscura"
+    env["AGENT_BROWSER_OBSCURA_STEALTH"] = "1"
+    env["OBSCURA_BLOCK_TRACKERS"] = "0"
+    env["SSL_CERT_FILE"] = "/etc/ssl/certs/ca-certificates.crt"
+    env["AGENT_BROWSER_EXECUTABLE_PATH"] = "/opt/hercules/browser_boundary.py"
+    env["AGENT_BROWSER_PROXY"] = "socks5h://" + proof["proxy"].split("@", 1)[1]
+    env["HERCULES_BROWSER_UPSTREAM"] = upstream
+    timezone = _session_profiles.get(session, {}).get("timezone") or getattr(config, "browser_timezone", "")
+    if timezone:
+        env["OBSCURA_TIMEZONE"] = timezone
     if launch_env:
         env.update(launch_env)
     return docker, concurrency, env
@@ -238,7 +217,7 @@ def _session_dir(session: str) -> str:
 
 def _browser_result(tool: str, session: str, result, *, json_out: bool) -> dict:
     """Normalize agent-browser JSON without returning the same payload twice."""
-    response = {"tool": tool, "session": session, **result.to_dict()}
+    response = {"tool": tool, "session": session, "scope_enforced": True, **result.to_dict()}
     if not json_out or result.exit_code != 0 or not result.stdout.strip():
         return response
     try:
@@ -269,7 +248,7 @@ async def _call(
         session_key = "" if session == "" else _safe_session(session)
     except ValueError as exc:
         return path_error(tool, session, str(exc))
-    prepared = await _backend(ctx, tool)
+    prepared = await _backend(ctx, tool, session=session_key)
     if isinstance(prepared, dict):
         return prepared  # structured error
     docker, concurrency, env = prepared
@@ -293,7 +272,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         proxy: str = "",
         ctx: Context | None = None,
     ) -> dict:
-        """Open a URL in a stealth Chromium session."""
+        """Open a URL in an Obscura session; CSP is not enforced."""
         if not url:
             return missing_param_error("browser_open", "url")
         if fingerprint:
@@ -303,7 +282,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 "parameter": "fingerprint",
                 "error": (
                     "The pinned agent-browser controller does not expose deterministic "
-                    "fingerprint selection. Cloakbrowser fingerprint reduction remains active."
+                    "fingerprint selection. Obscura's pinned profile remains active."
                 ),
             }
         if ctx is None:
@@ -324,11 +303,11 @@ def register_browser_tools(mcp: FastMCP) -> None:
         launch_env: dict = {}
         tz = timezone or getattr(config, "browser_timezone", "") or ""
         if tz:
-            launch_env["TZ"] = tz
+            launch_env["OBSCURA_TIMEZONE"] = tz
         loc = locale or getattr(config, "browser_locale", "") or ""
         if loc:
-            launch_env["LANG"] = loc
-            launch_env["LANGUAGE"] = loc
+            return {"tool": "browser_open", "status": "unsupported_option", "parameter": "locale",
+                    "error": "The pinned Obscura adapter cannot apply a per-session locale. Remove the explicit locale; it will not be silently ignored."}
         px = proxy or getattr(config, "browser_proxy", "") or ""
         try:
             px, proxy_host = validate_proxy_url(px)
@@ -339,12 +318,10 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 "parameter": "proxy",
                 "error": str(exc),
             }
-        if px:
-            launch_env["AGENT_BROWSER_PROXY"] = px
-            if getattr(config, "browser_disable_non_proxied_udp", True):
-                launch_env["AGENT_BROWSER_ARGS"] = (
-                    "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"
-                )
+        if px.startswith("socks5h:"):
+            return {"tool": "browser_open", "status": "unsupported_option", "parameter": "proxy",
+                    "error": "Remote proxy DNS cannot be verified. Select an explicitly locally resolved SOCKS5 or HTTP(S) CONNECT proxy; no proxy mode is silently changed."}
+        launch_env["HERCULES_BROWSER_UPSTREAM"] = px
         allowed_domain_fn = getattr(config, "browser_allowed_domains", None)
         raw_allowed_domains = allowed_domain_fn(url) if callable(allowed_domain_fn) else []
         allowed_domains = (
@@ -352,10 +329,11 @@ def register_browser_tools(mcp: FastMCP) -> None:
             if isinstance(raw_allowed_domains, (list, tuple, set))
             else []
         )
-        if allowed_domains:
-            launch_env["AGENT_BROWSER_ALLOWED_DOMAINS"] = ",".join(allowed_domains)
+        # CIDRs and blocked-rule precedence cannot be represented by the
+        # controller's domain filter. The validating gateway is authoritative;
+        # do not silently reject otherwise authorized subresources here.
 
-        prepared = await _backend(ctx, "browser_open", launch_env=launch_env)
+        prepared = await _backend(ctx, "browser_open", launch_env=launch_env, session=session_key)
         if isinstance(prepared, dict):
             return prepared
         docker, concurrency, env = prepared
@@ -463,7 +441,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             _session_profiles[session_key] = effective_profile
         response = {
             "tool": "browser_open", "url": redact_url(url), "session": session_key,
-            "stealth": "cloak stealth Chromium",
+            "stealth": "Obscura TLS/fingerprint profile; tracker blocking disabled",
             "proxy_enabled": bool(px),
             "proxy_host": proxy_host,
             "timezone": tz,
@@ -673,7 +651,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         except (OSError, ValueError) as exc:
             return path_error("browser_screenshot", path or out_path, str(exc))
 
-        prepared = await _backend(ctx, "browser_screenshot")
+        prepared = await _backend(ctx, "browser_screenshot", session=session_key)
         if isinstance(prepared, dict):
             return prepared
         docker, concurrency, env = prepared
@@ -693,7 +671,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             json_out=False, env=env, bucket="browser_screenshot", timeout=90,
         )
         response = {
-            "tool": "browser_screenshot", "session": session_key, "path": out_path,
+            "tool": "browser_screenshot", "session": session_key, "path": out_path, "scope_enforced": True,
             "mime_type": "image/png", "annotated": annotate,
             **result.to_dict(),
         }
@@ -740,7 +718,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         """Run JavaScript in the page and return the result."""
         if not js:
             return missing_param_error("browser_eval", "js")
-        prepared = await _backend(ctx, "browser_eval")
+        prepared = await _backend(ctx, "browser_eval", session=session)
         if isinstance(prepared, dict):
             return prepared
         docker, concurrency, env = prepared
@@ -764,7 +742,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 )
             except Exception:
                 logger.warning("Failed to remove browser eval script: %s", script_path)
-        return {"tool": "browser_eval", "session": session, **result.to_dict()}
+        return {"tool": "browser_eval", "session": session, "scope_enforced": True, **result.to_dict()}
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["browser_wait"])
     async def browser_wait(
@@ -1004,6 +982,15 @@ def register_browser_tools(mcp: FastMCP) -> None:
         """Escape hatch: run any agent-browser subcommand against the stealth session."""
         if not args or not args.strip():
             return missing_param_error("browser_cmd", "args")
+        try:
+            tokens = shlex.split(args)
+        except ValueError as exc:
+            return {"tool": "browser_cmd", "status": "invalid_parameter", "parameter": "args", "error": str(exc)}
+        unsupported = {"--engine", "--executable-path", "--profile", "--state", "--extension", "--allow-file-access", "--webgpu", "--ca-cert", "--args", "--proxy-bypass", "--download-path", "--cdp", "--proxy", "--auto-connect"}
+        rejected = next((token.split("=", 1)[0] for token in tokens if token.split("=", 1)[0] in unsupported), None)
+        if rejected or (tokens and tokens[0] in {"download", "state"}):
+            return {"tool": "browser_cmd", "status": "unsupported_option", "parameter": "args", "option": rejected or tokens[0],
+                    "error": "This operation is not supported by the pinned Obscura backend. No alternate engine or implicit download is used. Save HTTP response bytes to a workspace file and verify it for direct downloads."}
         if re.search(r"(?:^|\s)--headed(?:=\S*)?(?=\s|$)", args):
             return {
                 "tool": "browser_cmd",
@@ -1031,7 +1018,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             "browser_cmd invoked: id=%s session=%s sha256=%s",
             uuid.uuid4().hex, session_key, hashlib.sha256(args.encode()).hexdigest(),
         )
-        prepared = await _backend(ctx, "browser_cmd")
+        prepared = await _backend(ctx, "browser_cmd", session=session_key)
         if isinstance(prepared, dict):
             return prepared
         docker, concurrency, env = prepared
@@ -1052,6 +1039,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         return {
             "tool": "browser_cmd",
             "session": session_key,
+            "scope_enforced": True,
             "args": escape_display_controls(redact_secrets(args)),
             **result.to_dict(),
         }

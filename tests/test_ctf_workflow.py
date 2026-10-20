@@ -233,6 +233,12 @@ def test_validation_boundary_and_ignored_options():
             for arguments in ({}, {"mode": "invalid"}):
                 result = (await client.call_tool("fixture", arguments)).structured_content
                 assert result["error_type"] == "invalid_parameters" and result["recoverable"]
+                # The offending parameter must be named so the agent can self-repair
+                # (the KPMG missing job_id / bad nmap mode / browser_eval js failures).
+                expected = result["expected"]
+                assert isinstance(expected, list) and any(
+                    item.get("parameter") == "mode" for item in expected
+                )
             result = (await client.call_tool("fixture", {"mode": "quick", "internal": True})).structured_content
             assert result["error_type"] == "internal_error"
             result = (await client.call_tool("fixture", {"mode": "quick", "options": "SECRET", "description": "annotation"})).structured_content
@@ -241,6 +247,23 @@ def test_validation_boundary_and_ignored_options():
             assert "usage_warnings" not in result
 
     asyncio.run(scenario())
+
+
+def test_recon_amass_output_filter_is_wired():
+    # Regression: recon_amass must pass tool_name so its registered compaction
+    # filter actually runs (it previously ran with no tool_name, a silent no-op).
+    from hercules.output.filters import apply_tool_filter
+
+    sample = (
+        "OWASP Amass v5.1.1\n"
+        "[INF] Querying crt.sh for example.com subdomains\n"
+        "www.example.com\n"
+        "api.example.com\n"
+        "Discoveries are being migrated into the graph database\n"
+    )
+    result = apply_tool_filter(sample, "recon_amass")
+    assert result.changed and result.removed_lines > 0
+    assert "www.example.com" in result.text and "[INF]" not in result.text
 
 
 def test_ignored_option_warning_keeps_native_image_content():

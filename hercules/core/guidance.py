@@ -27,6 +27,13 @@ rotating or stopping. Confirm cleanup fields; retained workspaces are not contai
 Use HTTP tools for direct requests and browser_open -> wait/snapshot ->
 act/read -> screenshot for JavaScript, session state, interaction, or visual
 evidence. Browser configuration cannot guarantee CAPTCHA/bot avoidance.
+The browser is Obscura: CSP is NOT enforced. Script execution is not proof of
+a Chromium CSP bypass. Native browser downloads are unsupported; save direct
+HTTP downloads in the workspace and verify the file before claiming success.
+The controller's request filter is not enforcement. Browsing requires an isolated
+bridge, unprivileged engine, and container-local firewall/gateway. Private targets
+need explicit IP/CIDR authorization. Missing enforcement fails closed; never clear
+target restrictions to bypass it. Privileged shell commands are not confined.
 
 Prefer installed NSE/Nuclei content. For missing logic read
 resource://agent_skills/nse or resource://agent_skills/nuclei before authoring.
@@ -295,7 +302,7 @@ TOOL_DESCRIPTIONS = {
         "ctf_steghide(action='info', filepath='/opt/workspace/image.jpg')\nctf_steghide(action='extract', filepath='/opt/workspace/image.jpg', passphrase='secret')",
     ),
     "browser_open": _desc(
-        "Open a URL in cloakbrowser Chromium and start an interactive browsing session. This is the entry point for driving a real browser to test a JavaScript-heavy site, reproduce a web bug, handle an operator-authorized challenge, or capture visual evidence.",
+        "Open a URL in Obscura (CSP NOT enforced). Start a named session for JavaScript, interaction, and rendered evidence; not Chromium parity.",
         "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JavaScript-capable browser.",
         "url is scope-validated and redirects are revalidated. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
         "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://host.docker.internal:8080')",
@@ -337,7 +344,7 @@ TOOL_DESCRIPTIONS = {
         "browser_wait(condition='load', value='networkidle', session='recon')\nbrowser_wait(condition='text', value='Welcome', session='recon')\nbrowser_wait(condition='ms', value='1500', session='recon')",
     ),
     "browser_session": _desc(
-        "Manage isolated stealth browser identities and the optional loopback-only live-view stream. Each session has its own cookies, storage, history, and fingerprint context.",
+        "Manage named Obscura sessions and the optional loopback-only live-view stream. Runtime identities are separate; durable browser profiles are unsupported.",
         "Use to run independent identities, list sessions, close contexts, or watch the selected session through the configured host-loopback stream.",
         "action selects current, list, close, close_all, or stream. Stream discovers the selected session's loopback WebSocket and safely relays it to the configured host port. Closing sessions frees memory.",
         "browser_session(action='list')\nbrowser_session(action='close', session='recon')\nbrowser_session(action='stream', stream_port=4848)",
@@ -349,7 +356,7 @@ TOOL_DESCRIPTIONS = {
         "browser_skill()\nbrowser_skill(name='core', full=True)",
     ),
     "browser_cmd": _desc(
-        "Escape hatch that runs ANY agent-browser command against the current stealth session — giving access to the COMPLETE browser feature set beyond the convenience tools. This is to browser_* what shell_exec is to the shell.",
+        "Run advanced agent-browser commands supported by Obscura. Chrome-specific flags, engine changes, native downloads, and durable profiles are rejected.",
         "Use for any capability not covered by browser_open/snapshot/act/read/screenshot/eval/wait: cookies, storage, network capture, device/geo emulation, tabs, frames, dialogs, diffs, tracing, React inspection, web vitals, and more. Call browser_skill(name='core', full=True) first if unsure of exact syntax.",
         "Call browser_skill(name='core', full=True) first. args is raw administrator input for controller features absent from structured tools; target/sensitive guarantees are limited and every call is audit-logged.",
         "browser_cmd(args='cookies list', session='recon')\nbrowser_cmd(args=\"set device 'iPhone 15'\", session='recon')\nbrowser_cmd(args='network har /opt/workspace/browser/recon.har', session='recon')\nbrowser_cmd(args='get attr e5 href', session='recon')",

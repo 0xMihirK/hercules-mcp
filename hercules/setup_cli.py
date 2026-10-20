@@ -30,6 +30,7 @@ def parser():
     common.add_argument("--skill-path", type=Path)
     common.add_argument("--capabilities")
     common.add_argument("--platform", choices=("linux/amd64", "linux/arm64"))
+    common.add_argument("--docker-network", help="Selected client's isolated Docker bridge network (default bridge for new browser installations)")
     common.add_argument("--build-ca-bundle", type=Path)
     common.add_argument(
         "--source",
@@ -44,22 +45,25 @@ def parser():
     common.add_argument(
         "--json", action="store_true", help="Emit one non-secret JSON report on stdout"
     )
-    common.set_defaults(reinstall=False, runtime=False)
+    common.set_defaults(reinstall=False, runtime=False, pending=False)
     commands = result.add_subparsers(dest="command", required=True)
     for command in ("status", "install", "repair", "resume", "verify"):
         child = commands.add_parser(command, parents=[common])
         if command == "install":
             child.add_argument("--reinstall", action="store_true")
         if command == "verify":
+            child.add_argument("--pending", action="store_true", help="Verify the staged candidate without replacing the working client registration")
             child.add_argument(
                 "--runtime",
                 action="store_true",
                 help="Explicitly start/stop a disposable local container and run harmless local tools",
             )
     runtime = commands.add_parser("runtime")
-    runtime.add_subparsers(dest="runtime_command", required=True).add_parser(
+    prepare = runtime.add_subparsers(dest="runtime_command", required=True).add_parser(
         "prepare", parents=[common]
     )
+    prepare.add_argument("--image-source", choices=("auto", "prebuilt", "build"), default="auto",
+                         help="Reuse a verified cache, pull a locked release digest, or explicitly build the full image")
     return result
 
 

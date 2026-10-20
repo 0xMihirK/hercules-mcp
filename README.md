@@ -54,7 +54,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md and its hercules-setup CLI. Identify the current client explicitly; configure only that client. Run read-only status first, explain the proposed changes, then perform the authorized host install/update or repair. Preserve existing preferences, secrets, evidence, and other clients; offer full capabilities for a new install. Ask separately before runtime image/assets downloads or container testing. If a harness denies an action, stop it and report the exact blocked operation; never change permission modes or retry through another tool. Use the CLI's recovery and exact-owned cleanup. Report host revision, registration/reload, runtime preparation, actual verification results, cleanup, and one next action separately. A cold connection is not runtime verification.
+Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent and report the result.
 ```
 
 The shared [setup workflow](install.md) handles discovery, install/update,
@@ -69,7 +69,7 @@ bootstrap once, then reuse the absolute `hercules-setup` launcher. Supported
 clients include Claude Code/Desktop, Codex, Cursor, VS Code, Gemini CLI,
 OpenCode, Windsurf, and Hermes; other local STDIO clients can use a generic export.
 
-`runtime prepare` separately builds/reuses the image and provisions verified
+`runtime prepare` separately reuses/pulls a verified release image and provisions verified
 assets. `verify` checks cold STDIO; `verify --runtime` explicitly tests a local
 container. New installs default to full capabilities; existing selections,
 secrets, workspaces, assets, scope, and unrelated settings are preserved.
@@ -82,9 +82,10 @@ or approval rules. Missing privileged prerequisites also require operator action
 
 ## Capabilities and MCP surface
 
-The confirmed capability set controls both the binaries placed in the Kali
-image and the MCP schemas registered with the client. Core shell, session, and
-workspace services are mandatory.
+One full Kali image contains every tool bundle; there is no lean image.
+The confirmed capability set controls MCP visibility, not physical package
+removal. Core shell, session, and workspace services are mandatory. Setup facts
+report installed and exposed capabilities separately.
 
 | Profile | Registered tools | Resources |
 | --- | ---: | ---: |
@@ -109,14 +110,17 @@ Bundles keep consolidated APIs intact: Nmap includes NSE authoring, Nuclei
 includes template authoring, and browser includes every `browser_*` tool.
 SecLists and rockyou are required only by profiles that use them.
 `HERCULES_DISABLED_TOOLS` can independently hide an installed tool, but it
-cannot add a binary omitted from the image.
+does not remove its binary from the full image.
 
-Capability selection controls preinstalled packages, not a sandbox against the
+Capability selection controls tool visibility, not a sandbox against the
 privileged container shell. After explicit startup, agents may deliberately
 install/use custom tools through `shell_exec`; keep scripts, dependency notes,
 and Python virtual environments under `/opt/workspace`. Container-layer installs
 are temporary and are never replayed automatically. The small baseline includes
-SSH, unzip, and Python virtual-environment support.
+SSH, jq, unzip, and Python virtual-environment support. The separately locked
+Python toolbox is available as `/opt/hercules-python/bin/python` (HTTP clients,
+WebSockets, JWT, cryptography, Paramiko, Pillow, and flask-unsign); system Python
+and distro tools are not replaced.
 
 ## How Hercules works
 
@@ -126,7 +130,7 @@ SSH, unzip, and Python virtual-environment support.
 3. The agent calls `system_start_container` immediately before its first
    Docker-backed operation. Repeated calls reuse the same container.
 4. A typed MCP call is validated and routed to a generation-bound service.
-5. The command runs inside the owned, capability-specific Kali container.
+5. The command runs inside the owned, full Kali container.
 6. Results are parsed and bounded while complete evidence is retained in the
    workspace when necessary.
 
@@ -156,40 +160,62 @@ permissive until `ALLOWED_TARGETS` or `BLOCKED_TARGETS` is configured.
 
 ## Headless browser automation
 
-The optional browser image combines
+The full image combines
 [agent-browser](https://github.com/vercel-labs/agent-browser) with
-[CloakBrowser](https://github.com/CloakHQ/cloakbrowser). CloakBrowser source is
-not bundled in this repository and is not needed on the host for normal
-Hercules use. The supported image installs the official PyPI
-[`cloakbrowser`](https://pypi.org/project/cloakbrowser/) wheel at exact version
-`0.5.3`, verifies its SHA-256, and installs its managed Chromium binary.
+[Obscura](https://docs.obscura.sh/), pinned at **0.39.1** and **0.2.5** respectively.
+Native rendering/stealth artifacts and matching controller skill documentation
+are checksum-verified; no npm runtime or managed Chromium download is required.
 
-If that exact artifact is unavailable or incompatible, the installing agent
-checks the official repository and PyPI, selects the latest stable compatible
-release, and records an exact version and official artifact checksum before
-building. It must not use an unpinned Git branch or silently substitute another
-browser while claiming CloakBrowser behavior.
+**Obscura does not enforce CSP.** JavaScript execution is not proof of a CSP
+bypass in Chromium. Every browser response advertises this limitation. This
+experimental backend has incomplete browser fidelity, storage-state support,
+and no native downloads. Unsupported operations fail explicitly; there is no
+automatic alternate engine.
+
+The controller's domain allowlist is not a security boundary: local tests found
+image and redirect leaks. Protected browsing therefore requires an isolated
+Docker bridge, an unprivileged engine, and a generation-owned firewall/SOCKS
+gateway inside the same container. Every connection is resolved, scope-checked,
+and pinned before connecting. Missing enforcement blocks browsing. This candidate
+remains under release verification; keep the working installation until acceptance
+passes. Privileged shell commands can deliberately disable this boundary.
 
 - Sessions always run headlessly; screenshots and loopback live streaming
   remain available.
 - `browser_screenshot` validates PNG bytes and returns native MCP
   `ImageContent`, with optional annotations and compatibility base64 metadata.
 - Proxy precedence is `browser_open(proxy=...)`, then `BROWSER_PROXY_URL`, then
-  direct host egress. HTTP, HTTPS, SOCKS5, and SOCKS5H proxies are supported,
-  and credentials are redacted from responses and logs.
-- When a proxy is active, non-proxied WebRTC UDP is blocked by default.
-- Changes to proxy, locale, or timezone relaunch that session transactionally.
-- In bridge mode, browser `localhost` is inside the Hercules container. Use
-  `host.docker.internal` for a service on the Docker engine host; a remote
-  Docker context therefore reaches the remote engine rather than this computer.
+  direct gateway egress. HTTP(S) CONNECT and locally resolved SOCKS5 upstream
+  proxies are supported; unverifiable remote-DNS proxy modes are rejected. Credentials
+  are redacted from responses and logs. Proxy bypass rules/custom browser CAs
+  are unsupported; TLS verification is never implicitly disabled.
+- Tracker filtering is disabled so target resources are not silently omitted.
+- Proxy/timezone/scope changes relaunch that session transactionally. Explicit
+  per-session locale and fingerprint selection are rejected, not ignored.
+- In bridge mode, browser `localhost` is inside the Hercules container. Private
+  browser access requires explicitly allowed private IPs/CIDRs and the active boundary.
+  A remote Docker context refers to the remote engine, not this computer.
 
 Docker does not provide residential or ISP egress; direct container traffic
-normally shares the host's public IP. CloakBrowser reduces common automation
+normally shares the host's public IP. Obscura reduces some automation
 signals, but Hercules cannot guarantee CAPTCHA or bot-detection avoidance.
 
 Use structured browser tools first. `browser_cmd` is an administrator escape
 hatch for supported advanced controller operations and sits outside structured
 target guarantees. Load `browser_skill` before using it.
+
+For direct files use existing HTTP/shell tools, save bytes beneath
+`/opt/workspace`, and verify size/checksum. Authenticated requests require
+deliberate, private handling of the necessary cookies/headers; they are never
+automatically replayed. Browser-generated/blob/native downloads are not
+guaranteed and must not be reported successful without a verified file.
+
+Runtime preparation defaults to `--image-source auto`: validated cache, then
+an exact published digest. For an unreleased checkout, use
+`runtime prepare --client <client> --image-source build --yes` explicitly.
+`--image-source prebuilt` never builds. No release digest is invented when an
+image has not been published. Existing installations remain active while a
+replacement is pending.
 
 ## Output, artifacts, sessions, and workspaces
 
@@ -254,14 +280,14 @@ Enumeration findings are evidence to verify, not permission to exploit.
 `hercules --setup-info-json` is a strictly read-only information surface for
 installation agents. Optional selectors let an agent normalize a capability
 profile, inspect an existing non-secret state file, describe an approved custom
-CA bundle, or describe an exactly pinned replacement CloakBrowser wheel. Its
+CA bundle, or inspect legacy browser settings without activating them. Its
 JSON reports:
 
 - catalog, normalized selection, required binaries, wordlists, and MCP counts;
 - source revision, Python lock identity, and absolute-launcher requirements;
 - stable Kali base, APT suite, platform, image tag, labels, and build inputs;
 - capability-manifest checksum and runtime evidence paths;
-- CloakBrowser version, official artifact URL, SHA-256, and readiness checks;
+- pinned Obscura/controller artifacts, hashes, explicit limitations, and inactive legacy browser facts;
 - optional certificate-only BuildKit secret metadata and fingerprint;
 - non-secret environment requirements and schema-4 state locations; and
 - local acceptance assertions.
@@ -320,7 +346,7 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_WORDLIST_ROOT` | Reusable verified wordlist and extraction cache |
 | `HERCULES_BUILD_CA_SHA256` | Fingerprint of optional certificate-only build trust |
 | `HERCULES_IMAGE_PLATFORM` | Exact `linux/amd64` or `linux/arm64` runtime platform |
-| `HERCULES_CLOAKBROWSER_WHEEL_URL` | Exact PyPI artifact URL for a preserved browser pin |
+| `HERCULES_CLOAKBROWSER_*` | Deprecated compatibility fields; do not select the active Obscura backend |
 | `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports exposed by bridge networking |
 | `MSF_RPC_PORT` | Loopback-only Metasploit RPC port (default `15553`) |
 | `HERCULES_AUTO_ALLOCATE_PORTS` | Select a collision-free runtime port set for concurrent clients (default `true`) |
@@ -333,8 +359,8 @@ Runtime values remain in the protected `.env`. See
 Ask the active agent to compare current state with the read-only setup facts and
 image capability manifest before deleting or rebuilding anything. It should
 distinguish missing Git, `uv`, or Docker; a stopped or incompatible daemon; TLS
-trust failure; image-label mismatch; missing backend or asset; CloakBrowser or
-managed-Chromium failure; MCP startup failure; and client-registration failure.
+trust failure; unverified image identity; missing backend or asset; unsupported
+Obscura option; MCP startup failure; and client-registration failure.
 An unchanged package, checksum, or build-command failure is deterministic, not
 a reason for another blind retry or silently removing a capability. A registry
 EOF, connection reset, timeout, or retryable 5xx while pulling the pinned base
@@ -370,7 +396,7 @@ hercules/
 `-- resources/               # MCP resources and embedded lite scripts
 skills/hercules-mcp/         # Canonical provider-neutral portable skill
 docker/entrypoint.sh         # Container readiness and loopback-only services
-Dockerfile                   # Deterministic capability-specific Kali image
+Dockerfile                   # Full Kali/Obscura runtime with locked browser/toolbox assets
 install.md                   # Shared setup CLI workflow and recovery guide
 ```
 
@@ -405,7 +431,7 @@ Hercules builds on
 [ProjectDiscovery](https://projectdiscovery.io/),
 [SecLists](https://github.com/danielmiessler/SecLists),
 [agent-browser](https://github.com/vercel-labs/agent-browser), and
-[CloakBrowser](https://github.com/CloakHQ/cloakbrowser). Thank you to their
+[Obscura](https://github.com/h4ckf0r0day/obscura). Thank you to their
 maintainers and contributors.
 
 ## License

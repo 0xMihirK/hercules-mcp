@@ -1,0 +1,132 @@
+name: Full Kali runtime (manual, verified before publication)
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        type: choice
+        options: [linux/amd64, linux/arm64]
+        default: linux/amd64
+      publish:
+        type: boolean
+        default: false
+      dockerhub_repository:
+        description: Explicit owner/repository; required only for publication
+        type: string
+      ghcr_repository:
+        description: Explicit ghcr.io/owner/repository; required only for publication
+        type: string
+      licenses_reviewed:
+        description: Confirm redistribution review of the complete full-tool inventory
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  runtime:
+    runs-on: ${{ inputs.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    environment: runtime-release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      PLATFORM: ${{ inputs.platform }}
+      PUBLISH: ${{ inputs.publish }}
+      LICENSES_REVIEWED: ${{ inputs.licenses_reviewed }}
+      DOCKERHUB_REPOSITORY: ${{ inputs.dockerhub_repository }}
+      GHCR_REPOSITORY: ${{ inputs.ghcr_repository }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          python-version: '3.13'
+      - name: Validate explicit release destinations
+        run: |
+          python - <<'PY'
+          import os, re
+          if os.environ['PUBLISH'] == 'true':
+              assert os.environ['LICENSES_REVIEWED'] == 'true', 'Redistribution review is required'
+              assert re.fullmatch(r'[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*', os.environ['DOCKERHUB_REPOSITORY'])
+              assert re.fullmatch(r'ghcr.io/[a-z0-9][a-z0-9_-]*/[a-z0-9][a-z0-9._-]*', os.environ['GHCR_REPOSITORY'])
+          PY
+      - name: Locked host environment and unit checks
+        run: |
+          uv sync --locked --extra dev
+          uv run --locked pytest -q
+          uv run --locked python -m compileall -q hercules
+          uvx pip-audit --disable-pip --no-deps -r docker/python-toolbox.lock
+          git diff --check
+      - name: Build with disk guard and exact-owned builder cleanup
+        run: uv run --locked python scripts/build-runtime.py --platform "$PLATFORM" --output "$RUNNER_TEMP/runtime-build"
+      - name: Local Docker and STDIO acceptance (no external targets)
+        env:
+          HERCULES_RUN_DOCKER_ACCEPTANCE: '1'
+        run: |
+          export HERCULES_WORDLIST_ROOT="$GITHUB_WORKSPACE/wordlists"
+          uv run --locked python -I -m hercules.setup.runtime assets --facts "$RUNNER_TEMP/runtime-build/facts.json"
+          uv run --locked pytest tests/test_docker_acceptance.py tests/test_browser_acceptance.py -q -rs --junitxml="$RUNNER_TEMP/runtime-build/runtime-tests.xml"
+          python - <<'PY'
+          import os, xml.etree.ElementTree as ET
+          root = ET.parse(os.environ['RUNNER_TEMP']+'/runtime-build/runtime-tests.xml').getroot()
+          suites = list(root.iter('testsuite'))
+          assert suites and sum(int(s.get('tests',0)) for s in suites) >= 2
+          assert all(int(s.get('skipped',0)) == 0 for s in suites), 'Skipped runtime checks block publication'
+          PY
+      - name: Inventory and redistribution evidence
+        run: |
+          IMAGE=$(python -c 'import json,os; print(json.load(open(os.environ["RUNNER_TEMP"]+"/runtime-build/build.json"))["image"])')
+          docker run --rm --entrypoint /bin/sh "$IMAGE" -c 'cat /opt/hercules/packages.tsv; cat /opt/hercules/python-packages.json; cat /opt/hercules/browser-assets.json' > "$RUNNER_TEMP/runtime-build/inventory.txt"
+          docker image inspect "$IMAGE" > "$RUNNER_TEMP/runtime-build/image-inspect.json"
+          printf 'IMAGE=%s\n' "$IMAGE" >> "$GITHUB_ENV"
+      - name: Publish only the tested image
+        if: inputs.publish
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          test -n "$DOCKERHUB_USERNAME" && test -n "$DOCKERHUB_TOKEN"
+          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          SUFFIX=${PLATFORM#linux/}
+          for repository in "$DOCKERHUB_REPOSITORY" "$GHCR_REPOSITORY"; do
+            docker tag "$IMAGE" "$repository:$GITHUB_SHA-$SUFFIX"
+            docker push "$repository:$GITHUB_SHA-$SUFFIX"
+          done
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          report = pathlib.Path(os.environ['RUNNER_TEMP'])/'runtime-build'
+          facts = json.loads((report/'facts.json').read_text())
+          image = json.loads(subprocess.check_output(['docker','image','inspect',os.environ['IMAGE']]))[0]
+          refs = image['RepoDigests']
+          selected = [next(ref for ref in refs if ref.startswith(repo+'@')) for repo in (os.environ['DOCKERHUB_REPOSITORY'],os.environ['GHCR_REPOSITORY'])]
+          assert len({ref.rsplit('@',1)[1] for ref in selected}) == 1
+          entry = dict(fingerprint=facts['image']['fingerprint'],platform=os.environ['PLATFORM'],source_revision=os.environ['GITHUB_SHA'],references=selected)
+          (report/'catalog-entry.json').write_text(json.dumps(entry,indent=2)+'\n')
+          with open(os.environ['GITHUB_ENV'],'a') as env:
+              env.write('PUBLISHED_DIGEST='+selected[1].split('@')[1]+'\n')
+          PY
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        if: inputs.publish
+        with:
+          subject-name: ${{ inputs.ghcr_repository }}
+          subject-digest: ${{ env.PUBLISHED_DIGEST }}
+          push-to-registry: true
+      - name: Catalog update reminder (publishing does not make --image-source auto work yet)
+        if: inputs.publish
+        run: |
+          {
+            echo "## Published — one manual step remains";
+            echo "The image is pushed by digest, but \`--image-source auto\` reads";
+            echo "\`hercules/core/prebuilt_images.json\`, which is still empty.";
+            echo "Add this run's \`catalog-entry.json\` (in the uploaded artifact) to that";
+            echo "file's \`images\` array and release, or \`auto\` keeps requiring \`build\`.";
+            echo '```json'; cat "$RUNNER_TEMP/runtime-build/catalog-entry.json"; echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain build, inventory, and verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: full-kali-${{ runner.arch }}
+          path: ${{ runner.temp }}/runtime-build

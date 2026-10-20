@@ -131,7 +131,7 @@ export default function App() {
             <div className="hero-side">
               <p className="hero-lede">
                 Connect terminal-capable agents to {facts.catalog.full_tool_count}{" "}
-                structured offensive-security tools, CloakBrowser automation, and
+                structured offensive-security tools, Obscura automation, and
                 Metasploit RPC inside an explicitly started, session-owned Kali
                 Docker container—with bounded inline output and retained host
                 workspace evidence.

@@ -9,6 +9,26 @@ Use `hercules-setup`, not an agent-written installer or acceptance script.
 Configure **only the current agent**, unless the user explicitly names others.
 Never infer the active agent from installed executables.
 
+## Instructions for the installing agent
+
+The short README/website prompt delegates these requirements to this guide:
+
+1. Identify the current client explicitly. Run read-only `status`, explain the
+   proposed changes, then use the CLI for the authorized install/update or repair.
+2. Preserve existing preferences, secrets, scope, evidence, and other clients.
+   Offer full capabilities for a new installation; preserve existing selections.
+3. Keep host setup, runtime preparation, and container verification separate.
+   Ask before large runtime downloads or container tests; host setup starts no containers.
+4. If the harness denies an action, stop it and report the exact blocked operation.
+   Do not change permission modes, add approval rules/hooks, or retry through another tool.
+5. Use the CLI's recovery and exact-owned cleanup on success, failure, and interruption.
+   Keep the working version active while its replacement is pending.
+6. Use the single full Kali/Obscura image. Explain that CSP is not enforced and
+   native browser downloads are unsupported; never silently change engines.
+7. Report host revision, registration/reload, runtime preparation, actual verification,
+   cleanup/retained items, and one next action separately. Cold STDIO success is not
+   container verification or proof that the current client session loaded the server.
+
 ## Bootstrap once; reuse on updates
 
 Host installation requires Git and uv. Docker is required only for runtime
@@ -48,10 +68,13 @@ Examples abbreviate the absolute setup launcher as `hercules-setup`:
 | `install --client claude-code --yes` | Install/update/repair this client, with cold STDIO validation |
 | `repair --client claude-code --yes` | Repair the recorded version without upgrading |
 | `install --client claude-code --reinstall --yes` | Fresh replacement; retain the old checkout |
-| `runtime prepare --client claude-code --yes` | Explicit image build/reuse and verified asset downloads |
+| `runtime prepare --client claude-code --yes` | Reuse a verified full image or pull its published digest; provision verified assets |
+| `runtime prepare --client claude-code --image-source build --yes` | Explicit local full-image build for an unreleased revision or custom build trust |
+| `runtime prepare --client claude-code --image-source prebuilt --yes` | Use only a validated cache or trusted release digest; never build |
 | `resume --client claude-code --yes` | Recover unfinished writes and activate retained work when ready |
 | `verify --client claude-code` | Cold STDIO checks without execution-tool calls |
 | `verify --client claude-code --runtime` | Explicit local container start, harmless tools, and stop |
+| `verify --client claude-code --runtime --pending` | Test a staged replacement without replacing the active registration |
 | `install --client generic --yes` | Export a secret-free STDIO entry without editing a client |
 
 Use the same selectors on later commands. `--root` isolates managed storage and
@@ -174,7 +197,36 @@ A cold connection does not prove Kali is ready. `current_session_loaded: unknown
 means an MCP reload, new session, or IDE restart may still be needed.
 Do not reinstall merely to activate settings.
 
-Runtime images include the small SSH, unzip, and Python virtual-environment
+There is one full Kali/Obscura image, not a lean flavor. Capability preferences
+still control exposed tools. `auto` never silently builds after a registry
+failure or when no trusted digest is published. Build/download phases preserve
+an 8 GiB free-disk reserve; do not broadly prune Docker data to make room.
+
+The Obscura candidate remains under release verification. Its controller's domain
+allowlist leaked image and redirect requests, so protected browsing now requires
+a container-local firewall/gateway and an unprivileged engine on an isolated
+bridge. No host firewall is changed. Privileged shell access is outside this boundary.
+New browser installs select `bridge`; existing native-Linux host-network installs
+remain pending until `install --docker-network bridge` (or a named bridge) is
+explicitly selected. The override affects only this client's Hercules entry.
+
+After `runtime prepare`, use `verify --runtime --pending` to test a staged
+replacement without replacing the working registration, then `resume`. Proof is
+bound to source revision, immutable image ID, effective configuration and network;
+changed inputs require verification again. Host setup starts no containers and
+downloads no runtime assets. Never clear scope restrictions to make a check pass.
+Runtime verification reports its local-fixture overrides explicitly: it uses a
+disposable workspace and loopback target, disables preservation/privileged mode
+and external upstream proxies, and preserves the selected network. Passing it
+does not claim that an operator's external targets or upstream proxy were tested.
+
+Maintainers publish only through the manual runtime workflow after reviewing
+redistribution licenses and supplying explicit registry destinations. Review its
+`catalog-entry.json` artifact and add the tested source/platform/digest entry to
+`hercules/core/prebuilt_images.json` in a release. An empty catalog deliberately
+requires `--image-source build`; labels or a mutable registry tag are not trust.
+
+Runtime images include the small SSH, jq, unzip, and Python virtual-environment
 baseline. Image changes are prepared separately; an existing working client
 stays on its version until the candidate runtime is ready. Custom packages are
 installed only deliberately inside an explicitly started container through
@@ -188,6 +240,17 @@ absolute `hercules-workspace` launcher for explicit regular-file `import` and
 is mandatory and replacement requires `--overwrite`. Stop only the current
 owned runtime when work is complete, confirm its cleanup fields, and retain
 evidence. There is no idle auto-stop or broad cleanup.
+Container startup validates prepared wordlists without downloading/extracting;
+missing or invalid assets direct you to the explicit runtime preparation phase.
+
+The image contains pinned Obscura 0.2.5 and agent-browser 0.39.1 native binaries
+and matching skill files. CSP is **not enforced**; successful script execution
+cannot validate a Chromium CSP bypass. Native browser downloads, persistent
+controller profiles, custom browser CA flags, and proxy bypass are unsupported.
+Keep TLS checks enabled. Save direct HTTP files into a validated workspace and
+verify them; never claim a browser download succeeded merely because CDP acked.
+Use `/opt/hercules-python/bin/python` for the locked small Python toolbox;
+workspace-local virtual environments remain available for custom dependencies.
 
 `--json` emits one non-secret report on stdout; progress goes to stderr.
 Failed subprocess diagnostics stay in a private transaction log; the report
