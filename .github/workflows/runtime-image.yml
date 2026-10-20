@@ -37,8 +37,8 @@ jobs:
       DOCKERHUB_REPOSITORY: ${{ inputs.dockerhub_repository }}
       GHCR_REPOSITORY: ${{ inputs.ghcr_repository }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           python-version: '3.13'
       - name: Validate explicit release destinations
@@ -107,15 +107,26 @@ jobs:
           with open(os.environ['GITHUB_ENV'],'a') as env:
               env.write('PUBLISHED_DIGEST='+selected[1].split('@')[1]+'\n')
           PY
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         if: inputs.publish
         with:
           subject-name: ${{ inputs.ghcr_repository }}
           subject-digest: ${{ env.PUBLISHED_DIGEST }}
           push-to-registry: true
+      - name: Catalog update reminder (publishing does not make --image-source auto work yet)
+        if: inputs.publish
+        run: |
+          {
+            echo "## Published — one manual step remains";
+            echo "The image is pushed by digest, but \`--image-source auto\` reads";
+            echo "\`hercules/core/prebuilt_images.json\`, which is still empty.";
+            echo "Add this run's \`catalog-entry.json\` (in the uploaded artifact) to that";
+            echo "file's \`images\` array and release, or \`auto\` keeps requiring \`build\`.";
+            echo '```json'; cat "$RUNNER_TEMP/runtime-build/catalog-entry.json"; echo '```';
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Retain build, inventory, and verification evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: full-kali-${{ runner.arch }}
           path: ${{ runner.temp }}/runtime-build
