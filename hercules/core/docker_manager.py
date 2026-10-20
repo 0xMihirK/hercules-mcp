@@ -2875,6 +2875,13 @@ class DockerManager:
                 f"--sh-exec {shlex.quote(relay_target)} "
                 f">>{shlex.quote(log_path)} 2>&1 < /dev/null & "
                 "pid=$!; sleep 0.25; kill -0 \"$pid\" 2>/dev/null || exit 9; "
+                # Report ready only once the live-view backend actually accepts, so
+                # a host connect is relayed rather than reset (the listener alone
+                # being up is not enough on native Linux, where WSL timing hid it).
+                "ready=0; for _ in $(seq 1 50); do "
+                f"ncat -4 -z 127.0.0.1 {backend_port} 2>/dev/null && {{ ready=1; break; }}; "
+                "kill -0 \"$pid\" 2>/dev/null || exit 9; sleep 0.1; done; "
+                "[ \"$ready\" = 1 ] || { kill \"$pid\" 2>/dev/null; exit 12; }; "
                 f"ticks=$({_PROC_START_TICKS} /proc/\"$pid\"/stat) || exit 10; "
                 "pgid=$(ps -o pgid= -p \"$pid\" | tr -d ' ') || exit 11; "
                 "printf '%s %s %s\\n' \"$pid\" \"$pgid\" \"$ticks\""
