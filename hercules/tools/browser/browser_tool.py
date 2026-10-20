@@ -140,16 +140,16 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
     config = ctx.lifespan_context.get("config")
     try:
         await _resolve_obscura(docker)
-        # Per-session artifact dir must be writable by both the host (eval scripts
-        # written via the bind mount) and container-root (screenshots), so make it
-        # sticky-shared before either side writes into it on native Linux.
+        upstream = (launch_env or {}).get("HERCULES_BROWSER_UPSTREAM", _session_profiles.get(session, {}).get("proxy", getattr(config, "browser_proxy", "")))
+        proof = await docker.ensure_browser_boundary(proxy=upstream)
+        # Only after the boundary is ready: make the per-session artifact dir
+        # sticky-shared (1777) so the host (eval scripts via the bind mount) and
+        # container-root (screenshots) can both write into it on native Linux.
         session_dir = _session_dir(session)
         await docker.exec_command(
             f"mkdir -p {shlex.quote(session_dir)} && chmod 1777 {shlex.quote(session_dir)}",
             timeout=15, clean_output=False, require_ready=False,
         )
-        upstream = (launch_env or {}).get("HERCULES_BROWSER_UPSTREAM", _session_profiles.get(session, {}).get("proxy", getattr(config, "browser_proxy", "")))
-        proof = await docker.ensure_browser_boundary(proxy=upstream)
     except Exception as exc:
         return backend_unavailable(
             tool, f"Browser binary or network boundary is not ready: {exc}",
