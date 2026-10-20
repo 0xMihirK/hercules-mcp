@@ -36,7 +36,7 @@ def _browser_metadata(result: ToolResult, tool_name: str) -> ToolResult:
     if not tool_name.startswith("browser_") or not isinstance(result.structured_content, dict):
         return result
     payload = dict(result.structured_content)
-    payload.update(browser_backend="obscura", csp_enforced=False, native_browser_downloads=False, scope_enforced=payload.get("scope_enforced", False))
+    payload.update(browser_backend="obscura", csp_enforced=False, native_browser_downloads=False, boundary_enforced=payload.get("boundary_enforced", False))
     payload["warnings"] = [*payload.get("warnings", []), BROWSER_WARNING]
     annotated = ToolResult(structured_content=payload, meta=result.meta, is_error=result.is_error)
     annotated.content.extend(block for block in result.content if block.type != "text")

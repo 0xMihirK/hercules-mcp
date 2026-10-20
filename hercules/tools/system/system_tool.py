@@ -406,8 +406,8 @@ def register_system_tools(mcp: FastMCP) -> None:
             "browser_backend": "obscura",
             "browser_private_access_note": (
                 "The hostname above describes Docker networking, not Obscura compatibility. "
-                "Private/scoped browser access is blocked by an upstream request-filtering gap; "
-                "do not silently rewrite a hostname or weaken scope/TLS controls. CSP is not enforced."
+                "Private browser access is blocked by an upstream request-filtering gap; "
+                "do not silently rewrite a hostname or weaken TLS controls. CSP is not enforced."
             ),
             "browser_host_access_note": (
                 "Host networking shares the Docker engine host namespace."

@@ -341,7 +341,7 @@ print('raw-tls-ok')
                     killed_gateway = await call("shell_exec", command="python3 -c " + shlex.quote(gateway_kill))
                     assert killed_gateway["exit_code"] == 0, killed_gateway
                     fail_closed = await call("browser_eval", js="fetch('http://127.0.0.2:18080/forbidden')", session="alpha")
-                    assert fail_closed.get("exit_code", -1) != 0 and fail_closed.get("scope_enforced") is False, fail_closed
+                    assert fail_closed.get("exit_code", -1) != 0 and fail_closed.get("boundary_enforced") is False, fail_closed
                     assert (await call("shell_exec", command="test ! -s /opt/workspace/browser-check/forbidden-contacts.txt"))["exit_code"] == 0
                 killed = await call("shell_kill_job", job_id="browser-contract-fixture")
                 assert killed["confirmed"] is True, killed

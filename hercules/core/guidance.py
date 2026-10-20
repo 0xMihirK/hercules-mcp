@@ -128,7 +128,7 @@ TOOL_DESCRIPTIONS = {
     "network_curl": _desc(
         "Make HTTP requests with curl using methods, headers, cookies, data, redirects, and extra curl arguments.",
         "Manual web probing, proof collection, API testing, and exploit verification.",
-        "headers is a string: use a JSON object or newline-separated Name: value headers to preserve commas. Unambiguous legacy pairs remain accepted. URL scope is validated; redirects are restricted when scoped.",
+        "headers is a string: use a JSON object or newline-separated Name: value headers to preserve commas. Unambiguous legacy pairs remain accepted. The URL is validated; redirects are followed when follow_redirects is set.",
         "network_curl(url='http://host/path', method='POST', data='a=1', cookie='sid=1')",
     ),
     "network_hping3": _desc(
@@ -308,7 +308,7 @@ TOOL_DESCRIPTIONS = {
     "browser_open": _desc(
         "Open a URL in Obscura (CSP NOT enforced). Start a named session for JavaScript, interaction, and rendered evidence; not Chromium parity.",
         "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JavaScript-capable browser.",
-        "url is scope-validated and redirects are revalidated. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
+        "url is validated; the gateway independently refuses private/reserved destinations. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
         "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://host.docker.internal:8080')",
     ),
     "browser_snapshot": _desc(

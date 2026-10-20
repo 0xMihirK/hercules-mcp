@@ -793,7 +793,7 @@ def setup_information(
             "version": OBSCURA_VERSION, "controller_version": AGENT_BROWSER_VERSION,
             "assets": BROWSER_ASSETS[selected_platform],
             "csp_enforced": False, "native_browser_downloads": False,
-            "scope_enforced": False,
+            "boundary_enforced": False,
             "boundary": "unprivileged-engine + generation-owned inet firewall + validating SOCKS5 gateway",
             "boundary_readiness": "not_observed",
             "runtime_verification": "not_run",
@@ -886,7 +886,7 @@ def setup_information(
                 "remote_context_may_not_be_client_host": True,
                 "automatic_localhost_rewrite": False,
                 "container_local_acceptance_fixture_required": True,
-                "scoped_private_addresses_require_explicit_authorization": True,
+                "private_addresses_denied_unconditionally": True,
             },
             "abrupt_exit_guardian": {
                 "enabled_by_default": True,

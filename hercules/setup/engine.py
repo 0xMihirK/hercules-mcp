@@ -1104,7 +1104,7 @@ class Engine:
                     self.result.update(
                         host="prepared",
                         runtime_preparation="ready",
-                        next_action=("Image/assets are prepared, but browser activation remains blocked. Keep the working version; a verified scope-enforcement repair is required."
+                        next_action=("Image/assets are prepared, but browser activation remains blocked. Keep the working version; a verified browser-boundary repair is required."
                                      if facts.get("browser", {}).get("release_blockers")
                                      else "Run verify --runtime --pending before resuming a browser replacement; the working registration is unchanged."),
                     )

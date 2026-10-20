@@ -238,7 +238,7 @@ async def verify(
             if blockers:
                 return {"host": "passed", "runtime": "blocked", "checks": checks,
                         "blockers": blockers,
-                        "next_action": "Keep the working installation; wait for verified browser scope enforcement. Do not clear target restrictions."}
+                        "next_action": "Keep the working installation; wait for verified browser-boundary enforcement."}
             try:
                 cold = (
                     await client.call_tool(

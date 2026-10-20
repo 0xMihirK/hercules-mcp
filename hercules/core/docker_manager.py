@@ -2844,7 +2844,7 @@ class DockerManager:
         if result.exit_code != 0:
             raise RuntimeError("Browser gateway/firewall readiness failed; browsing remains blocked")
         proof = json.loads(result.stdout)
-        if proof.get("generation") != config["generation"] or proof.get("scope_enforced") is not True:
+        if proof.get("generation") != config["generation"] or proof.get("boundary_enforced") is not True:
             raise RuntimeError("Browser boundary returned stale or invalid readiness")
         return proof
 
@@ -2908,7 +2908,7 @@ class DockerManager:
             # rejects host networking), where Docker publishes to the container's bridge
             # IP, never its loopback — so a loopback bind is unreachable on native Linux
             # (docker-proxy accepts the host connection then RSTs). The host publish stays
-            # pinned to 127.0.0.1:stream_port, and the scope firewall governs only the
+            # pinned to 127.0.0.1:stream_port, and the browser egress firewall governs only the
             # engine UID, so binding all container interfaces widens nothing that matters.
             bind_host = _CONTAINER_ALL_INTERFACES
             relay_target = f"ncat -4 127.0.0.1 {backend_port}"
