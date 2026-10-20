@@ -2,7 +2,7 @@
 
 # Hercules MCP — Kali / Obscura runtime image
 
-[![GitHub](https://img.shields.io/badge/GitHub-0xMihirK%2Fhercules--mcp-181717?logo=github)](https://github.com/0xMihirK/hercules-mcp) ![platforms](https://img.shields.io/badge/platforms-amd64%20%7C%20arm64-2496ED?logo=docker&logoColor=white) ![base](https://img.shields.io/badge/base-Kali%20Linux-557C94?logo=kalilinux&logoColor=white) ![license](https://img.shields.io/badge/license-MIT-F57C00)
+[![GitHub 0xMihirK/hercules-mcp · platforms amd64/arm64 · base Kali Linux · license MIT](https://raw.githubusercontent.com/0xMihirK/hercules-mcp/main/assets/dockerhub-badges.svg)](https://github.com/0xMihirK/hercules-mcp)
 
 This is the container **runtime image** for **[Hercules MCP](https://github.com/0xMihirK/hercules-mcp)** — a Python FastMCP server that gives terminal-capable AI agents a structured [Model Context Protocol](https://modelcontextprotocol.io) interface to security tooling running inside an owned Kali Linux container.
 

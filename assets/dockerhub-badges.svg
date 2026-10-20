@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="614" height="22" viewBox="0 0 614 22" role="img" aria-label="badges">
+<style>text{font-family:Verdana,DejaVu Sans,Arial,sans-serif;font-size:11px;fill:#fff}</style>
+<g>
+<rect x="0" width="203" height="22" rx="4" fill="#24292e"/>
+<path d="M4,0 H55 V22 H4 a4,4 0 0 1 -4,-4 V4 a4,4 0 0 1 4,-4 z" fill="#555"/>
+<text x="28" y="15" text-anchor="middle">GitHub</text>
+<text x="129" y="15" text-anchor="middle">0xMihirK/hercules-mcp</text>
+</g>
+<g>
+<rect x="210" width="171" height="22" rx="4" fill="#2496ED"/>
+<path d="M214,0 H283 V22 H214 a4,4 0 0 1 -4,-4 V4 a4,4 0 0 1 4,-4 z" fill="#555"/>
+<text x="246" y="15" text-anchor="middle">platforms</text>
+<text x="332" y="15" text-anchor="middle">amd64 | arm64</text>
+</g>
+<g>
+<rect x="388" width="122" height="22" rx="4" fill="#557C94"/>
+<path d="M392,0 H430 V22 H392 a4,4 0 0 1 -4,-4 V4 a4,4 0 0 1 4,-4 z" fill="#555"/>
+<text x="409" y="15" text-anchor="middle">base</text>
+<text x="470" y="15" text-anchor="middle">Kali Linux</text>
+</g>
+<g>
+<rect x="517" width="97" height="22" rx="4" fill="#F57C00"/>
+<path d="M521,0 H578 V22 H521 a4,4 0 0 1 -4,-4 V4 a4,4 0 0 1 4,-4 z" fill="#555"/>
+<text x="548" y="15" text-anchor="middle">license</text>
+<text x="596" y="15" text-anchor="middle">MIT</text>
+</g>
+</svg>
