@@ -101,8 +101,13 @@ async def _resolve_obscura(docker) -> str:
     async with _backend_lock:
         if _backend_cache["resolved"]:
             return _backend_cache["path"]
+        # 1777 (sticky, like /tmp): the host MCP process writes artifacts here via
+        # the bind mount while container-root and the unprivileged engine (UID 19731,
+        # --clear-groups) also write. Without this, native-Linux bind mounts deny the
+        # host user writes into these container-root-created dirs (WSL masks it).
         directory = await docker.exec_command(
-            f"mkdir -p {_BROWSER_DIR} {_LOG_DIR}", timeout=15, clean_output=False,
+            f"mkdir -p {_BROWSER_DIR} {_LOG_DIR} && chmod 1777 {_BROWSER_DIR} {_LOG_DIR}",
+            timeout=15, clean_output=False,
         )
         if directory.exit_code != 0:
             raise BrowserBackendError("Browser workspace directories are not writable")
@@ -137,6 +142,14 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
         await _resolve_obscura(docker)
         upstream = (launch_env or {}).get("HERCULES_BROWSER_UPSTREAM", _session_profiles.get(session, {}).get("proxy", getattr(config, "browser_proxy", "")))
         proof = await docker.ensure_browser_boundary(proxy=upstream)
+        # Only after the boundary is ready: make the per-session artifact dir
+        # sticky-shared (1777) so the host (eval scripts via the bind mount) and
+        # container-root (screenshots) can both write into it on native Linux.
+        session_dir = _session_dir(session)
+        await docker.exec_command(
+            f"mkdir -p {shlex.quote(session_dir)} && chmod 1777 {shlex.quote(session_dir)}",
+            timeout=15, clean_output=False, require_ready=False,
+        )
     except Exception as exc:
         return backend_unavailable(
             tool, f"Browser binary or network boundary is not ready: {exc}",
