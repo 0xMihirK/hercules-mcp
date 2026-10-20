@@ -116,7 +116,7 @@ def test_backend_has_no_fallback_and_resets_by_generation():
     async def scenario():
         browser_tool.reset_browser_runtime_state()
         manager = SimpleNamespace(generation=999, exec_command=AsyncMock(return_value=ExecResult(0, "obscura 0.2.5", "", 0, "check")))
-        manager.ensure_browser_boundary = AsyncMock(return_value={"proxy": "socks5h://token:x@127.0.0.1:12345", "scope_enforced": True})
+        manager.ensure_browser_boundary = AsyncMock(return_value={"proxy": "socks5h://token:x@127.0.0.1:12345", "boundary_enforced": True})
         ctx = SimpleNamespace(lifespan_context={"docker": manager, "concurrency": ConcurrencyManager()})
         prepared = await browser_tool._backend(ctx, "browser_open")
         assert prepared[2]["AGENT_BROWSER_ENGINE"] == "obscura"

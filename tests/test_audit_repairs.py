@@ -947,3 +947,26 @@ def test_exec_aborts_on_session_rotation_but_not_recovery(runtime):
             await manager.operator_stop()
 
     asyncio.run(scenario())
+
+
+def test_ssrf_deny_covers_cgnat_and_benchmarking(monkeypatch):
+    # Hardening: the browser private-IP deny must also refuse CGNAT shared space
+    # (100.64.0.0/10) and the benchmarking range (198.18.0.0/15), which the
+    # stdlib's is_private/is_reserved do not flag consistently across versions.
+    from hercules.core import target_policy
+
+    mapping = {
+        "cgnat.test": "100.64.0.1",
+        "bench.test": "198.18.0.1",
+        "public.test": "93.184.216.34",
+    }
+    monkeypatch.setattr(
+        target_policy.socket,
+        "getaddrinfo",
+        lambda host, port, *a, **k: [(0, 0, 0, "", (mapping[host], port))],
+    )
+    policy = target_policy.TargetPolicy()
+    for denied in ("cgnat.test", "bench.test"):
+        with pytest.raises(ValueError, match="private"):
+            policy.resolve_destination(denied, 80)
+    assert policy.resolve_destination("public.test", 80) == ["93.184.216.34"]

@@ -203,7 +203,7 @@ class Gateway:
                     await self.protect(int(port))
                 token = next((k for k, v in self.tokens.items() if v == proxy), None) or secrets.token_hex(24)
                 self.tokens[token] = proxy
-                result = {"proxy": f"socks5h://{token}:x@127.0.0.1:{self.port}", "generation": self.config["generation"], "scope_enforced": True}
+                result = {"proxy": f"socks5h://{token}:x@127.0.0.1:{self.port}", "generation": self.config["generation"], "boundary_enforced": True}
             elif request["op"] == "protect":
                 port = int(request["port"])
                 await self.protect(port)

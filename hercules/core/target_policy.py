@@ -118,6 +118,15 @@ def _extract_host(target: str) -> str:
     return _normalize_hostname(clean)
 
 
+# Ranges the stdlib's is_private/is_reserved do not consistently flag across
+# Python versions but which must never be a browser destination: carrier-grade
+# NAT shared space (RFC 6598) and the IETF benchmarking range (RFC 2544).
+_EXTRA_DENY_NETWORKS = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("198.18.0.0/15"),
+)
+
+
 def _is_special_address(value: str) -> bool:
     address = ipaddress.ip_address(value)
     return any(
@@ -129,4 +138,7 @@ def _is_special_address(value: str) -> bool:
             address.is_reserved,
             address.is_unspecified,
         )
+    ) or any(
+        address.version == net.version and address in net
+        for net in _EXTRA_DENY_NETWORKS
     )

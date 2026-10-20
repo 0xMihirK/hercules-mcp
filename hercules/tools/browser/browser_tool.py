@@ -233,7 +233,7 @@ def _session_dir(session: str) -> str:
 
 def _browser_result(tool: str, session: str, result, *, json_out: bool) -> dict:
     """Normalize agent-browser JSON without returning the same payload twice."""
-    response = {"tool": tool, "session": session, "scope_enforced": True, **result.to_dict()}
+    response = {"tool": tool, "session": session, "boundary_enforced": True, **result.to_dict()}
     if not json_out or result.exit_code != 0 or not result.stdout.strip():
         return response
     try:
@@ -622,7 +622,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             json_out=False, env=env, bucket="browser_screenshot", timeout=90,
         )
         response = {
-            "tool": "browser_screenshot", "session": session_key, "path": out_path, "scope_enforced": True,
+            "tool": "browser_screenshot", "session": session_key, "path": out_path, "boundary_enforced": True,
             "mime_type": "image/png", "annotated": annotate,
             **result.to_dict(),
         }
@@ -693,7 +693,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 )
             except Exception:
                 logger.warning("Failed to remove browser eval script: %s", script_path)
-        return {"tool": "browser_eval", "session": session, "scope_enforced": True, **result.to_dict()}
+        return {"tool": "browser_eval", "session": session, "boundary_enforced": True, **result.to_dict()}
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["browser_wait"])
     async def browser_wait(
@@ -990,7 +990,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         return {
             "tool": "browser_cmd",
             "session": session_key,
-            "scope_enforced": True,
+            "boundary_enforced": True,
             "args": escape_display_controls(redact_secrets(args)),
             **result.to_dict(),
         }
