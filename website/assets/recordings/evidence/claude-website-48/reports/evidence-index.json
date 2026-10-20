@@ -1,0 +1,42 @@
+[
+  {
+    "path": "artifacts/backup-404.html",
+    "bytes": 233,
+    "sha256": "c7d15f02ccfa826467891e2651d528f22d6502dcf751ad81e9c160beaa607d4e"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "d2cac9983ca28ed4d01a58e7fbf0d2785721d069ff7886435ef36b1161414b67"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/agent-browser_raw_20261011_130312_618125.txt",
+    "bytes": 107410,
+    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+  },
+  {
+    "path": "logs/agent-browser_stdout_20261011_130315_692905.txt",
+    "bytes": 107350,
+    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+  },
+  {
+    "path": "logs/exec_raw_20261011_130222_038381.txt",
+    "bytes": 1881,
+    "sha256": "e2bcb7a8bf10e9a5ef85075f9bd01b7002028b50c2572788face4f0915e21afd"
+  },
+  {
+    "path": "logs/nuclei_raw_20261011_130252_710123.txt",
+    "bytes": 845,
+    "sha256": "dc5d1ddef257af143e2ea9a907219f1a63bd49329e52c51b69629b8175b019be"
+  },
+  {
+    "path": "reports/website.md",
+    "bytes": 9695,
+    "sha256": "5116098d9885a00f592d7c709dba92280d4057d2d54a2db9cf44b07e0a015866"
+  }
+]

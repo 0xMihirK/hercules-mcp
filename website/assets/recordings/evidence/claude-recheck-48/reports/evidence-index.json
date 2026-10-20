@@ -1,0 +1,42 @@
+[
+  {
+    "path": "artifacts/after.txt",
+    "bytes": 276,
+    "sha256": "05619c00ca2c30ae59f8eb4bc190d067ebaac6509bcd8d0273d9dd5ba4a54ca3"
+  },
+  {
+    "path": "artifacts/before.txt",
+    "bytes": 250,
+    "sha256": "d15062f40e0f9a9a668c5427d91c0359b9bfef1840a35c4841d54210b976b49e"
+  },
+  {
+    "path": "artifacts/change.txt",
+    "bytes": 281,
+    "sha256": "4c941f0abeaeac1ce4f7028f8fb6e6cd4106c6427122ccb2b12efa4cbcffeb8e"
+  },
+  {
+    "path": "artifacts/comparison.json",
+    "bytes": 102,
+    "sha256": "561a416005e801ece0f1827aaa7078587bd2392a053edc3de3b52a4800ed158d"
+  },
+  {
+    "path": "artifacts/recheck-health.txt",
+    "bytes": 297,
+    "sha256": "b39ac5517e25b8188f941281b7946a97e98c75694e843b7e4c94031659589e3a"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "54796a40043f9fb51e93755d2be5e080edf211a8a7744a794d057451a004daf2"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "reports/recheck.md",
+    "bytes": 5878,
+    "sha256": "ae662b2942cf8b9f9867ea5a8e59f9808b1b4d112fed07e8b11b45313592c9a2"
+  }
+]

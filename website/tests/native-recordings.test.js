@@ -1,0 +1,112 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { parseRecording } from "../src/recording.js";
+const root=new URL(process.env.HERCULES_NATIVE_ASSET_ROOT || "../assets/recordings/",import.meta.url);
+const versions={claude:"2.1.289",codex:"0.160.1",opencode:"1.18.35",hermes:"0.21.5"};
+const hash=bytes=>createHash("sha256").update(bytes).digest("hex");
+const manifest=async()=>JSON.parse(await readFile(new URL("manifest.json",root),"utf8"));
+
+async function originalRecording(r){
+  const a=r.recordingArchive;if(!a)return readFile(new URL(r.file,root));
+  assert.equal(a.format,"zip-deflate");assert.equal(a.payloadFile,r.file);assert.equal(a.payloadSha256,r.sha256);
+  const archive=new URL(a.file,root);assert.equal(hash(await readFile(archive)),a.sha256);
+  const child=spawnSync("python",["-c","import sys,zipfile; z=zipfile.ZipFile(sys.argv[1]); assert z.namelist()==[sys.argv[2]]; sys.stdout.buffer.write(z.read(sys.argv[2]))",fileURLToPath(archive),r.file],{maxBuffer:64*1024*1024});
+  assert.equal(child.status,0,child.stderr?.toString());assert.equal(child.stdout.length,a.payloadBytes);
+  return child.stdout;
+}
+
+function imageFormat(bytes,file){
+  const png=bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  const jpeg=bytes.subarray(0,3).equals(Buffer.from([255,216,255]));
+  assert.ok(png || jpeg,"actual browser screenshot signature");
+  assert.ok(file.endsWith(png ? ".png" : ".jpg"),"extension matches preserved capture bytes");
+}
+
+
+test("120 sessions preserve pinned clients, bytes and real-tool provenance",async()=>{
+  const m=await manifest();assert.equal(m.schemaVersion,3);assert.equal(m.developmentOnly,false);
+  assert.equal(m.nativeUI,true);assert.equal(m.realTools,true);assert.equal(m.scriptedModel,true);assert.equal(m.scriptedToolResults,false);
+  assert.equal(m.accountAccess,false);assert.equal(m.externalNetwork,false);assert.equal(m.captureSpeed,1);assert.equal(m.playbackSpeed,2.5);
+  const catalog=await readFile(new URL("../capture/lab-cases.json",import.meta.url),"utf8");assert.equal(hash(catalog.replace(/\r\n/g,"\n")),m.caseCatalogSha256);
+  assert.equal(Object.keys(m.cases).length,10);assert.equal(m.recordings.length,120);const seen=new Set();
+  for(const r of m.recordings){
+    const bytes=await originalRecording(r),source=parseRecording(bytes.toString("utf8"));
+    assert.equal(hash(bytes),r.sha256,r.file);assert.equal(r.version,versions[r.client]);assert.equal(source.header.clientVersion,r.version);
+    assert.equal(hash(await readFile(new URL(r.rawAnsi,root))),r.rawAnsiSha256,"untouched native ANSI bytes");
+    assert.equal(source.header.realTools,true);assert.equal(source.header.fixture,false);assert.ok([48,80,120].includes(r.columns));
+    assert.deepEqual([source.header.width,source.header.height],[r.columns,r.columns===120 && r.client!=="claude"?36:28]);assert.ok(source.events.length>10);
+    assert.ok(r.displayStart>=0 && r.displayStart<r.chapters.query);assert.ok(r.pixels.pixelExact);
+    assert.ok(r.duration>=r.chapters.report+6,"six-second completion hold");assert.ok(r.tools.length>=8 && r.tools.length<=16);
+    assert.equal(r.tools[0],"system_start_container");assert.equal(r.tools.at(-1),"system_stop_container");assert.ok(r.tools.includes("workspace_write_file"));
+    assert.equal(hash(await readFile(new URL(r.transcript,root))),r.transcriptSha256);
+    const still=await readFile(new URL(r.still,root));assert.equal(hash(still),r.stillSha256);imageFormat(still,r.still);
+    assert.ok(r.stillAt>=r.displayStart);assert.match(r.stillRenderer,/Independent XTerm/);assert.ok(r.synchronized.every(f=>!f.scriptedObservation && f.at<=r.duration));
+    const completed=await readFile(new URL(r.completedStill,root));assert.equal(hash(completed),r.completedStillSha256);imageFormat(completed,r.completedStill);assert.ok(r.completedStillAt>=r.duration-1 && r.completedStillAt<=r.duration);
+    const report=await readFile(new URL(r.report,root),"utf8");assert.match(report,/Verified observations/);assert.match(report,/scripted/);assert.match(report,/No public target/);
+    assert.ok(r.artifacts.every(a=>a.availableAt>=0 && a.availableAt<=r.duration));
+    const key=`${r.client}/${r.scenario}/${r.columns}`;assert.ok(!seen.has(key));seen.add(key);
+  }
+  for(const client of Object.keys(versions))for(const scenario of Object.keys(m.cases))for(const cols of [120,80,48])assert.ok(seen.has(`${client}/${scenario}/${cols}`));
+});
+
+test("public evidence hashes and CTF checksums match actual artifacts",async()=>{
+  const m=await manifest(),checked=new Set();
+  for(const r of m.recordings){
+    for(const a of r.artifacts){if(checked.has(a.file))continue;const bytes=await readFile(new URL(a.file,root));assert.equal(bytes.length,a.bytes);assert.equal(hash(bytes),a.sha256,a.file);checked.add(a.file);}
+    if(r.tools.includes("browser_screenshot")){
+      const screenshots=r.artifacts.filter(a=>a.path.startsWith("browser/") && /\.(png|jpg)$/.test(a.file));
+      assert.ok(screenshots.length,r.file+" retains actual browser screenshots for download");
+      for(const a of screenshots)imageFormat(await readFile(new URL(a.file,root)),a.file);
+    }
+    if(r.scenario==="forensics"){const a=r.artifacts.find(a=>a.path==="artifacts/forensics/verification.json"),proof=JSON.parse(await readFile(new URL(a.file,root),"utf8"));assert.equal(proof.checksum_match,true);assert.equal(proof.decoy_match,false);assert.equal(hash(proof.flag),proof.sha256);}
+    for(const metric of r.metrics){assert.equal(metric.rawTokenEstimate,Math.ceil(metric.rawCharacters/4));assert.equal(metric.inlineTokenEstimate,Math.ceil(metric.inlineResponseCharacters/4));assert.equal(metric.characterReduction,metric.rawCharacters ? Math.round(1000*(1-metric.inlineResponseCharacters/metric.rawCharacters))/10 : 0);}
+  }
+});
+
+test("independent graphical capture atlases reproduce canonical native RGB pixels",async()=>{
+  const m=await manifest();
+  // Native bitmap allocations are released by process exit. Give each capture
+  // an isolated comparison process so a 120-session audit has bounded memory.
+  const selected=process.env.HERCULES_NATIVE_FILE;
+  if(!selected){
+    for(const r of m.recordings){
+      const environment={...process.env,HERCULES_NATIVE_FILE:r.file};
+      // A nested runner must not inherit Node's worker/IPC test context.
+      delete environment.NODE_TEST_CONTEXT;
+      const child=spawnSync(process.execPath,["--test","--test-name-pattern=independent graphical",import.meta.filename],{env:environment,encoding:"utf8",maxBuffer:1024*1024});
+      assert.equal(child.status,0,r.file+"\n"+child.stdout+child.stderr);
+      assert.match(child.stdout,/independent graphical capture atlases reproduce canonical native RGB pixels/,r.file+" comparison actually ran");
+    }
+    return;
+  }
+  assert.ok(m.recordings.some(r=>r.file===selected),"selected capture exists in the manifest");
+  for(const r of m.recordings.filter(r=>r.file===selected)){
+    const url=new URL(r.pixels.index,root),bytes=await readFile(url);assert.equal(hash(bytes),r.pixels.indexSha256);
+    const index=JSON.parse(bytes);assert.equal(index.schemaVersion,3);assert.equal(index.fps,60);
+    assert.equal(index.profile.version,r.version);assert.equal(index.width,r.pixels.width);assert.equal(index.height,r.pixels.height);
+    assert.equal(index.verification.pixelExact,true);assert.equal(index.verification.comparedChangedFrames,index.frames.length);
+    assert.ok(index.frames.every((f,i)=>i===0 || f.at>=index.frames[i-1].at));
+    for(const sheet of index.sheets)assert.equal(hash(await readFile(new URL(sheet.file,url))),sheet.sha256);
+    const canvas=createCanvas(index.width,index.height),context=canvas.getContext("2d"),images=new Map();
+    for(const label of ["startup","nativeIntro","mcp","details","investigation","report","completed"]){
+      const review=index.reviewFrames[label];assert.ok(review,r.file+" native "+label+" frame exists");
+      const target=index.frames.findLastIndex(f=>f.at<=review.at);
+      let first=target;while(first>0 && !index.frames[first].keyframe)first--;
+      for(let i=first;i<=target;i++)for(const [sheet,sx,sy,w,h,dx,dy] of index.frames[i].patches){
+        if(!images.has(sheet))images.set(sheet,await loadImage(await readFile(new URL(index.sheets[sheet].file,url))));
+        context.drawImage(images.get(sheet),sx,sy,w,h,dx,dy,w,h);
+      }
+      const rgba=context.getImageData(0,0,index.width,index.height).data,rgb=Buffer.alloc(index.width*index.height*3);
+      for(let i=0,j=0;i<rgba.length;i+=4){rgb[j++]=rgba[i];rgb[j++]=rgba[i+1];rgb[j++]=rgba[i+2];}
+      assert.equal(hash(rgb),index.frames[target].sha256,r.file+" "+label);
+      const native=await loadImage(await readFile(new URL(review.file,url))),independent=createCanvas(index.width,index.height);
+      independent.getContext("2d").drawImage(native,0,0);
+      assert.equal(hash(context.getImageData(0,0,index.width,index.height).data),hash(independent.getContext("2d").getImageData(0,0,index.width,index.height).data),r.file+" independently captured "+label);
+    }
+  }
+});

@@ -1,0 +1,10 @@
+import {readFile} from 'node:fs/promises';
+import xterm from '@xterm/xterm';
+import {parseRecording, RecordingCursor} from '../src/recording.js';
+const recording = parseRecording(await readFile(process.argv[2], 'utf8'));
+const time = Number(process.argv[3] ?? recording.duration);
+const terminal = new xterm.Terminal({cols:recording.header.width,rows:recording.header.height,scrollback:0,convertEol:false});
+await new Promise(resolve=>terminal.write(new RecordingCursor(recording).drain(time),resolve));
+console.log(`${recording.header.title} at ${time}s (${terminal.cols}×${terminal.rows})`);
+for(let y=0;y<terminal.rows;y++) console.log(terminal.buffer.active.getLine(terminal.buffer.active.viewportY+y).translateToString(true));
+terminal.dispose();

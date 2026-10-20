@@ -1,0 +1,37 @@
+[
+  {
+    "path": "artifacts/current-debug.txt",
+    "bytes": 250,
+    "sha256": "1e2725a522422f0685714c364f46ef30f73f41fca3ef3d3e2264856d73afa0da"
+  },
+  {
+    "path": "artifacts/health.txt",
+    "bytes": 196,
+    "sha256": "f37d390d68d1477ceff7ed807f8e241588c7aec97aba9f921946acdd8e98f8b1"
+  },
+  {
+    "path": "artifacts/reconciled.json",
+    "bytes": 120,
+    "sha256": "df4fe545efb914371fe7b466cb3114ed98b803906d501fa40659d5fc06deebad"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "1b896809b3471b81d57fa0a0b9f312eaab83c391fbdd434b182423ed6630cea2"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/exec_raw_20261011_142550_648004.txt",
+    "bytes": 1703,
+    "sha256": "9ee1096a28080daedf0fa0f8f6e773617e7ba5c32c9c238b2165baae00eb16af"
+  },
+  {
+    "path": "reports/reporting.md",
+    "bytes": 7381,
+    "sha256": "072d7da06b0cafa36176c139c46a0cd396d8197fb8fc375636577c608751a259"
+  }
+]

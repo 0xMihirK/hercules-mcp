@@ -1,0 +1,85 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment & Caches
+.env
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.claude/
+
+# Hercules runtime
+resources_cache/
+workspace/
+.hercules.lock
+.hercules/
+AGENTS.md
+CLAUDE.md
+
+# Agent / CI (local-only, not committed)
+.github/
+.claude/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wordlists
+wordlists/rockyou.txt.tar.gz
+wordlists/SecLists.zip
+wordlists/
+
+# Extensions
+hercules-extension/
+
+# Unused directories
+docs/
+
+# Type / coverage caches
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Backups, scratch & preview artifacts
+*.bak
+*.orig
+*.tmp
+# pytest-textual-snapshot failure report
+snapshot_report.html
+# Scratch render images at the repo root (real assets live in assets/)
+/*.png
+/*.svg
+
+# Only the public showcase workflow is tracked; other local CI files stay private.
+!.github/
+.github/*
+!.github/workflows/
+.github/workflows/*
+!.github/workflows/pages.yml
+!.github/workflows/runtime-image.yml
+
+# Website dependencies and generated public/build output
+artifacts/runtime-probes/
+website/node_modules/
+website/public/
+website/dist/
+website/test-results/
+website/capture/hercules-surface.json
+website/src/bootstrap.json
+# site-facts.json is COMMITTED on the website branch: it is the catalog + install
+# prompt the decoupled build reuses when the Hercules source is absent. The
+# main-branch site-sync workflow refreshes it.
+!website/src/site-facts.json

@@ -1,0 +1,10 @@
+{
+  "font": {"family": "Cascadia Mono", "release": "2407.24", "size": 14, "fallback": {"family":"Noto Sans Symbols2", "package":"fonts-noto-core", "version":"20201225-1", "file":"/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf", "sha256":"876598db5f1e3bef2bc77c4d94c5b0d5d2c1620be4878a06f18fb5434e331688"},"emojiFallback":{"family":"Noto Color Emoji","package":"fonts-noto-color-emoji","version":"2.042-0+deb12u1","file":"/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf","sha256":"e5899ed38b8ed83e08bd3ac5de09791e9d19d288333a796de1d35ad17396f1ec"}},
+  "terminal": {"emulator": "XTerm", "version":"XTerm(379)", "foreground": "#ffffff", "background": "#000000", "scaleHeight": 1.0, "fps": 60},
+  "clients": {
+    "claude": {"version": "2.1.289", "renderer": "native full-screen conversation", "theme": "dark", "model": "claude-opus-5-5", "permissionMode": "auto", "geometries": [[120,28],[80,28],[48,28]]},
+    "codex": {"version": "0.160.1", "renderer": "native default", "theme": "native dark", "model": "gpt-6-sol", "permissionMode": "on-request", "geometries": [[120,36],[80,28],[48,28]]},
+    "opencode": {"version": "1.18.35", "renderer": "native default", "theme": "native dark", "model": "fixture/capture-demo", "permissionMode": "native default", "geometries": [[120,36],[80,28],[48,28]]},
+    "hermes": {"version": "0.21.5", "renderer": "modern TUI", "theme": "native dark", "model": "capture-demo", "permissionMode": "native default", "geometries": [[120,36],[80,28],[48,28]]}
+  }
+}

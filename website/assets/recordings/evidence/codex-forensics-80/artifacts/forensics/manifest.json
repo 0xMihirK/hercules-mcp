@@ -1,0 +1,8 @@
+{
+  "flag_sha256": "857ac4783c125b64d0201818c5b1709812c211f8892343241222e8cbeae0a909",
+  "cipher": "AES-256-CBC",
+  "kdf": "PBKDF2",
+  "iterations": 10000,
+  "compression": "zlib",
+  "password_rule": "Join the three route fragments from the capture with hyphens, in packet order."
+}

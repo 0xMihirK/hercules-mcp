@@ -1,0 +1,41 @@
+{
+  "pfx": {
+    "bloom": { "enabled": false, "intensity": 25 },
+    "glitch": { "enabled": false, "intensity": 20 },
+    "filmDust": { "enabled": false, "intensity": 20 },
+    "halftone": { "enabled": true, "intensity": 30 },
+    "pixelate": { "enabled": false, "intensity": 15 },
+    "vignette": { "enabled": false, "intensity": 38 },
+    "chromatic": { "enabled": false, "intensity": 15 },
+    "filmGrain": { "enabled": false, "intensity": 30 },
+    "scanLines": { "enabled": false, "intensity": 40 }
+  },
+  "mask": { "tool": "freehand", "invert": false, "shapes": [], "dataUrl": null, "enabled": false, "brushSize": 30, "showOverlay": false },
+  "tint": "#3ca6ff", "bgBlur": 12, "bgMode": "none", "invert": false,
+  "lights": { "points": [], "enabled": false },
+  "charSet": "standard", "density": 0, "animated": true,
+  "blurType": "off", "cellSize": 8, "contrast": 150, "coverage": 100,
+  "animSpeed": { "enabled": true, "intensity": 100 },
+  "animStyle": "shimmer", "bgOpacity": 90, "blurAngle": 0,
+  "grayscale": 100, "lensFocus": 40, "tiltFocus": 35,
+  "toneCurve": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+  "blurAmount": 35, "brightness": 0, "renderMode": "hatch",
+  "saturation": 0, "styleBlend": "source-over",
+  "blurCenterX": 50, "blurCenterY": 50, "customChars": "",
+  "tiltFeather": 15, "tintOpacity": 0, "edgeEmphasis": 0,
+  "overlayBlend": "multiply",
+  "shaderSource": {
+    "hue": 0, "blur": 0, "seed": 1, "warp": 37, "zoom": 100,
+    "drift": 0, "grain": 12, "oklab": false, "speed": 40,
+    "colors": ["#03120E", "#0E7C5A", "#7CE577", "#F4FFC7"],
+    "detail": 50, "paramA": 50, "preset": "smoke", "rotate": 0,
+    "offsetX": 0, "offsetY": 0, "animated": true, "contrast": 53,
+    "vignette": 0, "intensity": 47, "brightness": 50,
+    "customCode": null, "saturation": 50, "cursorEffect": "spotlight",
+    "cursorRadius": 50, "motionReverse": false,
+    "mouseReactive": true, "cursorStrength": 65
+  },
+  "tiltPosition": 50, "animIntensity": { "enabled": true, "intensity": 60 },
+  "progressiveReverse": false, "progressivePosition": 55,
+  "directionalBothSides": false
+}

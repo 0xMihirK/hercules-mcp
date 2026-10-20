@@ -1,0 +1,42 @@
+[
+  {
+    "path": "artifacts/redirect.txt",
+    "bytes": 247,
+    "sha256": "0fdedef33a3e064d50b0624eee5347ae8d9ef96dee2f7fcce6d2578c72701e00"
+  },
+  {
+    "path": "artifacts/tls-login.html",
+    "bytes": 733,
+    "sha256": "87ca27262e70165d700183d53bc1af4d8fdd212ed4f1029d956e27130d2b574d"
+  },
+  {
+    "path": "artifacts/tls.txt",
+    "bytes": 3604,
+    "sha256": "d6833d36da07d2660838263fc3991704cd892219567d3a05bcd504b47ac941ff"
+  },
+  {
+    "path": "challenge/carrier.png",
+    "bytes": 855,
+    "sha256": "d929c62f3cf3d7d567807071550792db39f2fea1af54b88e156ca838040e19f3"
+  },
+  {
+    "path": "challenge/route.pcap",
+    "bytes": 398,
+    "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
+  },
+  {
+    "path": "logs/agent-browser_raw_20261011_164813_837689.txt",
+    "bytes": 107410,
+    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+  },
+  {
+    "path": "logs/agent-browser_stdout_20261011_164816_891326.txt",
+    "bytes": 107350,
+    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+  },
+  {
+    "path": "reports/tls.md",
+    "bytes": 9650,
+    "sha256": "b27d09cd37b6097eb777a2830a8ced7775e17a767e5b32a7f74fbc07581a59ea"
+  }
+]
