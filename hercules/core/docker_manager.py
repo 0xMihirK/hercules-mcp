@@ -2361,7 +2361,19 @@ class DockerManager:
                 stream_meta,
             ) = await _run_once()
         except Exception as exc:
-            if require_ready and expected_generation is None and _recoverable_docker_error(exc):
+            # A session-rotation abort re-raises cleanly rather than triggering a
+            # (pointless) recovery: the command must not run in the rotated session,
+            # and recovery during an operator stop would mask the clean error.
+            session_rotated = (
+                abort_if_session_changed is not None
+                and self._session_id != abort_if_session_changed
+            )
+            if (
+                require_ready
+                and expected_generation is None
+                and _recoverable_docker_error(exc)
+                and not session_rotated
+            ):
                 recovery_meta = await self._recover_container(str(exc))
                 await self._ensure_container_running()
                 await self.ensure_ready()
