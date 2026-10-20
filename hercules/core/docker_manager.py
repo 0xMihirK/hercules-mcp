@@ -2152,8 +2152,14 @@ class DockerManager:
             control_dir = "/run/hercules/exec"
             pid_path = f"{control_dir}/{exec_token}.pgid"
             marker = f"hercules-exec-{exec_token}"
+            # 022, not 077: the container runs as root but the host MCP process
+            # (which exports evidence and reads job pid/log files via the bind
+            # mount) is non-root, so root-owned 0o600 files are unreadable to it on
+            # native Linux. Workspace confidentiality is enforced by the 0o700
+            # session directory (which also blocks the unprivileged browser engine),
+            # not by per-file bits, so 0o644 files stay private while host-readable.
             managed_command = (
-                f"umask 077; mkdir -p {shlex.quote(control_dir)}; "
+                f"umask 022; mkdir -p {shlex.quote(control_dir)}; "
                 f"setsid bash -c {shlex.quote(cmd)} {shlex.quote(marker)} & "
                 f"child=$!; printf '%s\\n' \"$child\" > {shlex.quote(pid_path)}; "
                 'wait "$child"'
