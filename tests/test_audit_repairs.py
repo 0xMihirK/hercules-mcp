@@ -21,7 +21,7 @@ from test_lifecycle_regressions import runtime as lifecycle_runtime
 from hercules.core.concurrency import ConcurrencyManager
 from hercules.core.config import HerculesConfig
 from hercules.core.config_io import read_dotenv_value, render_dotenv
-from hercules.core.docker_manager import DockerManager, ExecResult, RuntimeNotStarted
+from hercules.core.docker_manager import ContainerUnavailable, DockerManager, ExecResult, RuntimeNotStarted
 from hercules.core.instance_lock import workspace_lock
 from hercules.core.workspace import WorkspaceManager
 from hercules.output.sanitizer import render_terminal_result
@@ -924,3 +924,26 @@ def test_listener_reachability_warning_flags_unforwarded_and_udp():
     # Host networking forwards everything, so there is nothing to warn about.
     host = SimpleNamespace(network_mode="host", listener_ports=(4444,))
     assert listener_reachability_warning(host, 9001) == ""
+
+
+def test_exec_aborts_on_session_rotation_but_not_recovery(runtime):
+    # #4: abort_if_session_changed aborts cleanly when the pinned session no longer
+    # matches (system_stop/new_session rotated it between write and exec), without
+    # disabling container auto-recovery for a same-session crash (the lifecycle
+    # recovery test, which now relies on this parameter, must still pass — recovery
+    # bumps the generation but keeps the session).
+    manager = runtime.manager
+
+    async def scenario():
+        await manager.operator_start()
+        try:
+            with pytest.raises(ContainerUnavailable, match="Session rotated"):
+                await manager.exec_command(
+                    "local-fixture",
+                    clean_output=False,
+                    abort_if_session_changed="some-other-session",
+                )
+        finally:
+            await manager.operator_stop()
+
+    asyncio.run(scenario())
