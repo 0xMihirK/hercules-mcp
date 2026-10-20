@@ -158,6 +158,8 @@ def isolated_home(monkeypatch, tmp_path):
 
 @pytest.mark.parametrize("name", CLIENTS)
 def test_adapter_only_renders_selected_client(name, isolated_home):
+    if name == "claude-desktop" and sys.platform not in ("win32", "darwin"):
+        pytest.skip("claude-desktop user scope is Windows/macOS only")
     adapter = resolve(name, "user", isolated_home)
     content, entry = adapter.render(
         isolated_home / "release/hercules.exe",
