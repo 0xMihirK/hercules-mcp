@@ -200,7 +200,7 @@ def test_setup_runtime_verifier_with_cached_image(tmp_path):
         "HERCULES_DISABLED_TOOLS": "",
         "SKIP_METASPLOIT": "false",
         "HERCULES_WORDLIST_ROOT": str(ROOT / "wordlists"),
-        "HERCULES_DOCKER_NETWORK": "bridge",
+        "HERCULES_DOCKER_NETWORK": "host",
     }
     facts = json.loads(
         subprocess.check_output(
@@ -256,7 +256,7 @@ def test_full_browser_pending_update_verification(source, tmp_path, storage):
     pending_path = storage / "pending/claude-code.json"
     proof = json.loads(pending_path.read_text())["runtime_verification"]["binding"]
     assert proof["revision"] == git(source, "rev-parse", "HEAD")
-    assert proof["image_id"].startswith("sha256:") and proof["network"] == "bridge"
+    assert proof["image_id"].startswith("sha256:") and proof["network"] == "host"
     # Any meaningful configuration change invalidates proof, without touching
     # client registration or destroying the retained candidate.
     state = json.loads((storage / "install.json").read_text())

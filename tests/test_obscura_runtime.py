@@ -116,29 +116,17 @@ def test_backend_has_no_fallback_and_resets_by_generation():
     async def scenario():
         browser_tool.reset_browser_runtime_state()
         manager = SimpleNamespace(generation=999, exec_command=AsyncMock(return_value=ExecResult(0, "obscura 0.2.5", "", 0, "check")))
-        manager.ensure_browser_boundary = AsyncMock(return_value={"proxy": "socks5h://token:x@127.0.0.1:12345", "boundary_enforced": True})
         ctx = SimpleNamespace(lifespan_context={"docker": manager, "concurrency": ConcurrencyManager()})
         prepared = await browser_tool._backend(ctx, "browser_open")
         assert prepared[2]["AGENT_BROWSER_ENGINE"] == "obscura"
         assert prepared[2]["OBSCURA_BLOCK_TRACKERS"] == "0"
-        assert prepared[2]["AGENT_BROWSER_EXECUTABLE_PATH"] == "/opt/hercules/browser_boundary.py"
+        # Direct launch (no gateway): the engine is the minimal privilege-drop launcher.
+        assert prepared[2]["AGENT_BROWSER_EXECUTABLE_PATH"] == "/opt/hercules/browser-launch.py"
+        assert "boundary_enforced" not in prepared[2]
         manager.generation += 1
         manager.exec_command.return_value = ExecResult(1, "", "missing", 0, "check")
         assert isinstance(await browser_tool._backend(ctx, "browser_open"), dict)
         browser_tool.reset_browser_runtime_state()
-    asyncio.run(scenario())
-
-
-def test_browser_fails_when_boundary_is_unavailable(monkeypatch):
-    async def scenario():
-        manager = SimpleNamespace(generation=999, exec_command=AsyncMock())
-        manager.ensure_browser_boundary = AsyncMock(side_effect=RuntimeError("firewall unavailable"))
-        monkeypatch.setattr(browser_tool, "_resolve_obscura", AsyncMock(return_value="/opt/hercules/browser/obscura"))
-        ctx = SimpleNamespace(lifespan_context={"docker": manager, "concurrency": ConcurrencyManager(),
-                                              "config": SimpleNamespace()})
-        response = await browser_tool._backend(ctx, "browser_eval")
-        assert "firewall unavailable" in str(response)
-        manager.exec_command.assert_not_awaited()
     asyncio.run(scenario())
 
 

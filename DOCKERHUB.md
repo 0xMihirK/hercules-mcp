@@ -46,7 +46,7 @@ A full Kali toolkit exposed through typed MCP tools, grouped into capability bun
 - **Exploitation** — searchsploit, Metasploit Framework
 - **Cracking** — hydra, john (with SecLists / rockyou)
 - **CTF / forensics** — binwalk, steghide, exiftool
-- **Browser** — the Obscura headless browser behind a container-local SOCKS gateway and firewall that refuses private/reserved destinations
+- **Browser** — the Obscura headless browser (unprivileged engine; **no SSRF boundary** on host networking — browse only authorized targets)
 
 Capability selection controls which MCP tools are *exposed*; the image itself always contains the full inventory.
 

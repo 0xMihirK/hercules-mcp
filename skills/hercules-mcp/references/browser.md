@@ -21,11 +21,10 @@ behavior, storage-state support, media, and service workers are not Chromium
 parity; an unsupported feature is not evidence that the target is broken.
 Tracker blocking is disabled so a target's requests are not silently filtered.
 
-The pinned controller's domain filter leaks image and redirected requests. Do not
-trust it as enforcement. Hercules requires an isolated bridge and a container-local
-validating SOCKS gateway/firewall for the unprivileged engine. All browser traffic
-must pass it; missing enforcement fails closed. Never switch to raw shell
-browsing to bypass the guard. Root shell commands remain
+The pinned controller's domain filter leaks image and redirected requests, and there
+is **no SSRF gateway/firewall**. On host networking the browser reaches any
+destination it is pointed at — including host-local, the LAN, and cloud-metadata
+(`169.254.169.254`). Only browse explicitly authorized targets. Root shell commands remain
 administrator escape hatches, not confined browser operations.
 
 ## Reliable interaction loop
@@ -73,14 +72,11 @@ settings or disable TLS to work around an error. There is no automatic fallback.
 Obscura has no WebRTC media stack; Chromium's UDP policy flag is not passed.
 Public egress verification must be user-initiated against an authorized IP-check page.
 
-Call `system_network_info` before assuming where a local service lives. The
-runtime is bridged, so `localhost` and `127.0.0.1` are inside the Hercules
-container; use `host.docker.internal` for a service on the Docker engine host.
-With a remote Docker context, that alias reaches the remote engine rather than the
-coding-agent machine. Do not rewrite localhost implicitly. Private/loopback/reserved
-browser destinations are always refused by the gateway — a fixed SSRF boundary with
-no allow-list to authorize them. The bridge provides that boundary; host networking
-cannot, so browsing requires the bridge. Upstream HTTP(S) CONNECT and locally
+Call `system_network_info` before assuming where a local service lives. The runtime
+uses host networking, so `localhost` and `127.0.0.1` are the host itself. The browser
+has no SSRF boundary and can reach host-local, the LAN, and cloud-metadata services —
+only open explicitly authorized targets; do not rewrite localhost implicitly.
+Upstream HTTP(S) CONNECT and locally
 resolved SOCKS5 are supported; unverifiable remote-DNS modes are rejected, never
 silently changed.
 
@@ -110,8 +106,8 @@ curl --fail --location --output /opt/workspace/challenge/handout.bin https://aut
 test -s /opt/workspace/challenge/handout.bin && sha256sum /opt/workspace/challenge/handout.bin
 ```
 
-Browser redirects are independently bounded by the gateway's private-IP deny.
-`shell_exec` is privileged and is not confined by that boundary. For authenticated
+Browser redirects are not bounded — there is no gateway or private-IP deny on host
+networking. `shell_exec` is privileged and equally unconfined. For authenticated
 files, deliberately supply the required private headers/cookies without printing
 them; there is no automatic credential replay. Save POST/API response bytes
 when applicable. Blob/generated downloads may not be reproducible: report

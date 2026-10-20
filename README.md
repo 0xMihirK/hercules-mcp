@@ -155,9 +155,9 @@ containers and unverified cleanup separately; never prune another live owner.
 
 Hercules imposes no configurable target allow/block list — you are responsible for
 staying within the authorized scope. Structured tools validate a target for syntax
-only. The browser gateway separately and unconditionally refuses private, loopback,
-and reserved destinations (a fixed SSRF boundary; see below), independent of any
-configuration.
+only, and the browser has **no SSRF boundary**: on host networking it can reach
+host-local, the LAN, and cloud-metadata (`169.254.169.254`) services, so only browse
+explicitly authorized targets.
 
 ## Headless browser automation
 
@@ -173,13 +173,12 @@ experimental backend has incomplete browser fidelity, storage-state support,
 and no native downloads. Unsupported operations fail explicitly; there is no
 automatic alternate engine.
 
-The controller's domain allowlist is not a security boundary: local tests found
-image and redirect leaks. Protected browsing therefore requires an isolated
-Docker bridge, an unprivileged engine, and a generation-owned firewall/SOCKS
-gateway inside the same container. Every connection is resolved, checked against
-the private/reserved-IP deny, and pinned before connecting. Missing enforcement blocks browsing. This candidate
-remains under release verification; keep the working installation until acceptance
-passes. Privileged shell commands can deliberately disable this boundary.
+The controller's domain allowlist is not a security boundary, and on host networking
+there is **no SSRF boundary at all** — the browser can reach host-local, the LAN, and
+cloud-metadata (`169.254.169.254`) services. The engine still runs unprivileged, but
+you are responsible for only browsing authorized targets. This candidate remains under
+release verification; keep the working installation until acceptance passes. Privileged
+shell commands are likewise unconfined.
 
 - Sessions always run headlessly; screenshots and loopback live streaming
   remain available.
@@ -193,9 +192,9 @@ passes. Privileged shell commands can deliberately disable this boundary.
 - Tracker filtering is disabled so target resources are not silently omitted.
 - Proxy/timezone/scope changes relaunch that session transactionally. Explicit
   per-session locale and fingerprint selection are rejected, not ignored.
-- In bridge mode, browser `localhost` is inside the Hercules container. Private
-  browser access requires explicitly allowed private IPs/CIDRs and the active boundary.
-  A remote Docker context refers to the remote engine, not this computer.
+- On host networking, container `localhost` is the host, and the browser (no SSRF
+  boundary) can reach host-local, the LAN, and cloud-metadata services. A remote
+  Docker context refers to the remote engine, not this computer.
 
 Docker does not provide residential or ISP egress; direct container traffic
 normally shares the host's public IP. Obscura reduces some automation
@@ -351,7 +350,7 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_BUILD_CA_SHA256` | Fingerprint of optional certificate-only build trust |
 | `HERCULES_IMAGE_PLATFORM` | Exact `linux/amd64` or `linux/arm64` runtime platform |
 | `HERCULES_CLOAKBROWSER_*` | Deprecated compatibility fields; do not select the active Obscura backend |
-| `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports exposed by bridge networking |
+| `HERCULES_LISTENER_PORTS` | Explicit reverse-listener ports (bound directly on the host under host networking) |
 | `MSF_RPC_PORT` | Loopback-only Metasploit RPC port (default `15553`) |
 | `HERCULES_AUTO_ALLOCATE_PORTS` | Select a collision-free runtime port set for concurrent clients (default `true`) |
 | `BROWSER_PROXY_URL` | Default browser proxy kept outside client configuration |

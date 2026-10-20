@@ -219,7 +219,7 @@ CAPABILITY_INSTALL: dict[str, CapabilityInstall] = {
     "steghide": CapabilityInstall(("steghide", "exiftool", "xxd")),
     # ncat is an internal stream-relay dependency. Installing it here does not
     # register the separate ncat MCP tool unless the ncat bundle is selected.
-    "browser": CapabilityInstall(("agent-browser", "obscura", "nft", "setpriv", "ncat"), browser=True),
+    "browser": CapabilityInstall(("agent-browser", "obscura", "setpriv", "ncat"), browser=True),
 }
 
 # Informational estimates only. They help an agent compare profiles without

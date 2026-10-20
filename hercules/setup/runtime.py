@@ -176,7 +176,7 @@ def verification_binding(facts: dict) -> dict:
         daemon_id = client.info()["ID"]
     return {"revision": source["revision"], "image_id": image_id, "docker_daemon_id": daemon_id, "dotenv_sha256": dotenv_sha256,
             "configuration_sha256": hashlib.sha256(encoded).hexdigest(),
-            "network": config.docker_network or "bridge"}
+            "network": config.docker_network or "host"}
 
 
 async def verify(
@@ -199,7 +199,7 @@ async def verify(
     }
     if runtime:
         env.update(
-            HERCULES_DOCKER_NETWORK=environment.get("HERCULES_DOCKER_NETWORK", os.environ.get("HERCULES_DOCKER_NETWORK", "bridge")),
+            HERCULES_DOCKER_NETWORK=environment.get("HERCULES_DOCKER_NETWORK", os.environ.get("HERCULES_DOCKER_NETWORK", "host")),
             USE_PRIVILEGED="false",
             BROWSER_PROXY_URL="",
             BROWSER_PROXY="",
@@ -387,7 +387,7 @@ async def verify(
             checks.append("stop_and_ports_released")
         return {"host": "passed", "runtime": "passed", "checks": checks,
                 "fixture_overrides": ["disposable_workspace", "preservation_disabled", "scope_127.0.0.1_only", "privileged_disabled", "upstream_proxy_disabled"],
-                "network_selection": env.get("HERCULES_DOCKER_NETWORK", "bridge"),
+                "network_selection": env.get("HERCULES_DOCKER_NETWORK", "host"),
                 "verification_scope": "Local fixtures only; configured external targets and upstream proxies were not contacted."}
     finally:
         # Graceful STDIO shutdown is allowed to settle before the owner check.

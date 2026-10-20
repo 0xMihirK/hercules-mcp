@@ -49,29 +49,6 @@ def runtime(monkeypatch, tmp_path, coordination):
     return lifecycle_runtime.__wrapped__(monkeypatch, tmp_path)
 
 
-def test_target_policy_denies_private_allows_public(monkeypatch):
-    # The scope allow/block lists are gone, but the browser gateway still refuses
-    # private/loopback/reserved destinations unconditionally and resolves public.
-    from hercules.core import target_policy
-
-    mapping = {
-        "private.test": "10.0.0.5",
-        "metadata.test": "169.254.169.254",
-        "loop.test": "127.0.0.1",
-        "public.test": "93.184.216.34",
-    }
-    monkeypatch.setattr(
-        target_policy.socket,
-        "getaddrinfo",
-        lambda host, port, *a, **k: [(0, 0, 0, "", (mapping[host], port))],
-    )
-    policy = target_policy.TargetPolicy()
-    for denied in ("private.test", "metadata.test", "loop.test"):
-        with pytest.raises(ValueError, match="private"):
-            policy.resolve_destination(denied, 80)
-    assert policy.resolve_destination("public.test", 80) == ["93.184.216.34"]
-
-
 def test_target_policy_validates_syntax_without_scope():
     # With no allow/block list, a well-formed target passes and a malformed one
     # still raises (structural validation survived the feature removal).
@@ -902,14 +879,14 @@ def test_secret_values_are_redacted_in_returned_output(runtime):
     asyncio.run(scenario())
 
 
-def test_network_mode_defaults_bridge_and_honors_host_override():
-    # Workstream E: bridge is the default on every platform; the explicit
-    # HERCULES_DOCKER_NETWORK override still works.
+def test_network_mode_defaults_host_and_honors_override():
+    # Host networking is the default; an explicit HERCULES_DOCKER_NETWORK override
+    # still selects a named network.
     manager = DockerManager.__new__(DockerManager)
     manager._config = SimpleNamespace(docker_network="")
-    assert manager.network_mode == "bridge"
-    manager._config = SimpleNamespace(docker_network="host")
     assert manager.network_mode == "host"
+    manager._config = SimpleNamespace(docker_network="mybridge")
+    assert manager.network_mode == "mybridge"
 
 
 def test_listener_reachability_warning_flags_unforwarded_and_udp():
@@ -947,26 +924,3 @@ def test_exec_aborts_on_session_rotation_but_not_recovery(runtime):
             await manager.operator_stop()
 
     asyncio.run(scenario())
-
-
-def test_ssrf_deny_covers_cgnat_and_benchmarking(monkeypatch):
-    # Hardening: the browser private-IP deny must also refuse CGNAT shared space
-    # (100.64.0.0/10) and the benchmarking range (198.18.0.0/15), which the
-    # stdlib's is_private/is_reserved do not flag consistently across versions.
-    from hercules.core import target_policy
-
-    mapping = {
-        "cgnat.test": "100.64.0.1",
-        "bench.test": "198.18.0.1",
-        "public.test": "93.184.216.34",
-    }
-    monkeypatch.setattr(
-        target_policy.socket,
-        "getaddrinfo",
-        lambda host, port, *a, **k: [(0, 0, 0, "", (mapping[host], port))],
-    )
-    policy = target_policy.TargetPolicy()
-    for denied in ("cgnat.test", "bench.test"):
-        with pytest.raises(ValueError, match="private"):
-            policy.resolve_destination(denied, 80)
-    assert policy.resolve_destination("public.test", 80) == ["93.184.216.34"]
