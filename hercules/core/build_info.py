@@ -35,6 +35,25 @@ IMAGE_APT_SUITE_LABEL = "hercules.apt.suite"
 IMAGE_PLATFORM_LABEL = "hercules.platform"
 IMAGE_CAPABILITY_MANIFEST_LABEL = "hercules.capability_manifest_sha256"
 
+# The OCI label keys validated on a pulled image (see setup_info's facts["image"]
+# ["labels"]). Folding the sorted keys into the build fingerprint means adding or
+# renaming a required label changes the fingerprint, so an older published image
+# misses the catalog cleanly (build fallback) instead of being pulled and then
+# rejected on a label mismatch. A coupling test keeps this list == the validated set.
+IMAGE_LABEL_KEYS = tuple(sorted((
+    IMAGE_FINGERPRINT_LABEL,
+    IMAGE_CAPABILITIES_LABEL,
+    IMAGE_BUILD_CA_LABEL,
+    IMAGE_BASE_REPOSITORY_LABEL,
+    IMAGE_BASE_DIGEST_LABEL,
+    IMAGE_APT_SUITE_LABEL,
+    IMAGE_PLATFORM_LABEL,
+    IMAGE_CAPABILITY_MANIFEST_LABEL,
+    IMAGE_BROWSER_LABEL,
+    IMAGE_OBSCURA_VERSION_LABEL,
+    IMAGE_BROWSER_ASSETS_LABEL,
+)))
+
 KALI_BASE_REPOSITORY = "kalilinux/kali-last-release"
 KALI_BASE_DIGEST = (
     "sha256:01a402ec78a2b3bd86394f34f8c3d6adefe3c593ae259ac0779c4d1f971c8ff5"
@@ -142,6 +161,12 @@ def _image_build_fingerprint(
     digest.update(b"\0")
     digest.update(b"obscura\0")
     digest.update(BROWSER_ASSETS_SHA256.encode("ascii"))
+    digest.update(b"\0")
+    # Cover the validated label key set: a new/renamed required label changes the
+    # fingerprint so a stale published image misses the catalog instead of being
+    # pulled and rejected.
+    digest.update(b"labels\0")
+    digest.update("\0".join(IMAGE_LABEL_KEYS).encode("ascii"))
     digest.update(b"\0")
     for relative in IMAGE_INPUTS:
         path = root / relative

@@ -947,3 +947,29 @@ def test_exec_aborts_on_session_rotation_but_not_recovery(runtime):
             await manager.operator_stop()
 
     asyncio.run(scenario())
+
+
+def test_image_fingerprint_covers_label_keys(monkeypatch):
+    # #3: adding/renaming a validated label key must change the build fingerprint,
+    # so a stale published image misses the catalog (build fallback) instead of
+    # being pulled and then rejected on a label mismatch.
+    from hercules.core import build_info
+
+    base = build_info.image_build_fingerprint(Path("."), target_platform="linux/amd64")
+    monkeypatch.setattr(
+        build_info,
+        "IMAGE_LABEL_KEYS",
+        build_info.IMAGE_LABEL_KEYS + ("hercules.some_new_label",),
+    )
+    changed = build_info.image_build_fingerprint(Path("."), target_platform="linux/amd64")
+    assert base != changed
+
+
+def test_validated_image_labels_match_fingerprint_key_set():
+    # #3 coupling guard: the labels validated on a pulled image (setup_info) must
+    # be exactly the key set folded into the fingerprint, so the two cannot drift.
+    from hercules.core.build_info import IMAGE_LABEL_KEYS
+    from hercules.core.setup_info import setup_information
+
+    facts = setup_information(Path(__file__).resolve().parents[1])
+    assert set(facts["image"]["labels"]) == set(IMAGE_LABEL_KEYS)
