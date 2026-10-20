@@ -153,10 +153,11 @@ auto-stop. At completion/abandonment, save progress, resolve owned jobs, stop th
 current runtime, and check its `cleanup` confirmation. Report preserved stopped
 containers and unverified cleanup separately; never prune another live owner.
 
-Target policies apply to structured DNS, WHOIS, HTTP, scanners, redirects,
-browser navigation, and Metasploit routes. Scoped hostnames are normalized and
-resolved, every address is checked, and deny rules win. The default is
-permissive until `ALLOWED_TARGETS` or `BLOCKED_TARGETS` is configured.
+Hercules imposes no configurable target allow/block list — you are responsible for
+staying within the authorized scope. Structured tools validate a target for syntax
+only. The browser gateway separately and unconditionally refuses private, loopback,
+and reserved destinations (a fixed SSRF boundary; see below), independent of any
+configuration.
 
 ## Headless browser automation
 
@@ -175,8 +176,8 @@ automatic alternate engine.
 The controller's domain allowlist is not a security boundary: local tests found
 image and redirect leaks. Protected browsing therefore requires an isolated
 Docker bridge, an unprivileged engine, and a generation-owned firewall/SOCKS
-gateway inside the same container. Every connection is resolved, scope-checked,
-and pinned before connecting. Missing enforcement blocks browsing. This candidate
+gateway inside the same container. Every connection is resolved, checked against
+the private/reserved-IP deny, and pinned before connecting. Missing enforcement blocks browsing. This candidate
 remains under release verification; keep the working installation until acceptance
 passes. Privileged shell commands can deliberately disable this boundary.
 
@@ -345,7 +346,6 @@ Runtime values remain in the protected `.env`. See
 | `HERCULES_ENV_FILE` | Absolute dotenv path for shared configuration outside version directories; defaults to checkout `.env` |
 | `HERCULES_INSTALLED_CAPABILITIES` | Agent-maintained capability selection |
 | `HERCULES_DISABLED_TOOLS` | Independently hide an installed MCP tool |
-| `ALLOWED_TARGETS` / `BLOCKED_TARGETS` | Structured target policy; deny rules win |
 | `HERCULES_WORKSPACE_ROOT` | Override the managed evidence root |
 | `HERCULES_WORDLIST_ROOT` | Reusable verified wordlist and extraction cache |
 | `HERCULES_BUILD_CA_SHA256` | Fingerprint of optional certificate-only build trust |
@@ -419,8 +419,8 @@ distributions are local-only. The wheel and source distribution exclude tests.
   from display metadata while invoked processes still receive original values.
 - `shell_exec`, `browser_cmd`, and documented raw `extra_args` fields are
   trusted administrator escape hatches outside structured target guarantees.
-- Empty target policy is permissive for backward compatibility; configure
-  allow/deny scopes before use in controlled environments.
+- There is no configurable target allow/block list; the browser gateway always
+  refuses private/loopback/reserved destinations, and you are responsible for scope.
 - `pymetasploit3` remains pinned despite
   [GHSA-qpc3-8vqg-8g6w](https://osv.dev/vulnerability/GHSA-qpc3-8vqg-8g6w)
   because no fixed release exists. Hercules does not call the affected API and

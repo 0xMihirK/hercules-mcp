@@ -199,8 +199,6 @@ async def verify(
     }
     if runtime:
         env.update(
-            ALLOWED_TARGETS="127.0.0.1",
-            BLOCKED_TARGETS="",
             HERCULES_DOCKER_NETWORK=environment.get("HERCULES_DOCKER_NETWORK", os.environ.get("HERCULES_DOCKER_NETWORK", "bridge")),
             USE_PRIVILEGED="false",
             BROWSER_PROXY_URL="",

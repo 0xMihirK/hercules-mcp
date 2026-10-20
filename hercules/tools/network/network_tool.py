@@ -19,6 +19,7 @@ from fastmcp import Context
 
 from hercules.core.guidance import (
     TOOL_DESCRIPTIONS,
+    listener_reachability_warning,
     missing_param_error,
     selector_error,
     target_error,
@@ -108,8 +109,7 @@ def register_network_tools(mcp: FastMCP) -> None:
         parts = ["curl", "-s", "-X", method, "--proto", "=http,https"]
         if include_headers:
             parts.append("-i")
-        scoped = bool(config.allowed_targets or config.blocked_targets)
-        if follow_redirects and not scoped:
+        if follow_redirects:
             parts.append("-L")
 
         try:
@@ -146,12 +146,7 @@ def register_network_tools(mcp: FastMCP) -> None:
         return {
             "tool": "network_curl",
             "url": redact_url(url),
-            "redirects_followed": bool(follow_redirects and not scoped),
-            "redirect_note": (
-                "Redirect following is disabled while target scopes are configured."
-                if follow_redirects and scoped
-                else ""
-            ),
+            "redirects_followed": bool(follow_redirects),
             **result.to_dict(),
         }
 
@@ -250,7 +245,7 @@ def register_network_tools(mcp: FastMCP) -> None:
 
                 assigned_id = await docker.exec_background(cmd, job_id)
 
-                return {
+                response = {
                     "tool": "ncat",
                     "action": action,
                     "job_id": assigned_id,
@@ -258,6 +253,12 @@ def register_network_tools(mcp: FastMCP) -> None:
                     "background": True,
                     "message": f"Listener started on port {effective_port} in background. Use ncat(action='interact') to send commands and read output.",
                 }
+                warning = listener_reachability_warning(
+                    docker, effective_port, protocol="udp" if udp else "tcp"
+                )
+                if warning:
+                    response["reachability_warning"] = warning
+                return response
 
             parts = ["ncat"]
             if udp:

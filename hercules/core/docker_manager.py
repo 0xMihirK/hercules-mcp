@@ -657,8 +657,10 @@ class DockerManager:
         configured = str(getattr(self._config, "docker_network", "") or "")
         if configured:
             return configured
-        browser = "browser" in (self._config.installed_capabilities or ALL_CAPABILITIES)
-        return "host" if platform.system() == "Linux" and not browser else "bridge"
+        # The runtime is always bridged by default, including native Linux. An
+        # operator can still force host/macvlan via HERCULES_DOCKER_NETWORK, but
+        # protected browsing rejects those and localhost then means the host.
+        return "bridge"
 
     @property
     def container_running(self) -> bool:
@@ -2803,8 +2805,6 @@ class DockerManager:
                 raise RuntimeError("Protected browsing requires a bridge network; no firewall rules were installed")
         config = {
             "generation": f"{container.id}:{generation}",
-            "allowed": list(self._config.allowed_targets),
-            "blocked": list(self._config.blocked_targets),
             "proxy": proxy,
             "protected_ports": [p for p in {self.msf_rpc_port, self.browser_stream_relay_port, *protected_ports} if p],
         }

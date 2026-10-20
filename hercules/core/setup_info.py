@@ -797,8 +797,8 @@ def setup_information(
             "boundary": "unprivileged-engine + generation-owned inet firewall + validating SOCKS5 gateway",
             "boundary_readiness": "not_observed",
             "runtime_verification": "not_run",
-            "network": os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or ("host" if platform.system() == "Linux" else "bridge")),
-            "release_blockers": (["browser_requires_explicit_bridge_network"] if browser_selected and os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or ("host" if platform.system() == "Linux" else "bridge")) == "host" else []),
+            "network": os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or "bridge"),
+            "release_blockers": (["browser_requires_explicit_bridge_network"] if browser_selected and os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or "bridge") == "host" else []),
             "unsupported_configurations": (
                 (["BROWSER_LOCALE"] if browser_selected and os.getenv("BROWSER_LOCALE", read_dotenv_value(environment_file, "BROWSER_LOCALE") or "").strip() else [])
                 + (["unverifiable_remote_dns_proxy"] if browser_selected and (os.getenv("BROWSER_PROXY_URL", read_dotenv_value(environment_file, "BROWSER_PROXY_URL") or "") or os.getenv("BROWSER_PROXY", read_dotenv_value(environment_file, "BROWSER_PROXY") or "")).startswith("socks5h:") else [])

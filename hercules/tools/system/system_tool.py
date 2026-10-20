@@ -360,10 +360,12 @@ def register_system_tools(mcp: FastMCP) -> None:
         - Container interfaces
         - Which effective ports are forwarded for reverse shell callbacks
 
-        On Linux (host networking): container shares host network, use tun/VPN IP directly.
-        On Windows/Mac (bridge networking): the effective listener range is forwarded.
-          Use the host's VPN/tunnel IP as LHOST — the target sends the reverse shell to
-          HOST_IP:PORT, Docker forwards it to the container where your listener runs.
+        The runtime is bridged by default on every platform: the effective listener
+          range is forwarded. Use the host's VPN/tunnel IP as LHOST — the target sends the
+          reverse shell to HOST_IP:PORT and Docker forwards it to the container's listener.
+          Only ports in the forwarded range are reachable from an external target.
+        Host networking (opt-in HERCULES_DOCKER_NETWORK=host, Linux only): the container
+          shares the host network; use the tun/VPN IP directly.
         Concurrent MCP clients may receive different collision-free effective ports.
         """
         docker = ctx.lifespan_context["docker"]
@@ -378,11 +380,7 @@ def register_system_tools(mcp: FastMCP) -> None:
             await ensure_ready()
         host = await asyncio.to_thread(_host_network_snapshot)
         host_os = host["host_os"]
-        network_mode = getattr(
-            docker,
-            "network_mode",
-            "host" if host_os == "Linux" else "bridge",
-        )
+        network_mode = getattr(docker, "network_mode", "bridge")
         is_host_network = network_mode == "host"
         listener_description = ",".join(str(port) for port in docker.listener_ports)
 

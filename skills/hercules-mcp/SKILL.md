@@ -32,7 +32,7 @@ need a client reload; a cold connection does not establish runtime readiness.
 ## Establish authorization and scope
 
 1. Confirm the target, permitted techniques, and stopping conditions before active work.
-2. Treat an unconfigured target policy as permissive compatibility behavior, not authorization.
+2. Hercules imposes no target allow/block list; you are responsible for staying within the authorized scope.
 3. Start with passive or low-impact discovery. Escalate only when the request and evidence justify it.
 4. Never use installation checks to scan, exploit, navigate to, or verify egress through an external target.
 5. Keep secrets out of narration and tool-call summaries. Hercules redacts common secrets, but avoid echoing them.
@@ -47,10 +47,15 @@ need a client reload; a cold connection does not establish runtime readiness.
 - Check the tools currently exposed before planning. Optional tools may be hidden; do not invent a missing tool. The full image's inventory is separate from MCP visibility. Check the actual backend before using an authorized shell escape hatch.
 - Use `network_curl` for deterministic HTTP requests. Use browser tools when JavaScript, authentication state, DOM interaction, or visual evidence matters.
 - The browser is Obscura: **CSP is not enforced** and native downloads are
-  unsupported (limits in [browser.md](references/browser.md)). Browsing needs the
-  container's bridge/firewall/gateway and explicit IP/CIDR authorization for private
-  targets; if enforcement is unavailable, stop and report it — never remove scope
-  settings to proceed.
+  unsupported (limits in [browser.md](references/browser.md)). The runtime is a
+  bridged Docker network, so container `localhost`/`127.0.0.1` is the container and
+  the engine host is `host.docker.internal`. Browsing runs through the container's
+  firewall/gateway, which always refuses private/loopback/reserved destinations (a
+  fixed SSRF boundary, not a configurable scope); if that enforcement is
+  unavailable, stop and report it — browsing fails closed.
+- Reverse-shell listeners: call `system_network_info` to pick LHOST/LPORT. On the
+  bridged runtime only the forwarded TCP listener ports are reachable from an
+  external target; UDP and out-of-range ports are not.
 - Use installed Nmap scripts or Nuclei templates before authoring custom content.
 - Use foreground calls for bounded work. Use `shell_exec_background` plus `shell_check_job` for long-running commands.
 - Preserve useful evidence. Follow `raw_artifact`, `stdout_artifact`, or `stderr_artifact` paths when output is filtered or truncated.

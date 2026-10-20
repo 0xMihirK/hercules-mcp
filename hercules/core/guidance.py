@@ -30,10 +30,14 @@ evidence. Browser configuration cannot guarantee CAPTCHA/bot avoidance.
 The browser is Obscura: CSP is NOT enforced. Script execution is not proof of
 a Chromium CSP bypass. Native browser downloads are unsupported; save direct
 HTTP downloads in the workspace and verify the file before claiming success.
-The controller's request filter is not enforcement. Browsing requires an isolated
-bridge, unprivileged engine, and container-local firewall/gateway. Private targets
-need explicit IP/CIDR authorization. Missing enforcement fails closed; never clear
-target restrictions to bypass it. Privileged shell commands are not confined.
+The controller's request filter is not enforcement. The Hercules runtime is a
+bridged Docker network: container localhost/127.0.0.1 is the container itself, the
+Docker engine host is reachable as host.docker.internal, and only the forwarded TCP
+listener ports are reachable from an external target — call system_network_info to
+choose LHOST/LPORT. Browsing runs through the container's unprivileged engine and
+container-local firewall/gateway, which always refuse private/loopback/reserved
+destinations (a fixed SSRF boundary, not a configurable scope); if that enforcement
+is unavailable, browsing fails closed. Privileged shell commands are not confined.
 
 Prefer installed NSE/Nuclei content. For missing logic read
 resource://agent_skills/nse or resource://agent_skills/nuclei before authoring.
@@ -118,7 +122,7 @@ TOOL_DESCRIPTIONS = {
     "ncat": _desc(
         "Use ncat with action=connect|listen|interact for TCP/UDP connections and background listeners.",
         "Networking, reverse shell handling, callback listeners, and ad hoc protocol interaction.",
-        "connect requires target and port and runs foreground. listen can run foreground or background; background=True creates a job_id and pipe. interact requires job_id and can send command then read tail_lines. Use udp=True for UDP. Listeners are heavy concurrency.",
+        "connect requires target and port and runs foreground. listen can run foreground or background; background=True creates a job_id and pipe. interact requires job_id and can send command then read tail_lines. Use udp=True for UDP. Listeners are heavy concurrency. On the bridged runtime only the forwarded TCP listener ports (see system_network_info) are reachable from an external target; UDP and out-of-range ports are not.",
         "ncat(action='listen', port=4444, job_id='listener1')\nncat(action='interact', job_id='listener1', command='id', tail_lines=100)",
     ),
     "network_curl": _desc(
@@ -178,7 +182,7 @@ TOOL_DESCRIPTIONS = {
     "metasploit_start_listener": _desc(
         "Start exploit/multi/handler as a Metasploit background job.",
         "Reverse shell or Meterpreter callback handling before exploit delivery.",
-        "Requires payload_type, lhost, and lport. lport must be 1-65535. Use system_network_info first to choose LHOST/LPORT on bridge-networked hosts. Manage jobs with metasploit_manage.",
+        "Requires payload_type, lhost, and lport. lport must be 1-65535. Call system_network_info first to choose LHOST/LPORT; on the bridged runtime only the forwarded TCP listener ports are reachable from an external target. Manage jobs with metasploit_manage.",
         "metasploit_start_listener(payload_type='linux/x86/meterpreter/reverse_tcp', lhost='10.0.0.1', lport=4444)",
     ),
     "sqlmap_run": _desc(
@@ -450,22 +454,44 @@ def missing_param_error(
     )
 
 
+def listener_reachability_warning(docker: Any, port: int, *, protocol: str = "tcp") -> str:
+    """Warn when a reverse-shell listener binds a port/protocol that an external
+    target cannot reach on the bridged runtime.
+
+    On a bridge only the forwarded TCP listener ports are published to the host,
+    so a UDP listener or an out-of-range TCP port receives no callback (and no
+    error otherwise surfaces). Host networking (the opt-in override) forwards
+    everything, so there is nothing to warn about.
+    """
+    if getattr(docker, "network_mode", "bridge") == "host":
+        return ""
+    if str(protocol).lower() == "udp":
+        return (
+            "The runtime is bridged: UDP listeners are not forwarded to the host, "
+            "so an external target cannot reach this listener. Use a forwarded TCP "
+            "port from system_network_info."
+        )
+    forwarded = tuple(getattr(docker, "listener_ports", ()) or ())
+    if port not in forwarded:
+        return (
+            f"The runtime is bridged: only the forwarded TCP ports {list(forwarded)} "
+            f"are reachable from an external target. Port {port} is not forwarded; "
+            "choose one from system_network_info or the callback will never arrive."
+        )
+    return ""
+
+
 def target_error(tool: str, target: str, exc: Exception, config: Any = None) -> dict:
+    # There is no allow/block scope list; a target only fails validation when it
+    # is syntactically malformed or unresolvable.
     message = redact_secrets(str(exc))
-    lowered = message.lower()
-    error_type = "target_not_allowed" if "blocked" in lowered or "allowed targets" in lowered else "invalid_target"
     return usage_error(
         tool,
-        error_type,
+        "invalid_target",
         message,
         received={"target": redact_secrets(target)},
-        expected={
-            "allowed_targets": getattr(config, "allowed_targets", None),
-            "blocked_targets": getattr(config, "blocked_targets", None),
-        },
         next_steps=[
-            "Use a target inside the configured authorization scope.",
-            "If the scope is wrong, ask the operator to update ALLOWED_TARGETS or BLOCKED_TARGETS.",
+            "Provide a syntactically valid target (IP, CIDR, hostname, or URL).",
         ],
     )
 
