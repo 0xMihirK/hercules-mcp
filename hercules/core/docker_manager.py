@@ -2862,11 +2862,13 @@ class DockerManager:
                 replaced = True
             self._browser_stream_relay_state = {}
 
-            bind_host = (
-                "127.0.0.1"
-                if platform.system() == "Linux"
-                else _CONTAINER_ALL_INTERFACES
-            )
+            # The relay only runs on an isolated bridge network (ensure_browser_boundary
+            # rejects host networking), where Docker publishes to the container's bridge
+            # IP, never its loopback — so a loopback bind is unreachable on native Linux
+            # (docker-proxy accepts the host connection then RSTs). The host publish stays
+            # pinned to 127.0.0.1:stream_port, and the scope firewall governs only the
+            # engine UID, so binding all container interfaces widens nothing that matters.
+            bind_host = _CONTAINER_ALL_INTERFACES
             relay_target = f"ncat -4 127.0.0.1 {backend_port}"
             log_path = "/opt/workspace/logs/browser-stream-relay.log"
             command = (
