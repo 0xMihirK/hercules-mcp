@@ -18,8 +18,9 @@ New installs default to full capabilities. Do not move a live virtual environmen
 Host setup and cold `verify` never start a container or call `shell_exec`.
 Ask separately before `runtime prepare` downloads/builds or `verify --runtime`.
 The runtime is one full Kali image; selections hide tools, not packages.
-Use `--image-source build` explicitly for an unpublished local revision;
-`auto` uses only a validated cache or published digest and never hides a pull failure.
+`auto` pulls the published digest (GHCR, then the Docker Hub mirror) or reuses a
+validated cache, and never hides a pull failure. Offer `--image-source build`
+(slower, builds from source) for an unpublished revision, custom trust, or offline.
 If a harness denies an operation, stop that action and name the blocked phase;
 do not change permission modes, add blanket allow rules, or retry another tool.
 Resume only after the user resolves the denial through the harness's own controls.

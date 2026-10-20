@@ -54,7 +54,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent and report the result.
+Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Host install needs no container; if a container step is denied, stop and tell me how to approve it. Report the result.
 ```
 
 The shared [setup workflow](install.md) handles discovery, install/update,
@@ -210,12 +210,16 @@ deliberate, private handling of the necessary cookies/headers; they are never
 automatically replayed. Browser-generated/blob/native downloads are not
 guaranteed and must not be reported successful without a verified file.
 
-Runtime preparation defaults to `--image-source auto`: validated cache, then
-an exact published digest. For an unreleased checkout, use
+Runtime preparation defaults to `--image-source auto`: a validated local cache,
+then the published digest pulled from **GHCR** (`ghcr.io/0xmihirk/hercules-mcp`),
+falling back to the identical-digest **Docker Hub** mirror (`0xmihirk/hercules-mcp`).
+To build the full image locally from source instead — **slower**, for an unreleased
+checkout, custom build trust, or an offline host — use
 `runtime prepare --client <client> --image-source build --yes` explicitly.
-`--image-source prebuilt` never builds. No release digest is invented when an
-image has not been published. Existing installations remain active while a
-replacement is pending.
+`--image-source prebuilt` only pulls, never builds; `auto` never silently builds
+after a registry failure, and no release digest is invented when a revision has
+no published image. Existing installations remain active while a replacement is
+pending.
 
 ## Output, artifacts, sessions, and workspaces
 
