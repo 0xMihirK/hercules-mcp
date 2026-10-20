@@ -475,6 +475,29 @@ def test_unpublished_image_never_silently_builds(fake_engine, monkeypatch, tmp_p
     fake_engine.transaction.run.assert_not_called()
 
 
+def test_auto_pulls_ghcr_before_docker_hub(fake_engine, monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    ghcr = "ghcr.io/owner/hercules@sha256:" + "c" * 64
+    hub = "owner/hercules@sha256:" + "c" * 64
+    # Catalog lists Docker Hub first; the engine must still try GHCR first.
+    monkeypatch.setattr("hercules.setup.images.prebuilt_references", lambda facts: [hub, ghcr])
+    statuses = iter(["missing", "ready", "ready"])
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: next(statuses))
+    fake_engine.args = SimpleNamespace(image_source="auto", build_ca_bundle=None)
+    fake_engine.transaction = Mock()
+    fake_engine.candidate_worker = Mock()
+    facts = {"source": {"checkout": str(tmp_path)}, "image": {
+        "tag": "fixture", "fingerprint": "a" * 64, "target_platform": "linux/amd64",
+        "custom_ca": {"configured": False}, "build_arguments": {}, "labels": {}}}
+    candidate = {}
+    fake_engine.prepare_runtime(candidate, facts)
+    first_pull = next(c for c in fake_engine.transaction.run.call_args_list if "pull" in c.args[0])
+    assert ghcr in first_pull.args[0], first_pull
+    assert candidate["image_source"] == "prebuilt"
+
+
 def test_new_asset_requirement_keeps_same_image_update_pending(fake_engine, monkeypatch):
     fake_engine.old = {"image_fingerprint": "a", "installed_capabilities": ["shell", "session", "workspace"]}
     fake_engine.args.capabilities = "shell,session,workspace,fuzz"

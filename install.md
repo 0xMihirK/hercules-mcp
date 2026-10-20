@@ -68,9 +68,9 @@ Examples abbreviate the absolute setup launcher as `hercules-setup`:
 | `install --client claude-code --yes` | Install/update/repair this client, with cold STDIO validation |
 | `repair --client claude-code --yes` | Repair the recorded version without upgrading |
 | `install --client claude-code --reinstall --yes` | Fresh replacement; retain the old checkout |
-| `runtime prepare --client claude-code --yes` | Reuse a verified full image or pull its published digest; provision verified assets |
-| `runtime prepare --client claude-code --image-source build --yes` | Explicit local full-image build for an unreleased revision or custom build trust |
-| `runtime prepare --client claude-code --image-source prebuilt --yes` | Use only a validated cache or trusted release digest; never build |
+| `runtime prepare --client claude-code --yes` | `auto`: reuse a verified cache or pull the published digest (GHCR first, Docker Hub fallback); provision verified assets |
+| `runtime prepare --client claude-code --image-source build --yes` | Build the full image locally from source — **slower**; for an unpublished revision, custom build trust, or an offline host |
+| `runtime prepare --client claude-code --image-source prebuilt --yes` | Pull only a validated cache or trusted release digest; never build |
 | `resume --client claude-code --yes` | Recover unfinished writes and activate retained work when ready |
 | `verify --client claude-code` | Cold STDIO checks without execution-tool calls |
 | `verify --client claude-code --runtime` | Explicit local container start, harmless tools, and stop |
@@ -176,14 +176,26 @@ perform an egress test. Never stop another client's container.
 
 Keep discovery, host setup, registration, image preparation, and runtime
 verification distinct. Host setup never calls `shell_exec` or
-`system_start_container`.
+`system_start_container`; `status` and cold `verify` likewise start no container
+and run only the `hercules-setup` CLI. Preparing or verifying the runtime
+(`runtime prepare`, `verify --runtime`) starts a container or large download.
 
-If Claude denies a command, stop that action and report its exact scope and
-retained transaction. Wait for the user to resolve it through Claude's supported
-permission interface. Never change permission modes, add blanket allow rules,
-install approval hooks, conceal operations, or retry through another tool.
-A user-approved resume does not guarantee every classifier or organization
-policy will approve. See [Claude's permission documentation](https://code.claude.com/docs/en/permission-modes).
+In auto mode a background classifier reviews each command before it runs. It reads
+your prompt and the commands Claude runs, **not** this file (fetched file contents
+are stripped from it), so keep the install request in your own prompt — the short
+prompt above is enough. The classifier allows ordinary local install steps and
+tends to gate container start and large downloads.
+
+If a command is denied, stop that action and report its exact scope, the blocked
+command, and the retained transaction. Resolve it only through Claude's own
+controls, then resume: approve the exact command from `/permissions` → **Recently
+denied** (it captures the correct rule for you), state the specific step and why it
+is safe in your next message, or add a scoped `permissions.ask`/`allow` rule for
+that command in your Claude settings. To gate the container/download steps even in
+auto mode, put them on `ask`. Never change permission modes, add blanket allow
+rules, install approval hooks, conceal operations, or retry through another tool.
+A user-approved resume does not guarantee every classifier or organization policy
+will approve. See [Claude's permission documentation](https://code.claude.com/docs/en/permission-modes).
 
 Scripted demos and blanket MCP approvals do not prove real auto-mode compatibility.
 Record live classifier checks separately with actual version, outcome, and
@@ -198,9 +210,13 @@ means an MCP reload, new session, or IDE restart may still be needed.
 Do not reinstall merely to activate settings.
 
 There is one full Kali/Obscura image, not a lean flavor. Capability preferences
-still control exposed tools. `auto` never silently builds after a registry
-failure or when no trusted digest is published. Build/download phases preserve
-an 8 GiB free-disk reserve; do not broadly prune Docker data to make room.
+still control exposed tools. `auto` pulls the published digest — GHCR first, then
+the identical-digest Docker Hub mirror — and provisions assets; it never silently
+builds after a registry failure or when no trusted digest matches the revision.
+To build the full image locally from source instead (slower, no registry pull —
+for an unpublished revision, custom build trust, or an offline host), pass
+`--image-source build` explicitly. Build/download phases preserve an 8 GiB
+free-disk reserve; do not broadly prune Docker data to make room.
 
 The Obscura candidate remains under release verification. Its controller's domain
 allowlist leaked image and redirect requests, so protected browsing now requires
@@ -223,8 +239,10 @@ does not claim that an operator's external targets or upstream proxy were tested
 Maintainers publish only through the manual runtime workflow after reviewing
 redistribution licenses and supplying explicit registry destinations. Review its
 `catalog-entry.json` artifact and add the tested source/platform/digest entry to
-`hercules/core/prebuilt_images.json` in a release. An empty catalog deliberately
-requires `--image-source build`; labels or a mutable registry tag are not trust.
+`hercules/core/prebuilt_images.json` (GHCR reference first) in a release. Only a
+matching catalog digest lets `auto` pull; a revision with no catalog entry still
+requires `--image-source build`, and labels or a mutable registry tag are never
+trust — pulls are pinned to the immutable digest and revalidated after tagging.
 
 Runtime images include the small SSH, jq, unzip, and Python virtual-environment
 baseline. Image changes are prepared separately; an existing working client

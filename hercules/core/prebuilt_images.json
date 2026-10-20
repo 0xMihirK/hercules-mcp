@@ -1,4 +1,23 @@
 {
   "schema_version": 1,
-  "images": []
+  "images": [
+    {
+      "fingerprint": "2bf4cda80d07d0f268c73e0294325535328b278b35dbed5da980fd086e0ac191",
+      "platform": "linux/amd64",
+      "source_revision": "86971b68b93ec6751778cd5a6c22ee5a97441cf4",
+      "references": [
+        "ghcr.io/0xmihirk/hercules-mcp@sha256:05d6c0b9243f59fccf3dbe126708bea76fc5da6e21c5fcdddf4010971fceb99e",
+        "0xmihirk/hercules-mcp@sha256:05d6c0b9243f59fccf3dbe126708bea76fc5da6e21c5fcdddf4010971fceb99e"
+      ]
+    },
+    {
+      "fingerprint": "835c0d122864d2b4529dcee9fe260d3e68bbe9726aa1e53f1e64ece07e703865",
+      "platform": "linux/arm64",
+      "source_revision": "86971b68b93ec6751778cd5a6c22ee5a97441cf4",
+      "references": [
+        "ghcr.io/0xmihirk/hercules-mcp@sha256:7cc14db46cfa2c38b68073d7a1daadee9b204c9554bad64f7c6f5e45b570dea3",
+        "0xmihirk/hercules-mcp@sha256:7cc14db46cfa2c38b68073d7a1daadee9b204c9554bad64f7c6f5e45b570dea3"
+      ]
+    }
+  ]
 }

@@ -901,6 +901,10 @@ class Engine:
 
             source = getattr(self.args, "image_source", "auto")
             references = prebuilt_references(facts) if source != "build" else []
+            # Prefer GHCR, fall back to the identical-digest Docker Hub mirror.
+            # shortcut: registry preference is hardcoded; make it configurable if a
+            # deployment needs a different primary.
+            references = sorted(references, key=lambda r: 0 if r.startswith("ghcr.io/") else 1)
             if source == "prebuilt" and not references:
                 raise SetupError("prebuilt_unavailable", "No trusted prebuilt digest matches this runtime", "Use --image-source build explicitly, or select a published release. The working installation remains active.")
             if references:

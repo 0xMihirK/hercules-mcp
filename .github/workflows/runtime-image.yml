@@ -100,12 +100,13 @@ jobs:
           facts = json.loads((report/'facts.json').read_text())
           image = json.loads(subprocess.check_output(['docker','image','inspect',os.environ['IMAGE']]))[0]
           refs = image['RepoDigests']
-          selected = [next(ref for ref in refs if ref.startswith(repo+'@')) for repo in (os.environ['DOCKERHUB_REPOSITORY'],os.environ['GHCR_REPOSITORY'])]
+          # GHCR first (primary), Docker Hub second (identical-digest fallback).
+          selected = [next(ref for ref in refs if ref.startswith(repo+'@')) for repo in (os.environ['GHCR_REPOSITORY'],os.environ['DOCKERHUB_REPOSITORY'])]
           assert len({ref.rsplit('@',1)[1] for ref in selected}) == 1
           entry = dict(fingerprint=facts['image']['fingerprint'],platform=os.environ['PLATFORM'],source_revision=os.environ['GITHUB_SHA'],references=selected)
           (report/'catalog-entry.json').write_text(json.dumps(entry,indent=2)+'\n')
           with open(os.environ['GITHUB_ENV'],'a') as env:
-              env.write('PUBLISHED_DIGEST='+selected[1].split('@')[1]+'\n')
+              env.write('PUBLISHED_DIGEST='+selected[0].split('@')[1]+'\n')
           PY
       - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         if: inputs.publish
