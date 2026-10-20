@@ -118,7 +118,7 @@ def _transport(workspace_root: Path) -> StdioTransport:
             "BROWSER_PROXY": "",
             "BROWSER_LOCALE": "",
             "BROWSER_TIMEZONE": "",
-            "HERCULES_DOCKER_NETWORK": "bridge",
+            "HERCULES_DOCKER_NETWORK": "host",
             "HERCULES_LISTENER_BIND_HOST": "127.0.0.1",
             "USE_PRIVILEGED": "false",
             "HERCULES_INSTALLED_CAPABILITIES": format_capabilities(
@@ -346,7 +346,7 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
             network_info = (
                 await client.call_tool("system_network_info")
             ).structured_content
-            assert network_info["network_mode"] == "bridge"
+            assert network_info["network_mode"] == "host"
             assert network_info["container_ips"]
 
             # A second cold MCP process gets schemas and a workspace but must
@@ -543,7 +543,7 @@ def test_cancelled_real_start_releases_exact_owned_resources(tmp_path, cached_ru
     async def scenario():
         manager = DockerManager(HerculesConfig(project_root=PROJECT_ROOT, workspace_root=tmp_path,
             installed_capabilities=frozenset({"shell", "session", "workspace"}),
-            skip_metasploit=True, listener_ports=(), docker_network="bridge", watchdog_interval=0))
+            skip_metasploit=True, listener_ports=(), docker_network="host", watchdog_interval=0))
         sessions.add(manager.session_id)
         manager._workspace.atomic_write(manager.session_id, "retained.txt", b"cancelled-start-evidence", mode=0o600)
         entered = asyncio.Event()

@@ -67,7 +67,7 @@ RUN --mount=type=secret,id=hercules_build_ca \
     has_cap john && packages="$packages john" || true; \
     has_cap binwalk && packages="$packages binwalk binutils" || true; \
     has_cap steghide && packages="$packages steghide libimage-exiftool-perl xxd" || true; \
-    has_cap browser && packages="$packages fonts-liberation ncat nftables util-linux" || true; \
+    has_cap browser && packages="$packages fonts-liberation ncat util-linux" || true; \
     for attempt in 1 2 3; do \
       rm -rf /var/lib/apt/lists/*; \
       if apt-get update -qq --allow-releaseinfo-change && \
@@ -112,14 +112,14 @@ RUN set -eux; \
 COPY hercules/core/browser_assets.json /opt/hercules/browser-assets.json
 COPY docker/install-browser.py /opt/hercules/install-browser.py
 COPY docker/python-toolbox.lock /opt/hercules/python-toolbox.lock
-COPY hercules/core/target_policy.py hercules/core/browser_boundary.py /opt/hercules/
+COPY docker/browser-launch.py /opt/hercules/browser-launch.py
 ENV AGENT_BROWSER_ENGINE=obscura \
-    AGENT_BROWSER_EXECUTABLE_PATH=/opt/hercules/browser_boundary.py \
+    AGENT_BROWSER_EXECUTABLE_PATH=/opt/hercules/browser-launch.py \
     AGENT_BROWSER_SKILLS_DIR=/opt/hercules/browser/skill-data \
     AGENT_BROWSER_OBSCURA_STEALTH=1 \
     OBSCURA_BLOCK_TRACKERS=0
 RUN python3 /opt/hercules/install-browser.py "$HERCULES_TARGET_PLATFORM" && \
-    chmod 0755 /opt/hercules/browser_boundary.py && \
+    chmod 0755 /opt/hercules/browser-launch.py && \
     install -d -m 0700 /run/hercules-browser && \
     install -d -o 19731 -g 19731 -m 0700 /tmp/hercules-browser-home && \
     python3 -m venv /opt/hercules-python && \
@@ -155,7 +155,7 @@ RUN set -eux; \
     has_cap nmap && required="$required nmap" || true; has_cap curl && required="$required curl" || true; has_cap ncat && required="$required ncat" || true; has_cap hping3 && required="$required hping3" || true; \
     has_cap whatweb && required="$required httpx whatweb wafw00f nikto wpscan arjun" || true; has_cap fuzz && required="$required ffuf gobuster" || true; has_cap webvuln && required="$required dalfox commix" || true; has_cap nuclei && required="$required nuclei" || true; has_cap sqlmap && required="$required sqlmap" || true; \
     has_cap searchsploit && required="$required searchsploit" || true; has_cap metasploit && required="$required msfconsole msfrpcd msfvenom" || true; has_cap hydra && required="$required hydra" || true; has_cap john && required="$required john" || true; has_cap binwalk && required="$required binwalk" || true; has_cap steghide && required="$required steghide exiftool xxd" || true; \
-    if has_cap browser; then required="$required agent-browser obscura nft setpriv"; has_cap ncat || required="$required ncat"; fi; \
+    if has_cap browser; then required="$required agent-browser obscura setpriv"; has_cap ncat || required="$required ncat"; fi; \
     test -n "$HERCULES_CAPABILITY_MANIFEST_SHA256"; \
     python3 -m venv /tmp/hercules-venv-check; /tmp/hercules-venv-check/bin/python -m pip --version >/dev/null; rm -rf /tmp/hercules-venv-check; \
     spec=/opt/hercules-capability-manifest.spec; printf 'capabilities=%s\n' "$HERCULES_CAPABILITIES" > "$spec"; for tool in $required; do printf 'binary=%s\n' "$tool" >> "$spec"; done; \

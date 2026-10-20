@@ -30,14 +30,12 @@ evidence. Browser configuration cannot guarantee CAPTCHA/bot avoidance.
 The browser is Obscura: CSP is NOT enforced. Script execution is not proof of
 a Chromium CSP bypass. Native browser downloads are unsupported; save direct
 HTTP downloads in the workspace and verify the file before claiming success.
-The controller's request filter is not enforcement. The Hercules runtime is a
-bridged Docker network: container localhost/127.0.0.1 is the container itself, the
-Docker engine host is reachable as host.docker.internal, and only the forwarded TCP
-listener ports are reachable from an external target — call system_network_info to
-choose LHOST/LPORT. Browsing runs through the container's unprivileged engine and
-container-local firewall/gateway, which always refuse private/loopback/reserved
-destinations (a fixed SSRF boundary, not a configurable scope); if that enforcement
-is unavailable, browsing fails closed. Privileged shell commands are not confined.
+The controller's request filter is not enforcement. The Hercules runtime uses HOST
+networking: container localhost/127.0.0.1 IS the host, and listeners (reverse shells)
+can bind any host port directly — call system_network_info for the LHOST interface.
+The Obscura browser runs unprivileged but has NO SSRF boundary: it can reach
+host-local, the LAN, and cloud-metadata (169.254.169.254) services, so only browse
+explicitly authorized targets. Privileged shell commands are not confined either.
 
 Prefer installed NSE/Nuclei content. For missing logic read
 resource://agent_skills/nse or resource://agent_skills/nuclei before authoring.
@@ -122,7 +120,7 @@ TOOL_DESCRIPTIONS = {
     "ncat": _desc(
         "Use ncat with action=connect|listen|interact for TCP/UDP connections and background listeners.",
         "Networking, reverse shell handling, callback listeners, and ad hoc protocol interaction.",
-        "connect requires target and port and runs foreground. listen can run foreground or background; background=True creates a job_id and pipe. interact requires job_id and can send command then read tail_lines. Use udp=True for UDP. Listeners are heavy concurrency. On the bridged runtime only the forwarded TCP listener ports (see system_network_info) are reachable from an external target; UDP and out-of-range ports are not.",
+        "connect requires target and port and runs foreground. listen can run foreground or background; background=True creates a job_id and pipe. interact requires job_id and can send command then read tail_lines. Use udp=True for UDP. Listeners are heavy concurrency. On host networking a listener binds the host directly, so any port (TCP or UDP) is reachable from an external target; use system_network_info for the LHOST interface.",
         "ncat(action='listen', port=4444, job_id='listener1')\nncat(action='interact', job_id='listener1', command='id', tail_lines=100)",
     ),
     "network_curl": _desc(
@@ -182,7 +180,7 @@ TOOL_DESCRIPTIONS = {
     "metasploit_start_listener": _desc(
         "Start exploit/multi/handler as a Metasploit background job.",
         "Reverse shell or Meterpreter callback handling before exploit delivery.",
-        "Requires payload_type, lhost, and lport. lport must be 1-65535. Call system_network_info first to choose LHOST/LPORT; on the bridged runtime only the forwarded TCP listener ports are reachable from an external target. Manage jobs with metasploit_manage.",
+        "Requires payload_type, lhost, and lport. lport must be 1-65535. Call system_network_info first to choose LHOST; on host networking the listener binds the host directly, so any LPORT is reachable from an external target. Manage jobs with metasploit_manage.",
         "metasploit_start_listener(payload_type='linux/x86/meterpreter/reverse_tcp', lhost='10.0.0.1', lport=4444)",
     ),
     "sqlmap_run": _desc(
@@ -290,7 +288,7 @@ TOOL_DESCRIPTIONS = {
     "system_network_info": _desc(
         "Inspect host/container networking, browser host access, and callback routes.",
         "Before reverse listeners or accessing a Docker-host service from the browser.",
-        "Returns effective RPC/listener/stream ports, LHOST guidance, localhost scope, and the Docker-host alias. Concurrent IDE clients may receive different ports.",
+        "Returns effective RPC/listener/stream ports and LHOST guidance. On host networking container localhost is the host. Concurrent IDE clients may receive different ports.",
         "system_network_info()",
     ),
     "ctf_binwalk": _desc(
@@ -308,8 +306,8 @@ TOOL_DESCRIPTIONS = {
     "browser_open": _desc(
         "Open a URL in Obscura (CSP NOT enforced). Start a named session for JavaScript, interaction, and rendered evidence; not Chromium parity.",
         "First step of any browser workflow. Follow with browser_snapshot to see the page, then browser_act/browser_read to interact. Use instead of network_curl/web_scan when the target needs a real JavaScript-capable browser.",
-        "url is validated; the gateway independently refuses private/reserved destinations. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
-        "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://host.docker.internal:8080')",
+        "url is validated for syntax only; the browser has NO SSRF boundary on host networking and can reach host-local/LAN/metadata, so only open authorized targets. fingerprint is compatibility-only and non-empty values are rejected. Proxy precedence is parameter, BROWSER_PROXY_URL, then direct; profile changes relaunch.",
+        "browser_open(url='https://app.target.test/login', session='recon', timezone='America/New_York', locale='en-US')\nbrowser_open(url='https://target.test', session='vpn1', proxy='http://127.0.0.1:8080')",
     ),
     "browser_snapshot": _desc(
         "Capture the page's accessibility tree as compact text with stable element references (@e1, @e2, ...). This is how the agent 'sees' the page and obtains the @refs used by browser_act and browser_read.",

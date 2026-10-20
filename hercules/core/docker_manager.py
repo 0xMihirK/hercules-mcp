@@ -657,10 +657,10 @@ class DockerManager:
         configured = str(getattr(self._config, "docker_network", "") or "")
         if configured:
             return configured
-        # The runtime is always bridged by default, including native Linux. An
-        # operator can still force host/macvlan via HERCULES_DOCKER_NETWORK, but
-        # protected browsing rejects those and localhost then means the host.
-        return "bridge"
+        # Host networking by default: container localhost is the host, listeners
+        # bind any host port, and the browser runs WITHOUT an SSRF boundary. An
+        # operator can still select a named bridge via HERCULES_DOCKER_NETWORK.
+        return "host"
 
     @property
     def container_running(self) -> bool:
@@ -2815,39 +2815,6 @@ class DockerManager:
         )
         return result.exit_code == 0
 
-    async def ensure_browser_boundary(self, *, proxy: str = "", protected_ports: tuple[int, ...] = ()) -> dict:
-        """Attest the actual network before any container firewall mutation."""
-        await self.ensure_ready()
-        generation, container = self.generation, self._container
-        if container is None:
-            raise RuntimeError("Browser container is not running")
-        await asyncio.to_thread(container.reload)
-        mode = container.attrs.get("HostConfig", {}).get("NetworkMode", "")
-        networks = container.attrs.get("NetworkSettings", {}).get("Networks", {})
-        if mode in {"host", "none", "default", ""} or mode.startswith("container:") or not networks:
-            raise RuntimeError("Protected browsing requires an isolated Docker bridge network")
-        for name in networks:
-            network = await asyncio.to_thread(self._client.networks.get, name)
-            if network.attrs.get("Driver") != "bridge":
-                raise RuntimeError("Protected browsing requires a bridge network; no firewall rules were installed")
-        config = {
-            "generation": f"{container.id}:{generation}",
-            "proxy": proxy,
-            "protected_ports": [p for p in {self.msf_rpc_port, self.browser_stream_relay_port, *protected_ports} if p],
-        }
-        result = await self.exec_command(
-            "python3 /opt/hercules/browser_boundary.py ensure",
-            env={"HERCULES_BOUNDARY_CONFIG": json.dumps(config)},
-            timeout=20, clean_output=False, expected_generation=generation,
-            sensitive_values=[proxy] if proxy else (),
-        )
-        if result.exit_code != 0:
-            raise RuntimeError("Browser gateway/firewall readiness failed; browsing remains blocked")
-        proof = json.loads(result.stdout)
-        if proof.get("generation") != config["generation"] or proof.get("boundary_enforced") is not True:
-            raise RuntimeError("Browser boundary returned stale or invalid readiness")
-        return proof
-
     async def ensure_browser_stream_relay(
         self,
         *,
@@ -2862,8 +2829,6 @@ class DockerManager:
             raise RuntimeError("browser streaming is not configured")
         if not 1 <= backend_port <= 65_535:
             raise ValueError("agent-browser returned an invalid stream port")
-
-        await self.ensure_browser_boundary(protected_ports=(backend_port, relay_port))
 
         async with self._get_browser_stream_lock():
             state = dict(getattr(self, "_browser_stream_relay_state", {}))
@@ -2904,13 +2869,10 @@ class DockerManager:
                 replaced = True
             self._browser_stream_relay_state = {}
 
-            # The relay only runs on an isolated bridge network (ensure_browser_boundary
-            # rejects host networking), where Docker publishes to the container's bridge
-            # IP, never its loopback — so a loopback bind is unreachable on native Linux
-            # (docker-proxy accepts the host connection then RSTs). The host publish stays
-            # pinned to 127.0.0.1:stream_port, and the browser egress firewall governs only the
-            # engine UID, so binding all container interfaces widens nothing that matters.
-            bind_host = _CONTAINER_ALL_INTERFACES
+            # Host networking: the container shares the host network stack, so a
+            # relay bound on loopback is directly reachable on the host at
+            # 127.0.0.1:relay_port (no port publishing involved).
+            bind_host = "127.0.0.1"
             relay_target = f"ncat -4 127.0.0.1 {backend_port}"
             log_path = "/opt/workspace/logs/browser-stream-relay.log"
             command = (

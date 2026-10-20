@@ -347,14 +347,13 @@ def test_fresh_selected_root_does_not_adopt_unrelated_legacy_home(fake_engine, i
     assert (legacy / "workspace/retained.txt").read_text() == "unrelated evidence"
 
 
-def test_existing_linux_install_defaults_to_bridge(fake_engine, monkeypatch):
-    # The runtime is bridged by default on every platform now; an existing
-    # native-Linux browser install no longer writes host networking.
+def test_existing_linux_install_defaults_to_host(fake_engine, monkeypatch):
+    # Host networking is the default; a browser install pins host explicitly.
     monkeypatch.setattr("hercules.setup.engine.platform.system", lambda: "Linux")
     fake_engine.args.capabilities = "all"
     fake_engine.old = {"image_fingerprint": "old"}
     fake_engine.execute("install")
-    assert fake_engine.pending()["environment"]["HERCULES_DOCKER_NETWORK"] == "bridge"
+    assert fake_engine.pending()["environment"]["HERCULES_DOCKER_NETWORK"] == "host"
 
 
 def test_pending_runtime_verification_does_not_touch_active_state(fake_engine, monkeypatch):

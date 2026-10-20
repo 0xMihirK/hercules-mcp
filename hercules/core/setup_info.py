@@ -793,12 +793,10 @@ def setup_information(
             "version": OBSCURA_VERSION, "controller_version": AGENT_BROWSER_VERSION,
             "assets": BROWSER_ASSETS[selected_platform],
             "csp_enforced": False, "native_browser_downloads": False,
-            "boundary_enforced": False,
-            "boundary": "unprivileged-engine + generation-owned inet firewall + validating SOCKS5 gateway",
-            "boundary_readiness": "not_observed",
+            "boundary": "none — host networking; the browser launches directly with no SSRF boundary (can reach host-local, LAN, and cloud-metadata services)",
             "runtime_verification": "not_run",
-            "network": os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or "bridge"),
-            "release_blockers": (["browser_requires_explicit_bridge_network"] if browser_selected and os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or "bridge") == "host" else []),
+            "network": os.getenv("HERCULES_DOCKER_NETWORK", read_dotenv_value(environment_file, "HERCULES_DOCKER_NETWORK") or "host"),
+            "release_blockers": [],
             "unsupported_configurations": (
                 (["BROWSER_LOCALE"] if browser_selected and os.getenv("BROWSER_LOCALE", read_dotenv_value(environment_file, "BROWSER_LOCALE") or "").strip() else [])
                 + (["unverifiable_remote_dns_proxy"] if browser_selected and (os.getenv("BROWSER_PROXY_URL", read_dotenv_value(environment_file, "BROWSER_PROXY_URL") or "") or os.getenv("BROWSER_PROXY", read_dotenv_value(environment_file, "BROWSER_PROXY") or "")).startswith("socks5h:") else [])

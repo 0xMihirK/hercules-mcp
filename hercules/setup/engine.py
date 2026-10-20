@@ -543,7 +543,7 @@ class Engine:
         }
         selected_network = getattr(self.args, "docker_network", None)
         existing_network = old_environment.get("HERCULES_DOCKER_NETWORK", self.old.get("docker_network") or read_dotenv_value(env_file, "HERCULES_DOCKER_NETWORK") or "")
-        previous_network = existing_network or "bridge"
+        previous_network = existing_network or "host"
         if selected_network is not None:
             from hercules.core.config import _parse_docker_network
 
@@ -551,9 +551,9 @@ class Engine:
         elif existing_network:
             environment["HERCULES_DOCKER_NETWORK"] = existing_network
         elif "browser" in capabilities.split(","):
-            # The runtime is bridged by default on every platform; browser
-            # installs no longer imply host networking on native Linux.
-            environment["HERCULES_DOCKER_NETWORK"] = "bridge"
+            # Host networking is the default; the browser runs without an SSRF
+            # boundary (no bridge/gateway). Pin host explicitly for clarity.
+            environment["HERCULES_DOCKER_NETWORK"] = "host"
         for state_key, env_key in [
             ("image_platform", "HERCULES_IMAGE_PLATFORM"),
             ("build_ca_sha256", "HERCULES_BUILD_CA_SHA256"),

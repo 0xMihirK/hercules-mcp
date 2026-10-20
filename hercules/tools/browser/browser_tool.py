@@ -141,10 +141,10 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
     try:
         await _resolve_obscura(docker)
         upstream = (launch_env or {}).get("HERCULES_BROWSER_UPSTREAM", _session_profiles.get(session, {}).get("proxy", getattr(config, "browser_proxy", "")))
-        proof = await docker.ensure_browser_boundary(proxy=upstream)
-        # Only after the boundary is ready: make the per-session artifact dir
-        # sticky-shared (1777) so the host (eval scripts via the bind mount) and
-        # container-root (screenshots) can both write into it on native Linux.
+        # Host networking, no SSRF boundary: Obscura launches directly via the
+        # minimal launcher (which still drops to the unprivileged engine UID). No
+        # gateway/firewall is prepared, so the browser can reach host-local, LAN,
+        # and cloud-metadata services — only browse authorized targets.
         session_dir = _session_dir(session)
         await docker.exec_command(
             f"mkdir -p {shlex.quote(session_dir)} && chmod 1777 {shlex.quote(session_dir)}",
@@ -152,10 +152,10 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
         )
     except Exception as exc:
         return backend_unavailable(
-            tool, f"Browser binary or network boundary is not ready: {exc}",
+            tool, f"Browser binary is not ready: {exc}",
             next_steps=[
-                "Use setup status to check the prepared full image and isolated bridge selection; do not clear target restrictions.",
-                "After coordinating parallel work, stop/start this session if its gateway failed. The workspace is retained.",
+                "Use setup status to check the prepared full image and host networking selection.",
+                "After coordinating parallel work, stop/start this session if the browser failed. The workspace is retained.",
                 "Inspect runtime verification diagnostics before rebuilding; never change harness permissions automatically.",
             ],
         )
@@ -164,9 +164,9 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
     env["AGENT_BROWSER_OBSCURA_STEALTH"] = "1"
     env["OBSCURA_BLOCK_TRACKERS"] = "0"
     env["SSL_CERT_FILE"] = "/etc/ssl/certs/ca-certificates.crt"
-    env["AGENT_BROWSER_EXECUTABLE_PATH"] = "/opt/hercules/browser_boundary.py"
-    env["AGENT_BROWSER_PROXY"] = "socks5h://" + proof["proxy"].split("@", 1)[1]
-    env["HERCULES_BROWSER_UPSTREAM"] = upstream
+    env["AGENT_BROWSER_EXECUTABLE_PATH"] = "/opt/hercules/browser-launch.py"
+    if upstream:
+        env["AGENT_BROWSER_PROXY"] = upstream
     timezone = _session_profiles.get(session, {}).get("timezone") or getattr(config, "browser_timezone", "")
     if timezone:
         env["OBSCURA_TIMEZONE"] = timezone
@@ -233,7 +233,7 @@ def _session_dir(session: str) -> str:
 
 def _browser_result(tool: str, session: str, result, *, json_out: bool) -> dict:
     """Normalize agent-browser JSON without returning the same payload twice."""
-    response = {"tool": tool, "session": session, "boundary_enforced": True, **result.to_dict()}
+    response = {"tool": tool, "session": session, **result.to_dict()}
     if not json_out or result.exit_code != 0 or not result.stdout.strip():
         return response
     try:
@@ -622,7 +622,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             json_out=False, env=env, bucket="browser_screenshot", timeout=90,
         )
         response = {
-            "tool": "browser_screenshot", "session": session_key, "path": out_path, "boundary_enforced": True,
+            "tool": "browser_screenshot", "session": session_key, "path": out_path, 
             "mime_type": "image/png", "annotated": annotate,
             **result.to_dict(),
         }
@@ -693,7 +693,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
                 )
             except Exception:
                 logger.warning("Failed to remove browser eval script: %s", script_path)
-        return {"tool": "browser_eval", "session": session, "boundary_enforced": True, **result.to_dict()}
+        return {"tool": "browser_eval", "session": session, **result.to_dict()}
 
     @mcp.tool(description=TOOL_DESCRIPTIONS["browser_wait"])
     async def browser_wait(
@@ -990,7 +990,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
         return {
             "tool": "browser_cmd",
             "session": session_key,
-            "boundary_enforced": True,
+            
             "args": escape_display_controls(redact_secrets(args)),
             **result.to_dict(),
         }

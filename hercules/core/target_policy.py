@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ipaddress
 import re
-import socket
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -17,33 +16,16 @@ _BIDI_CONTROL_CODEPOINTS = frozenset(
 
 @dataclass(frozen=True)
 class TargetPolicy:
-    """Structural target validation plus the browser gateway's private-IP deny.
+    """Structural target validation only.
 
-    There is no configurable allow/block list. Ordinary tools accept any
-    syntactically valid target; the browser gateway always refuses
-    private/loopback/reserved destinations (the SSRF boundary), unconditionally.
+    There is no allow/block list and no browser SSRF boundary (the runtime uses
+    host networking and the browser launches directly). Tools accept any
+    syntactically valid target; malformed or unresolvable targets raise ValueError.
     """
 
     def validate_target(self, target: str) -> None:
         """Reject a malformed target; impose no scope. Raises ValueError."""
         _extract_host(target)
-
-    def resolve_destination(self, host: str, port: int) -> list[str]:
-        """Resolve once, pin the addresses, and refuse private/reserved ones."""
-        clean = _extract_host(host)
-        if "/" in clean or not 1 <= port <= 65535:
-            raise ValueError("invalid connection destination")
-        addresses = sorted({ipaddress.ip_address(info[4][0]).compressed.lower()
-                            for info in socket.getaddrinfo(clean, port, type=socket.SOCK_STREAM)})
-        if not addresses:
-            raise ValueError("destination has no addresses")
-        # Unconditional SSRF boundary: the browser may never reach a
-        # private/loopback/link-local/reserved address. There is no allow-list
-        # override — the configurable scope lists were removed.
-        for address in addresses:
-            if _is_special_address(address):
-                raise ValueError("browser private destination is not permitted")
-        return addresses
 
 
 _HOST_LABEL_RE = re.compile(r"^[a-z0-9_](?:[a-z0-9._-]*[a-z0-9_])?$", re.IGNORECASE)
@@ -116,29 +98,3 @@ def _extract_host(target: str) -> str:
     if host:
         return _normalize_hostname(host)
     return _normalize_hostname(clean)
-
-
-# Ranges the stdlib's is_private/is_reserved do not consistently flag across
-# Python versions but which must never be a browser destination: carrier-grade
-# NAT shared space (RFC 6598) and the IETF benchmarking range (RFC 2544).
-_EXTRA_DENY_NETWORKS = (
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("198.18.0.0/15"),
-)
-
-
-def _is_special_address(value: str) -> bool:
-    address = ipaddress.ip_address(value)
-    return any(
-        (
-            address.is_private,
-            address.is_loopback,
-            address.is_link_local,
-            address.is_multicast,
-            address.is_reserved,
-            address.is_unspecified,
-        )
-    ) or any(
-        address.version == net.version and address in net
-        for net in _EXTRA_DENY_NETWORKS
-    )

@@ -30,7 +30,7 @@ def parser():
     common.add_argument("--skill-path", type=Path)
     common.add_argument("--capabilities")
     common.add_argument("--platform", choices=("linux/amd64", "linux/arm64"))
-    common.add_argument("--docker-network", help="Selected client's isolated Docker bridge network (default bridge; the runtime is always bridged unless explicitly overridden)")
+    common.add_argument("--docker-network", help="Docker network for this client's runtime (default host; set a named bridge to isolate, though the browser has no SSRF boundary in any mode)")
     common.add_argument("--build-ca-bundle", type=Path)
     common.add_argument(
         "--source",
