@@ -21,9 +21,11 @@ ENGINE_UID = 19731
 
 
 def launch(args):
-    if args == ["--version"]:
-        os.execv(ENGINE, [ENGINE, *args])
-    if len(args) < 5 or args[:3] != ["serve", "--host", "127.0.0.1"]:
+    # Allow only the agent-browser --version probe and the loopback serve form.
+    # Both still go through setpriv below so the engine never runs as root.
+    if args != ["--version"] and (
+        len(args) < 5 or args[:3] != ["serve", "--host", "127.0.0.1"]
+    ):
         raise ValueError("unsupported engine launch")
     env = dict(
         os.environ,

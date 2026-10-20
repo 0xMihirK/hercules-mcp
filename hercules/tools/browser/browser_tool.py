@@ -622,7 +622,7 @@ def register_browser_tools(mcp: FastMCP) -> None:
             json_out=False, env=env, bucket="browser_screenshot", timeout=90,
         )
         response = {
-            "tool": "browser_screenshot", "session": session_key, "path": out_path, 
+            "tool": "browser_screenshot", "session": session_key, "path": out_path,
             "mime_type": "image/png", "annotated": annotate,
             **result.to_dict(),
         }
@@ -990,7 +990,6 @@ def register_browser_tools(mcp: FastMCP) -> None:
         return {
             "tool": "browser_cmd",
             "session": session_key,
-            
             "args": escape_display_controls(redact_secrets(args)),
             **result.to_dict(),
         }

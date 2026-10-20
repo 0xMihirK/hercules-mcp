@@ -2871,8 +2871,15 @@ class DockerManager:
 
             # Host networking: the container shares the host network stack, so a
             # relay bound on loopback is directly reachable on the host at
-            # 127.0.0.1:relay_port (no port publishing involved).
-            bind_host = "127.0.0.1"
+            # 127.0.0.1:relay_port (no port publishing involved). Under a named-
+            # bridge override the relay is published from the container's bridge
+            # IP, which docker-proxy reaches via the container's external
+            # interface, not loopback — so it must bind all interfaces there.
+            bind_host = (
+                "127.0.0.1"
+                if self.network_mode == "host"
+                else _CONTAINER_ALL_INTERFACES
+            )
             relay_target = f"ncat -4 127.0.0.1 {backend_port}"
             log_path = "/opt/workspace/logs/browser-stream-relay.log"
             command = (
