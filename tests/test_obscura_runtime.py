@@ -129,13 +129,13 @@ def test_backend_has_no_fallback_and_resets_by_generation():
     asyncio.run(scenario())
 
 
-def test_scoped_browser_fails_when_boundary_is_unavailable(monkeypatch):
+def test_browser_fails_when_boundary_is_unavailable(monkeypatch):
     async def scenario():
         manager = SimpleNamespace(generation=999, exec_command=AsyncMock())
         manager.ensure_browser_boundary = AsyncMock(side_effect=RuntimeError("firewall unavailable"))
         monkeypatch.setattr(browser_tool, "_resolve_obscura", AsyncMock(return_value="/opt/hercules/browser/obscura"))
         ctx = SimpleNamespace(lifespan_context={"docker": manager, "concurrency": ConcurrencyManager(),
-                                              "config": SimpleNamespace(allowed_targets=["127.0.0.1"], blocked_targets=[])})
+                                              "config": SimpleNamespace()})
         response = await browser_tool._backend(ctx, "browser_eval")
         assert "firewall unavailable" in str(response)
         manager.exec_command.assert_not_awaited()

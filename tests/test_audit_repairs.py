@@ -19,7 +19,7 @@ from fastmcp import FastMCP
 
 from test_lifecycle_regressions import runtime as lifecycle_runtime
 from hercules.core.concurrency import ConcurrencyManager
-from hercules.core.config import HerculesConfig, _target_matches
+from hercules.core.config import HerculesConfig
 from hercules.core.config_io import read_dotenv_value, render_dotenv
 from hercules.core.docker_manager import DockerManager, ExecResult, RuntimeNotStarted
 from hercules.core.instance_lock import workspace_lock
@@ -49,32 +49,39 @@ def runtime(monkeypatch, tmp_path, coordination):
     return lifecycle_runtime.__wrapped__(monkeypatch, tmp_path)
 
 
-@pytest.mark.parametrize(
-    "target,blocked,expected",
-    [
-        ("10.0.0.0/24", "10.0.0.5", True),
-        ("10.0.0.0/24", "10.0.0.0/28", True),
-        ("10.0.0.0/25", "10.0.0.128/25", False),
-        ("10.0.0.64/26", "10.0.0.0/24", True),
-        ("10.0.0.5", "10.0.0.0/28", True),
-        ("2001:db8::/32", "2001:db8::5", True),
-        ("2001:db8::/32", "2001:db8:1::/48", True),
-        ("2001:db8::/48", "2001:db8:1::/48", False),
-        ("2001:db8::/32", "10.0.0.0/8", False),
-    ],
-)
-def test_blocked_scope_uses_intersection(target, blocked, expected):
-    assert _target_matches(target, blocked, blocked=True) is expected
+def test_target_policy_denies_private_allows_public(monkeypatch):
+    # The scope allow/block lists are gone, but the browser gateway still refuses
+    # private/loopback/reserved destinations unconditionally and resolves public.
+    from hercules.core import target_policy
+
+    mapping = {
+        "private.test": "10.0.0.5",
+        "metadata.test": "169.254.169.254",
+        "loop.test": "127.0.0.1",
+        "public.test": "93.184.216.34",
+    }
+    monkeypatch.setattr(
+        target_policy.socket,
+        "getaddrinfo",
+        lambda host, port, *a, **k: [(0, 0, 0, "", (mapping[host], port))],
+    )
+    policy = target_policy.TargetPolicy()
+    for denied in ("private.test", "metadata.test", "loop.test"):
+        with pytest.raises(ValueError, match="private"):
+            policy.resolve_destination(denied, 80)
+    assert policy.resolve_destination("public.test", 80) == ["93.184.216.34"]
 
 
-def test_cidr_cannot_bypass_blocked_host_or_subnet():
-    for blocked in ("10.0.0.5", "10.0.0.0/28"):
-        config = HerculesConfig(
-            allowed_targets=("10.0.0.0/24",), blocked_targets=(blocked,)
-        )
-        with pytest.raises(ValueError, match="blocked"):
-            config.validate_target("10.0.0.0/24")
-    assert not _target_matches("10.0.0.0/24", "10.0.0.0/28")
+def test_target_policy_validates_syntax_without_scope():
+    # With no allow/block list, a well-formed target passes and a malformed one
+    # still raises (structural validation survived the feature removal).
+    from hercules.core.target_policy import TargetPolicy
+
+    policy = TargetPolicy()
+    policy.validate_target("example.com")
+    policy.validate_target("10.0.0.5")
+    with pytest.raises(ValueError):
+        policy.validate_target("bad\x00name")
 
 
 def test_dotenv_grammar_and_runtime_interpolation(tmp_path, monkeypatch):
@@ -893,3 +900,27 @@ def test_secret_values_are_redacted_in_returned_output(runtime):
             await manager.operator_stop()
 
     asyncio.run(scenario())
+
+
+def test_network_mode_defaults_bridge_and_honors_host_override():
+    # Workstream E: bridge is the default on every platform; the explicit
+    # HERCULES_DOCKER_NETWORK override still works.
+    manager = DockerManager.__new__(DockerManager)
+    manager._config = SimpleNamespace(docker_network="")
+    assert manager.network_mode == "bridge"
+    manager._config = SimpleNamespace(docker_network="host")
+    assert manager.network_mode == "host"
+
+
+def test_listener_reachability_warning_flags_unforwarded_and_udp():
+    # Workstream E: on bridge, a port outside the forwarded TCP set or a UDP
+    # listener is not reachable from an external target — warn loudly, not silently.
+    from hercules.core.guidance import listener_reachability_warning
+
+    bridged = SimpleNamespace(network_mode="bridge", listener_ports=(4444, 4445))
+    assert listener_reachability_warning(bridged, 4444) == ""
+    assert "not forwarded" in listener_reachability_warning(bridged, 9001)
+    assert "UDP" in listener_reachability_warning(bridged, 4444, protocol="udp")
+    # Host networking forwards everything, so there is nothing to warn about.
+    host = SimpleNamespace(network_mode="host", listener_ports=(4444,))
+    assert listener_reachability_warning(host, 9001) == ""

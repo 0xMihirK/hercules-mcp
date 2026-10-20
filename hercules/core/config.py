@@ -25,12 +25,7 @@ from hercules.core.build_info import (
     normalize_image_platform,
 )
 from hercules.core.config_io import dotenv_path
-from hercules.core.target_policy import (
-    TargetPolicy,
-    _extract_host,
-    _normalize_pattern,
-    _target_matches,  # noqa: F401 — retained internal import compatibility
-)
+from hercules.core.target_policy import TargetPolicy
 
 logger = logging.getLogger("hercules.config")
 _legacy_headed_warning_emitted = False
@@ -146,10 +141,6 @@ class HerculesConfig:
     # Concurrency
     max_concurrent_heavy: int = 3
     max_concurrent_light: int = 10
-
-    # Safety controls
-    allowed_targets: list[str] = field(default_factory=list)
-    blocked_targets: list[str] = field(default_factory=list)
 
     # Operator tool selection. Names listed here are NOT registered as MCP tools
     # (their description/schema is dropped from the model's context to save
@@ -280,8 +271,6 @@ class HerculesConfig:
             max_concurrent_light=_parse_int(
                 os.getenv("MAX_CONCURRENT_LIGHT", "10"), 10, minimum=1, maximum=512
             ),
-            allowed_targets=_parse_csv(os.getenv("ALLOWED_TARGETS", "")),
-            blocked_targets=_parse_csv(os.getenv("BLOCKED_TARGETS", "")),
             disabled_tools=disabled_tools,
             operator_disabled_tools=operator_disabled_tools,
             installed_capabilities=(installed_capabilities or ALL_CAPABILITIES),
@@ -403,31 +392,9 @@ class HerculesConfig:
     # ------------------------------------------------------------------
 
     def validate_target(self, target: str) -> None:
-        TargetPolicy(self.allowed_targets, self.blocked_targets).validate_target(target)
+        """Reject a malformed target. There is no allow/block scope list."""
+        TargetPolicy().validate_target(target)
 
     async def validate_target_async(self, target: str) -> None:
-        """Run parsing and DNS policy checks without blocking the event loop."""
+        """Run target parsing without blocking the event loop."""
         await asyncio.to_thread(self.validate_target, target)
-
-    def browser_allowed_domains(self, current_target: str = "") -> list[str]:
-        """Return a conservative navigation allowlist understood by agent-browser."""
-        domains: list[str] = []
-        wildcard_allowed = False
-        for pattern in self.allowed_targets:
-            normalized = _normalize_pattern(pattern)
-            if normalized == "*":
-                wildcard_allowed = True
-                continue
-            if "/" not in normalized:
-                domains.append(normalized)
-        if wildcard_allowed and not self.blocked_targets:
-            return []
-        # CIDRs cannot be represented by agent-browser's domain patterns. The
-        # structured browser_open validation has already checked every resolved
-        # address, so admit that exact initial host without admitting neighbors.
-        # With only block rules, this also prevents cross-host redirects.
-        if current_target and (self.allowed_targets or self.blocked_targets):
-            current_host = _extract_host(current_target)
-            if "/" not in current_host:
-                domains.append(current_host)
-        return list(dict.fromkeys(domains))

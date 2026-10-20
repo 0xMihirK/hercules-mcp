@@ -161,7 +161,7 @@ async def upstream_connect(proxy: tuple, address: str, port: int):
 class Gateway:
     def __init__(self, config: dict):
         self.config = config
-        self.policy = TargetPolicy(config["allowed"], config["blocked"])
+        self.policy = TargetPolicy()
         self.tokens: dict[str, tuple] = {}
         self.protected: set[int] = set()
         self.port = 0
@@ -198,8 +198,6 @@ class Gateway:
             if self.firewall_identity(observed) != self.rule_identity:
                 raise ValueError("browser firewall unavailable")
             if request["op"] == "register":
-                if request.get("allowed") != self.config["allowed"] or request.get("blocked") != self.config["blocked"]:
-                    raise ValueError("browser policy changed; stop/start the runtime")
                 proxy = proxy_settings(request.get("proxy", ""))
                 for port in request.get("protected_ports", []):
                     await self.protect(int(port))

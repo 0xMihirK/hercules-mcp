@@ -338,16 +338,9 @@ def register_browser_tools(mcp: FastMCP) -> None:
             return {"tool": "browser_open", "status": "unsupported_option", "parameter": "proxy",
                     "error": "Remote proxy DNS cannot be verified. Select an explicitly locally resolved SOCKS5 or HTTP(S) CONNECT proxy; no proxy mode is silently changed."}
         launch_env["HERCULES_BROWSER_UPSTREAM"] = px
-        allowed_domain_fn = getattr(config, "browser_allowed_domains", None)
-        raw_allowed_domains = allowed_domain_fn(url) if callable(allowed_domain_fn) else []
-        allowed_domains = (
-            [str(item) for item in raw_allowed_domains]
-            if isinstance(raw_allowed_domains, (list, tuple, set))
-            else []
-        )
-        # CIDRs and blocked-rule precedence cannot be represented by the
-        # controller's domain filter. The validating gateway is authoritative;
-        # do not silently reject otherwise authorized subresources here.
+        # No navigation allowlist: the validating gateway (the SSRF/private-IP
+        # deny) is the authoritative browser boundary.
+        allowed_domains: list[str] = []
 
         prepared = await _backend(ctx, "browser_open", launch_env=launch_env, session=session_key)
         if isinstance(prepared, dict):
@@ -395,64 +388,6 @@ def register_browser_tools(mcp: FastMCP) -> None:
             json_out=True, env=env, bucket="browser_nav", timeout=120,
             sensitive_values=[px],
         )
-        if result.exit_code == 0 and (
-            getattr(config, "allowed_targets", None)
-            or getattr(config, "blocked_targets", None)
-        ):
-            final_url_result = await _run_agent_browser(
-                docker,
-                concurrency,
-                session=session_key,
-                argv=["get", "url"],
-                json_out=False,
-                env=env,
-                bucket="browser_nav",
-                timeout=30,
-            )
-            final_url = final_url_result.stdout.strip()
-            if final_url_result.exit_code != 0 or not final_url:
-                close_result = await _run_agent_browser(
-                    docker,
-                    concurrency,
-                    session=session_key,
-                    argv=["close"],
-                    json_out=True,
-                    env=env,
-                    bucket="browser_session",
-                    timeout=30,
-                )
-                return {
-                    "tool": "browser_open",
-                    "status": "redirect_validation_failed",
-                    "requested_url": redact_url(url),
-                    "session": session_key,
-                    "session_closed": close_result.exit_code == 0,
-                    "error": "The final browser URL could not be read for scope validation.",
-                    "validation_command": final_url_result.to_dict(),
-                }
-            try:
-                await validate_target_async(config, final_url)
-            except ValueError as exc:
-                close_result = await _run_agent_browser(
-                    docker,
-                    concurrency,
-                    session=session_key,
-                    argv=["close"],
-                    json_out=True,
-                    env=env,
-                    bucket="browser_session",
-                    timeout=30,
-                )
-                denied = target_error("browser_open", final_url, exc, config)
-                denied.update(
-                    {
-                        "requested_url": redact_url(url),
-                        "redirect_url": redact_url(final_url),
-                        "session": session_key,
-                        "session_closed": close_result.exit_code == 0,
-                    }
-                )
-                return denied
         if result.exit_code == 0:
             _session_profiles[session_key] = effective_profile
         response = {

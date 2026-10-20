@@ -44,7 +44,6 @@ def host_environment(source: Path, workspace: Path, network: str) -> dict[str, s
             "HERCULES_LISTENER_PORTS": "24444-24447", "MSF_RPC_PORT": "25553",
             "BROWSER_STREAM_PORT": "0", "HERCULES_AUTO_ALLOCATE_PORTS": "true",
             "HERCULES_WORKSPACE_AUTO_PRUNE": "false", "PRESERVE_CONTAINER": "false",
-            "ALLOWED_TARGETS": "172.30.0.0/16,lab,*.lab.test",
             "HERCULES_MAX_INLINE_RESPONSE_CHARS": "6000", "WATCHDOG_INTERVAL": "0"}
 
 

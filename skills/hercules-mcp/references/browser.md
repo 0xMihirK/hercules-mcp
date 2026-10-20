@@ -24,8 +24,8 @@ Tracker blocking is disabled so a target's requests are not silently filtered.
 The pinned controller's domain filter leaks image and redirected requests. Do not
 trust it as enforcement. Hercules requires an isolated bridge and a container-local
 validating SOCKS gateway/firewall for the unprivileged engine. All browser traffic
-must pass it; missing enforcement fails closed. Never clear scope restrictions or
-switch to raw shell browsing to bypass the guard. Root shell commands remain
+must pass it; missing enforcement fails closed. Never switch to raw shell
+browsing to bypass the guard. Root shell commands remain
 administrator escape hatches, not confined browser operations.
 
 ## Reliable interaction loop
@@ -73,14 +73,16 @@ settings or disable TLS to work around an error. There is no automatic fallback.
 Obscura has no WebRTC media stack; Chromium's UDP policy flag is not passed.
 Public egress verification must be user-initiated against an authorized IP-check page.
 
-Call `system_network_info` before assuming where a local service lives. In
-bridge mode, `localhost` and `127.0.0.1` are inside the Hercules container; use
-`host.docker.internal` for a service on the Docker engine host. With a remote
-Docker context, that alias reaches the remote engine rather than the coding-agent
-machine. Do not rewrite localhost implicitly. Private browser destinations require
-explicit IP/CIDR authorization and the active boundary. Host networking cannot
-provide that boundary. Upstream HTTP(S) CONNECT and locally resolved SOCKS5 are
-supported; unverifiable remote-DNS modes are rejected, never silently changed.
+Call `system_network_info` before assuming where a local service lives. The
+runtime is bridged, so `localhost` and `127.0.0.1` are inside the Hercules
+container; use `host.docker.internal` for a service on the Docker engine host.
+With a remote Docker context, that alias reaches the remote engine rather than the
+coding-agent machine. Do not rewrite localhost implicitly. Private/loopback/reserved
+browser destinations are always refused by the gateway — a fixed SSRF boundary with
+no allow-list to authorize them. The bridge provides that boundary; host networking
+cannot, so browsing requires the bridge. Upstream HTTP(S) CONNECT and locally
+resolved SOCKS5 are supported; unverifiable remote-DNS modes are rejected, never
+silently changed.
 
 Use `browser_session` to list, inspect, close, or close all sessions. A live stream works when `BROWSER_STREAM_PORT` was configured before container startup. Hercules discovers the selected session's actual loopback WebSocket, replaces the generation-bound relay when the session changes, and exposes only the configured host-loopback port.
 
@@ -108,8 +110,8 @@ curl --fail --location --output /opt/workspace/challenge/handout.bin https://aut
 test -s /opt/workspace/challenge/handout.bin && sha256sum /opt/workspace/challenge/handout.bin
 ```
 
-Validate every redirected target against scope. `shell_exec` is privileged and
-does not automatically scope-check arbitrary curl redirects. For authenticated
+Browser redirects are independently bounded by the gateway's private-IP deny.
+`shell_exec` is privileged and is not confined by that boundary. For authenticated
 files, deliberately supply the required private headers/cookies without printing
 them; there is no automatic credential replay. Save POST/API response bytes
 when applicable. Blob/generated downloads may not be reproducible: report

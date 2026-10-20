@@ -112,8 +112,6 @@ def _transport(workspace_root: Path) -> StdioTransport:
         cwd=str(PROJECT_ROOT),
         env={
             **os.environ,
-            "ALLOWED_TARGETS": "127.0.0.1",
-            "BLOCKED_TARGETS": "",
             "HERCULES_ENV_FILE": str(workspace_root / "local-verification.env"),
             "MSF_PASSWORD": "hercules-local-verification-only",
             "BROWSER_PROXY_URL": "",
@@ -348,7 +346,7 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
             network_info = (
                 await client.call_tool("system_network_info")
             ).structured_content
-            assert network_info["network_mode"] in {"bridge", "host"}
+            assert network_info["network_mode"] == "bridge"
             assert network_info["container_ips"]
 
             # A second cold MCP process gets schemas and a workspace but must

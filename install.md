@@ -219,18 +219,20 @@ for an unpublished revision, custom build trust, or an offline host), pass
 free-disk reserve; do not broadly prune Docker data to make room.
 
 The Obscura candidate remains under release verification. Its controller's domain
-allowlist leaked image and redirect requests, so protected browsing now requires
-a container-local firewall/gateway and an unprivileged engine on an isolated
-bridge. No host firewall is changed. Privileged shell access is outside this boundary.
-New browser installs select `bridge`; existing native-Linux host-network installs
-remain pending until `install --docker-network bridge` (or a named bridge) is
-explicitly selected. The override affects only this client's Hercules entry.
+allowlist leaked image and redirect requests, so protected browsing requires a
+container-local firewall/gateway and an unprivileged engine on an isolated bridge.
+No host firewall is changed. Privileged shell access is outside this boundary. The
+runtime is bridged by default on every platform: container `localhost`/`127.0.0.1`
+is the container and the Docker engine host is `host.docker.internal`. An operator
+may still force host networking with `install --docker-network host`, but protected
+browsing rejects it. The override affects only this client's Hercules entry.
 
 After `runtime prepare`, use `verify --runtime --pending` to test a staged
 replacement without replacing the working registration, then `resume`. Proof is
 bound to source revision, immutable image ID, effective configuration and network;
 changed inputs require verification again. Host setup starts no containers and
-downloads no runtime assets. Never clear scope restrictions to make a check pass.
+downloads no runtime assets. Never weaken the runtime boundary (such as forcing
+host networking) to make a check pass.
 Runtime verification reports its local-fixture overrides explicitly: it uses a
 disposable workspace and loopback target, disables preservation/privileged mode
 and external upstream proxies, and preserves the selected network. Passing it

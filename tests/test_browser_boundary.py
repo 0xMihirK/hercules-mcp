@@ -9,29 +9,26 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from hercules.core.browser_boundary import ENGINE_UID, Gateway, proxy_settings, rules
-from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager
 from hercules.core.target_policy import TargetPolicy
 
 
-def test_policy_is_shared_and_resolves_only_once(monkeypatch):
+def test_policy_resolves_once_and_denies_private(monkeypatch):
     lookup = Mock(return_value=[(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 1234))])
     monkeypatch.setattr(socket, "getaddrinfo", lookup)
-    policy = TargetPolicy(["allowed.test", "127.0.0.1"], [])
-    assert policy.resolve_destination("allowed.test", 1234) == ["127.0.0.1"]
+    # One DNS resolution, and loopback is refused unconditionally — there is no
+    # allow-list override any more.
+    with pytest.raises(ValueError, match="private"):
+        TargetPolicy().resolve_destination("loop.test", 1234)
     assert lookup.call_count == 1
-    HerculesConfig(allowed_targets=policy.allowed_targets).validate_target("allowed.test")
-    with pytest.raises(ValueError, match="explicit"):
-        TargetPolicy(["allowed.test"], []).resolve_destination("allowed.test", 1234)
 
 
-def test_all_dns_addresses_are_checked_and_block_precedence(monkeypatch):
+def test_all_dns_addresses_are_checked_against_private_deny(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **kw: [
-        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80)),
         (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.2", 80)),
     ])
-    with pytest.raises(ValueError, match="blocked"):
-        TargetPolicy(["*", "127.0.0.0/8"], ["127.0.0.2"]).resolve_destination("alias.test", 80)
+    # A public first address does not excuse a private second address.
     with pytest.raises(ValueError, match="private"):
         TargetPolicy().resolve_destination("alias.test", 80)
 
@@ -54,7 +51,7 @@ def test_rules_cover_both_families_and_only_reply_control_traffic():
             rules(table, 12345)
 
 
-def test_socks_gateway_denies_targets_and_control_ports_without_contact():
+def test_socks_gateway_denies_private_and_control_ports_without_contact():
     async def scenario():
         contacts = []
         async def target(reader, writer):
@@ -64,7 +61,7 @@ def test_socks_gateway_denies_targets_and_control_ports_without_contact():
             writer.close()
         server = await asyncio.start_server(target, "127.0.0.1", 0)
         port = server.sockets[0].getsockname()[1]
-        gateway = Gateway({"generation": "test:1", "allowed": ["127.0.0.1"], "blocked": ["127.0.0.2"]})
+        gateway = Gateway({"generation": "test:1"})
         gateway.tokens["token"] = ()
         relay = await asyncio.start_server(gateway.connection, "127.0.0.1", 0)
         gateway.port = relay.sockets[0].getsockname()[1]
@@ -84,13 +81,12 @@ def test_socks_gateway_denies_targets_and_control_ports_without_contact():
                 writer.close()
                 await writer.wait_closed()
         try:
+            # Loopback is refused by the unconditional private-IP deny, so the
+            # fixture server is never contacted — with or without a protected port.
             assert (await connect("127.0.0.2"))[1] == 2
             gateway.protected.add(port)
             assert (await connect("127.0.0.1"))[1] == 2
             assert contacts == []
-            gateway.protected.clear()
-            assert (await connect("127.0.0.1"))[1] == 0
-            assert contacts == [True]
         finally:
             relay.close()
             server.close()
