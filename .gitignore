@@ -70,6 +70,7 @@ snapshot_report.html
 .github/workflows/*
 !.github/workflows/pages.yml
 !.github/workflows/runtime-image.yml
+!.github/workflows/site-sync.yml
 
 # Website dependencies and generated public/build output
 artifacts/runtime-probes/
