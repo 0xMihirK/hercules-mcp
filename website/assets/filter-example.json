@@ -1,7 +1,0 @@
-{
-  "kind": "characterized fixture",
-  "filter": "nikto",
-  "raw": "------------------------------\n+ Target: disposable local lab\n+ Start Time: 2026-10-16 00:00\n+ /debug: Debug data is visible\n+ WARNING: Scan was incomplete\n+ End Time: 2026-10-16 00:01\n------------------------------\n",
-  "filtered": "+ Target: disposable local lab\n+ /debug: Debug data is visible\n+ WARNING: Scan was incomplete\n",
-  "note": "Illustrative local-lab input, processed by the actual Hercules filter. This is not a measured live-scan benchmark."
-}
