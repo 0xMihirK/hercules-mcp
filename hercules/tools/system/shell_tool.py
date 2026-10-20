@@ -71,6 +71,12 @@ def register_shell_tools(mcp: FastMCP) -> None:
         )
 
         async with concurrency.acquire_light("shell_exec"):
+            # Pin the session we wrote the script under. A concurrent
+            # system_stop/new_session that rotates the session between the write
+            # and the exec aborts cleanly instead of running the script against the
+            # wrong workspace; a plain container crash keeps the same session, so it
+            # still auto-recovers and reruns from the persisted script.
+            session = docker.session_id
             # Write to a per-call temp script to safely handle complex quotes/newlines.
             script_path = f"/opt/workspace/tmp/shell_{invocation_id}.sh"
             await docker.write_file(script_path, command, mode=0o755)
@@ -79,6 +85,7 @@ def register_shell_tools(mcp: FastMCP) -> None:
                     f"bash {script_path}",
                     timeout=timeout,
                     clean_output=not raw,
+                    abort_if_session_changed=session,
                 )
             finally:
                 try:

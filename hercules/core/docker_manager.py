@@ -2108,6 +2108,7 @@ class DockerManager:
         require_ready: bool = True,
         sensitive_values: tuple[str, ...] | list[str] = (),
         expected_generation: int | None = None,
+        abort_if_session_changed: str | None = None,
     ) -> ExecResult:
         """
         Execute a command inside the running Kali container.
@@ -2131,6 +2132,18 @@ class DockerManager:
             if require_ready:
                 await self.ensure_ready()
         except Exception as exc:
+            # A session rotation (system_stop/new_session changes the session id)
+            # between a caller's write and this exec must abort cleanly rather than
+            # run against the wrong workspace. A plain container crash keeps the same
+            # session (recovery only bumps the generation), so it still auto-recovers
+            # and reruns against the persisted script.
+            if (
+                abort_if_session_changed is not None
+                and self._session_id != abort_if_session_changed
+            ):
+                raise ContainerUnavailable(
+                    "Session rotated; command was not replayed in a different session"
+                ) from exc
             if require_ready and expected_generation is None and _recoverable_docker_error(exc):
                 recovery_meta = await self._recover_container(str(exc))
                 await self._ensure_container_running()
@@ -2155,6 +2168,8 @@ class DockerManager:
         async def _run_once():
             if expected_generation is not None and self._generation != expected_generation:
                 raise ContainerUnavailable("Generation changed; PID-sensitive command was not replayed")
+            if abort_if_session_changed is not None and self._session_id != abort_if_session_changed:
+                raise ContainerUnavailable("Session rotated; command was not replayed in a different session")
             container = self._container
             api = self._client.api
             container_id = container.id
