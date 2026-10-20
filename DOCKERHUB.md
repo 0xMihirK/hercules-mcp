@@ -1,6 +1,4 @@
-<div align="center">
-  <img src="https://raw.githubusercontent.com/0xMihirK/hercules-mcp/main/assets/logo.svg" alt="Hercules MCP" width="120">
-</div>
+![Hercules MCP](https://raw.githubusercontent.com/0xMihirK/hercules-mcp/main/assets/dockerhub-banner.svg)
 
 # Hercules MCP — Kali / Obscura runtime image
 
