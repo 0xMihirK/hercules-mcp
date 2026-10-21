@@ -420,6 +420,17 @@ def register_system_tools(mcp: FastMCP) -> None:
             ),
         }
 
+        if is_host_network and host_os != "Linux":
+            # Native Linux host networking really binds the host; a Docker Desktop
+            # VM reaches it only with the opt-in host-networking feature on.
+            result["listener_reachability_note"] = (
+                "Docker Desktop VM: reverse-shell/Metasploit listeners and the browser "
+                "live-view stream reach the host only when Docker Desktop host networking "
+                "is enabled (Settings > Resources > Network; sign-in + 4.34+, then restart). "
+                "If it is off, callbacks and the stream will not arrive — enable it, or set "
+                "HERCULES_DOCKER_NETWORK=<bridge> and use a forwarded port."
+            )
+
         # --- Container interfaces ---
         try:
             container_result = await docker.exec_command(

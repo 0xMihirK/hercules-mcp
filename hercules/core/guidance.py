@@ -8,6 +8,7 @@ tools with less trial and error.
 
 from __future__ import annotations
 
+import platform
 from collections.abc import Iterable
 from typing import Any
 
@@ -458,11 +459,26 @@ def listener_reachability_warning(docker: Any, port: int, *, protocol: str = "tc
 
     On a bridge only the forwarded TCP listener ports are published to the host,
     so a UDP listener or an out-of-range TCP port receives no callback (and no
-    error otherwise surfaces). Host networking (the opt-in override) forwards
-    everything, so there is nothing to warn about.
+    error otherwise surfaces). Native Linux host networking really binds the
+    host, so there is nothing to warn about; a Docker Desktop VM only reaches the
+    host when the opt-in host-networking feature is on, so warn there instead.
     """
     if getattr(docker, "network_mode", "bridge") == "host":
-        return ""
+        # shortcut: judged by the MCP host OS, not the Docker engine host. A
+        # remote Docker context (engine on another machine) can mislead here;
+        # the stream probe shares this assumption. Revisit if remote contexts
+        # become common. For local Docker (the default) this is correct.
+        if platform.system() == "Linux":
+            return ""
+        # Docker Desktop host networking is opt-in; with it off the VM cannot
+        # reach the host, so the callback silently never arrives (both TCP/UDP).
+        return (
+            "On a Docker Desktop VM, host networking reaches an external target only "
+            "when Docker Desktop host networking is enabled (Settings > Resources > "
+            "Network; requires sign-in and Docker Desktop 4.34+, then restart). If it "
+            "is off this listener gets no callback — enable it, or use a bridge "
+            "(HERCULES_DOCKER_NETWORK=<name>) with a forwarded port from system_network_info."
+        )
     if str(protocol).lower() == "udp":
         return (
             "The runtime is bridged: UDP listeners are not forwarded to the host, "
