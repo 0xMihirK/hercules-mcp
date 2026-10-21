@@ -872,6 +872,21 @@ def test_cli_reports_configuration_error_without_traceback(isolated_home, capsys
     assert "--client generic" in report["next_action"]
 
 
+def test_cli_adds_host_network_reminder_only_on_docker_desktop(isolated_home, capsys, monkeypatch):
+    import hercules.setup_cli as setup_cli
+    from hercules.setup_cli import main
+
+    # Any completed setup on Docker Desktop (Windows/macOS) must carry the
+    # host-networking reminder; native Linux must not.
+    monkeypatch.setattr(setup_cli.platform, "system", lambda: "Windows")
+    main(["status", "--client", "hermes", "--scope", "project", "--json"])
+    assert "Enable host networking" in json.loads(capsys.readouterr().out)["host_network_reminder"]
+
+    monkeypatch.setattr(setup_cli.platform, "system", lambda: "Linux")
+    main(["status", "--client", "hermes", "--scope", "project", "--json"])
+    assert "host_network_reminder" not in json.loads(capsys.readouterr().out)
+
+
 def test_yaml_aliases_require_manual_edit():
     with pytest.raises(ConfigError, match="shared settings"):
         edit(
