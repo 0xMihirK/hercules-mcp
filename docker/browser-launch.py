@@ -31,8 +31,9 @@ def start_forwarder(upstream):
 
     Obscura (Chromium) cannot authenticate a proxy from the command line, so it
     speaks an unauthenticated SOCKS5 hop to this forwarder, which injects the
-    operator's upstream credentials. The forwarder outlives this launcher (which
-    execs Obscura) and lives until the container stops.
+    operator's upstream credentials. The forwarder ties its own life to this
+    launcher PID (which execs Obscura) via PR_SET_PDEATHSIG, so it dies with the
+    browser rather than leaking across relaunches.
     shortcut: no readline timeout; the forwarder prints its port immediately or
     exits (EOF) on a bad upstream. Revisit if a real hang is ever observed.
     """
@@ -63,6 +64,8 @@ def launch(args):
     # Obscura only ever sees an unauthenticated loopback SOCKS5 hop.
     if "--proxy" in args:
         index = args.index("--proxy") + 1
+        if index >= len(args):
+            raise ValueError("unsupported engine launch")
         args[index] = start_forwarder(args[index])
     env = dict(
         os.environ,
@@ -71,10 +74,12 @@ def launch(args):
         HOME="/tmp/hercules-browser-home",
     )
     # Obscura must use only the explicit --proxy arg, never ambient proxy env.
+    # AGENT_BROWSER_PROXY still carries the operator upstream (with credentials);
+    # scrub it so the sandboxed engine cannot read it from its own environment.
     for key in (
         "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
         "http_proxy", "https_proxy", "all_proxy", "no_proxy",
-        "HERCULES_BROWSER_UPSTREAM",
+        "HERCULES_BROWSER_UPSTREAM", "AGENT_BROWSER_PROXY",
     ):
         env.pop(key, None)
     os.execve(
