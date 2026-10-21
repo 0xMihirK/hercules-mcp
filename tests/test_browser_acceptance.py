@@ -45,7 +45,7 @@ def console_windows():
 FIXTURE = r'''
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-import ssl, threading, socket, select, socketserver, struct, base64, ipaddress
+import ssl, threading, socket, select, socketserver, struct, base64, ipaddress, time
 ROOT = Path('/opt/workspace/browser-check')
 BODY = bytes(range(256)) * 16
 def relay(left, right):
@@ -129,7 +129,16 @@ class DeniedServer(ThreadingHTTPServer):
         return accepted
 class DeniedIPv6(DeniedServer):
     address_family = socket.AF_INET6
-http = ThreadingHTTPServer(('127.0.0.1',18080),Handler)
+for _bind_attempt in range(30):
+    try:
+        http = ThreadingHTTPServer(('127.0.0.1',18080),Handler)
+        break
+    except OSError:
+        # Under host networking another acceptance test may still hold host
+        # 18080 for a moment during its teardown; wait it out instead of dying.
+        time.sleep(0.5)
+else:
+    raise SystemExit('fixture could not bind 127.0.0.1:18080')
 denied = DeniedServer(('127.0.0.2',18080),Handler)
 threading.Thread(target=denied.serve_forever,daemon=True).start()
 denied6 = DeniedIPv6(('::1',18082),Handler)
@@ -198,7 +207,11 @@ def _local_contracts(tmp_path: Path, record_property, *, browser_checks: bool):
             assert setup["exit_code"] == 0, setup
             await call("shell_exec_background", command="python3 /opt/workspace/browser-check/server.py", job_id="browser-contract-fixture")
             ready = await call("shell_exec", command="for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", timeout=40)
-            assert ready["exit_code"] == 0, ready
+            if ready["exit_code"] != 0:
+                # "connection refused" alone hides why server.py never bound
+                # 18080; surface the fixture's own crash log.
+                fixture_log = await call("shell_check_job", job_id="browser-contract-fixture", tail_lines=80)
+                raise AssertionError(f"fixture not ready: {ready}; fixture job: {fixture_log}")
             try:
                 if browser_checks:
                     opened = await call("browser_open", url="http://127.0.0.1:18080/", session="alpha")
