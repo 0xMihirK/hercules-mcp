@@ -167,7 +167,11 @@ async def connection(proxy: tuple, reader, writer):
             asyncio.create_task(pump(upstream_reader, writer)),
         ]
         try:
-            await asyncio.gather(*tasks)
+            # Tear down as soon as EITHER direction closes. Waiting for both to
+            # finish deadlocks when one side closes and the peer does not relay
+            # the EOF to the other direction; a TLS/WebSocket tunnel ends on
+            # either-side close anyway, so first-completed is the correct signal.
+            await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         finally:
             for task in tasks:
                 task.cancel()

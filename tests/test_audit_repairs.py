@@ -960,18 +960,26 @@ def test_browser_stream_relay_probe_gates_host_reachability(monkeypatch):
     assert res2["stream_active"] is True
 
 
-def test_listener_reachability_warning_flags_unforwarded_and_udp():
+def test_listener_reachability_warning_flags_unforwarded_and_udp(monkeypatch):
     # Workstream E: on bridge, a port outside the forwarded TCP set or a UDP
     # listener is not reachable from an external target — warn loudly, not silently.
+    from hercules.core import guidance
     from hercules.core.guidance import listener_reachability_warning
 
     bridged = SimpleNamespace(network_mode="bridge", listener_ports=(4444, 4445))
     assert listener_reachability_warning(bridged, 4444) == ""
     assert "not forwarded" in listener_reachability_warning(bridged, 9001)
     assert "UDP" in listener_reachability_warning(bridged, 4444, protocol="udp")
-    # Host networking forwards everything, so there is nothing to warn about.
     host = SimpleNamespace(network_mode="host", listener_ports=(4444,))
+    # Native Linux host networking really binds the host: nothing to warn about.
+    monkeypatch.setattr(guidance.platform, "system", lambda: "Linux")
     assert listener_reachability_warning(host, 9001) == ""
+    assert listener_reachability_warning(host, 9001, protocol="udp") == ""
+    # A Docker Desktop VM (non-Linux) may silently drop the callback: warn for
+    # both TCP and UDP instead of returning a falsely reassuring empty string.
+    monkeypatch.setattr(guidance.platform, "system", lambda: "Windows")
+    assert "Docker Desktop" in listener_reachability_warning(host, 9001)
+    assert "Docker Desktop" in listener_reachability_warning(host, 9001, protocol="udp")
 
 
 def test_exec_aborts_on_session_rotation_but_not_recovery(runtime):

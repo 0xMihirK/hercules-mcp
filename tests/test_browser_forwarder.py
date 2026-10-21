@@ -45,11 +45,20 @@ async def _connect_proxy(saw, reader, writer):
     await writer.drain()
 
     async def pump(src, dst):
-        while data := await src.read(4096):
-            dst.write(data)
-            await dst.drain()
+        # Close the peer when a direction ends so the tunnel tears down and the
+        # server's wait_closed() (Python 3.13 waits for handlers) does not hang.
+        try:
+            while data := await src.read(4096):
+                dst.write(data)
+                await dst.drain()
+        finally:
+            dst.close()
 
-    await asyncio.gather(pump(reader, up_w), pump(up_r, writer), return_exceptions=True)
+    tasks = [asyncio.create_task(pump(reader, up_w)), asyncio.create_task(pump(up_r, writer))]
+    await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def _scenario():
