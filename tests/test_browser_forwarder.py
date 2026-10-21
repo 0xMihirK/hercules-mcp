@@ -96,3 +96,44 @@ def test_proxy_settings_rejects_unsupported_scheme():
     for bad in ("socks5h://127.0.0.1:1080", "ftp://127.0.0.1:21", "http://127.0.0.1/path"):
         with pytest.raises(ValueError):
             fwd.proxy_settings(bad)
+
+
+def test_socks_address_keeps_hostnames_ascii():
+    # Punycode (IDN) and underscore hosts must pass through unchanged, not be
+    # idna-re-encoded (which mangles punycode and rejects underscores).
+    for host in ("xn--bcher-kva.example", "a_b.internal"):
+        out = fwd.socks_address(host)
+        assert out[0] == 3 and out[2:] == host.encode("ascii")
+
+
+async def _auth_failure_scenario():
+    # An upstream that always rejects auth must surface as a SOCKS5 failure reply
+    # (connection never established), not a crash or a silent hang.
+    async def deny(reader, writer):
+        await reader.readuntil(b"\r\n\r\n")
+        writer.write(b"HTTP/1.1 407 Proxy Authentication Required\r\n\r\n")
+        await writer.drain()
+        writer.close()
+
+    proxy = await asyncio.start_server(deny, "127.0.0.1", 0)
+    proxy_port = proxy.sockets[0].getsockname()[1]
+    settings = fwd.proxy_settings(f"http://u:p@127.0.0.1:{proxy_port}")
+    forwarder = await asyncio.start_server(
+        lambda r, w: fwd.connection(settings, r, w), "127.0.0.1", 0
+    )
+    fwd_port = forwarder.sockets[0].getsockname()[1]
+    async with proxy, forwarder:
+        r, w = await asyncio.open_connection("127.0.0.1", fwd_port)
+        w.write(b"\x05\x01\x00")
+        await w.drain()
+        assert await r.readexactly(2) == b"\x05\x00"
+        w.write(b"\x05\x01\x00\x01" + socket.inet_aton("127.0.0.1") + struct.pack("!H", 80))
+        await w.drain()
+        reply = await r.readexactly(10)
+        w.close()
+    return reply
+
+
+def test_forwarder_reports_upstream_auth_failure():
+    reply = asyncio.run(_auth_failure_scenario())
+    assert reply[0] == 5 and reply[1] != 0

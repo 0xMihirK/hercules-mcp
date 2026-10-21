@@ -18,8 +18,10 @@ from __future__ import annotations
 import asyncio
 import base64
 import contextlib
+import ctypes
 import ipaddress
 import os
+import signal
 import socket
 import ssl
 import struct
@@ -57,7 +59,9 @@ def socks_address(host: str) -> bytes:
     try:
         value = ipaddress.ip_address(host)
     except ValueError:
-        name = host.encode("idna")
+        # socks5h hostnames arrive already ASCII (punycode for IDN); keep them
+        # opaque. idna re-encoding would reject routable names like a_b.internal.
+        name = host.encode("ascii")
         return b"\x03" + bytes([len(name)]) + name
     return bytes([1 if value.version == 4 else 4]) + value.packed
 
@@ -124,6 +128,7 @@ async def upstream_connect(proxy: tuple, address: str, port: int):
 
 async def connection(proxy: tuple, reader, writer):
     remote = None
+    established = False
     try:
         async with asyncio.timeout(30):
             version, count = await reader.readexactly(2)
@@ -137,7 +142,7 @@ async def connection(proxy: tuple, reader, writer):
                 raise ValueError("only TCP CONNECT supported")
             if kind == 3:
                 length = (await reader.readexactly(1))[0]
-                host = (await reader.readexactly(length)).decode("idna")
+                host = (await reader.readexactly(length)).decode("ascii")
             elif kind in {1, 4}:
                 host = str(ipaddress.ip_address(await reader.readexactly(4 if kind == 1 else 16)))
             else:
@@ -146,9 +151,12 @@ async def connection(proxy: tuple, reader, writer):
             upstream_reader, remote = await upstream_connect(proxy, host, port)
             writer.write(b"\x05\x00\x00\x01\x00\x00\x00\x00\x00\x00")
             await writer.drain()
+        established = True
 
         async def pump(source, destination):
-            while data := await asyncio.wait_for(source.read(65536), 120):
+            # No idle timeout: a browser legitimately holds quiet WebSocket/SSE
+            # tunnels open. The setup phase above is bounded by the 30s timeout.
+            while data := await source.read(65536):
                 destination.write(data)
                 await destination.drain()
             with contextlib.suppress(OSError):
@@ -164,10 +172,14 @@ async def connection(proxy: tuple, reader, writer):
             for task in tasks:
                 task.cancel()
             await asyncio.gather(*tasks, return_exceptions=True)
-    except (OSError, ValueError, TimeoutError, asyncio.IncompleteReadError):
-        with contextlib.suppress(OSError):
-            writer.write(b"\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00")
-            await writer.drain()
+    except (OSError, ValueError, TimeoutError, asyncio.IncompleteReadError,
+            IndexError, asyncio.LimitOverrunError):
+        # Only before the SOCKS success reply: once the tunnel is established and
+        # real bytes are flowing, a failure reply here would corrupt the stream.
+        if not established:
+            with contextlib.suppress(OSError):
+                writer.write(b"\x05\x01\x00\x01\x00\x00\x00\x00\x00\x00")
+                await writer.drain()
     finally:
         for stream in (remote, writer):
             if stream:
@@ -189,6 +201,10 @@ async def serve(upstream: str):
 def main():
     if sys.argv[1:] != ["serve"]:
         raise SystemExit("usage: browser-forwarder.py serve (upstream in HERCULES_FORWARD_UPSTREAM)")
+    # PR_SET_PDEATHSIG (1): die with the launcher PID (which becomes Obscura via
+    # exec), so a forwarder never outlives the browser it serves.
+    with contextlib.suppress(OSError):
+        ctypes.CDLL("libc.so.6", use_errno=True).prctl(1, signal.SIGTERM)
     asyncio.run(serve(os.environ["HERCULES_FORWARD_UPSTREAM"]))
 
 
