@@ -129,32 +129,36 @@ class DeniedServer(ThreadingHTTPServer):
         return accepted
 class DeniedIPv6(DeniedServer):
     address_family = socket.AF_INET6
-for _bind_attempt in range(30):
-    try:
-        http = ThreadingHTTPServer(('127.0.0.1',18080),Handler)
-        break
-    except OSError:
-        # Under host networking another acceptance test may still hold host
-        # 18080 for a moment during its teardown; wait it out instead of dying.
-        time.sleep(0.5)
-else:
-    raise SystemExit('fixture could not bind 127.0.0.1:18080')
-denied = DeniedServer(('127.0.0.2',18080),Handler)
+def _bind(factory):
+    # Under host networking, the previous acceptance test's fixture may still
+    # hold these host ports for a moment during container teardown; wait them
+    # out instead of crashing the whole fixture (which left 18080 unserved).
+    for _ in range(30):
+        try:
+            return factory()
+        except OSError:
+            time.sleep(0.5)
+    raise SystemExit('fixture could not bind a server port')
+http = _bind(lambda: ThreadingHTTPServer(('127.0.0.1',18080),Handler))
+# Accept on 18080 immediately so the readiness curl succeeds even while the
+# other ports below are still waiting out a prior fixture's teardown.
+threading.Thread(target=http.serve_forever,daemon=True).start()
+denied = _bind(lambda: DeniedServer(('127.0.0.2',18080),Handler))
 threading.Thread(target=denied.serve_forever,daemon=True).start()
-denied6 = DeniedIPv6(('::1',18082),Handler)
+denied6 = _bind(lambda: DeniedIPv6(('::1',18082),Handler))
 threading.Thread(target=denied6.serve_forever,daemon=True).start()
-controls = DeniedServer(('127.0.0.1',18086),Handler)
+controls = _bind(lambda: DeniedServer(('127.0.0.1',18086),Handler))
 threading.Thread(target=controls.serve_forever,daemon=True).start()
-tls = ThreadingHTTPServer(('127.0.0.1',18081),Handler)
+tls = _bind(lambda: ThreadingHTTPServer(('127.0.0.1',18081),Handler))
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(ROOT/'cert.pem', ROOT/'key.pem')
 tls.socket = context.wrap_socket(tls.socket, server_side=True)
 threading.Thread(target=tls.serve_forever,daemon=True).start()
 for port,handler in ((18083,ConnectProxy),(18084,SocksProxy),(18085,ConnectProxy)):
-    proxy = socketserver.ThreadingTCPServer(('127.0.0.1',port),handler) if port==18084 else ThreadingHTTPServer(('127.0.0.1',port),handler)
+    proxy = _bind((lambda p=port,h=handler: socketserver.ThreadingTCPServer(('127.0.0.1',p),h)) if port==18084 else (lambda p=port,h=handler: ThreadingHTTPServer(('127.0.0.1',p),h)))
     if port==18085: proxy.socket=context.wrap_socket(proxy.socket,server_side=True)
     threading.Thread(target=proxy.serve_forever,daemon=True).start()
-http.serve_forever()
+threading.Event().wait()
 '''
 
 
