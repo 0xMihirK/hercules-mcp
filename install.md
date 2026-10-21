@@ -162,6 +162,15 @@ Preserve the Docker producer's exit status. Keep TLS and hostname verification
 enabled. `--build-ca-bundle` accepts only an approved certificate-only PEM;
 record its fingerprint, not certificate contents.
 
+In the default host network mode on Windows/macOS Docker Desktop, host-facing
+live-view streams and listeners require its opt-in host networking feature
+(Docker Desktop 4.34+). If disabled,
+container-local browsing/screenshots can work while the host stream is unreachable.
+Have the operator enable it through Docker Desktop, or explicitly select a named
+bridge with `--docker-network`; never change Docker settings automatically.
+Container-loopback verification alone does not prove host-stream reachability.
+See [Docker's host-network prerequisites](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
+
 Cold verification compares actual STDIO tools/resources with setup facts and
 reads bundled skill resources. Remote resource catalogs are listed but not
 fetched during local-only verification.

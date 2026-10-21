@@ -31,6 +31,43 @@ from hercules.tools.browser import browser_tool
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_browser_fixture_waits_for_every_listener(tmp_path):
+    from test_browser_acceptance import FIXTURE
+
+    ports = []
+    ready = tmp_path / "ready"
+
+    class Server:
+        def __init__(self, address, _handler):
+            assert not ready.exists(), "Fixture advertised readiness too early"
+            ports.append(address[1])
+            self.socket = object()
+
+        def serve_forever(self):
+            pass
+
+    tls = SimpleNamespace(
+        load_cert_chain=lambda *_: None,
+        wrap_socket=lambda connection, **_: connection,
+    )
+    context = {
+        "ROOT": tmp_path,
+        "ThreadingHTTPServer": Server,
+        "Handler": object,
+        "ConnectProxy": object,
+        "SocksProxy": object,
+        "socketserver": SimpleNamespace(ThreadingTCPServer=Server),
+        "threading": SimpleNamespace(
+            Thread=lambda **_: SimpleNamespace(start=lambda: None),
+            Event=lambda: SimpleNamespace(wait=lambda: None),
+        ),
+        "ssl": SimpleNamespace(SSLContext=lambda _: tls, PROTOCOL_TLS_SERVER=object()),
+    }
+    exec(FIXTURE[FIXTURE.index("def _bind("):], context)
+    assert ports == [18080, 18081, 18083, 18084, 18085]
+    assert ready.read_text() == "ready"
+
+
 @pytest.fixture
 def runtime(monkeypatch, tmp_path):
     return lifecycle_runtime.__wrapped__(monkeypatch, tmp_path)
