@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import platform
 import sys
 from pathlib import Path
 
@@ -11,6 +12,20 @@ from hercules.setup.clients import CLIENTS
 from hercules.setup.documents import ConfigError
 from hercules.setup.engine import Engine
 from hercules.setup.transaction import SetupError
+
+# Shown after setup on Docker Desktop (Windows/macOS), where host networking is
+# off by default. Hercules defaults to host networking, so without this the
+# host-facing paths below do not work even though setup itself succeeded.
+HOST_NETWORK_REMINDER = (
+    "Docker Desktop has host networking OFF by default, but Hercules uses host "
+    "networking by default. Enable it: Docker Desktop > Settings > Resources > "
+    "Network > 'Enable host networking' (requires sign-in and Docker Desktop "
+    "4.34+), then restart Docker Desktop. Until you do, the browser live-view "
+    "stream is unreachable from the host and reverse-shell / Metasploit "
+    "listeners receive no callbacks from external targets; container-local "
+    "browsing, screenshots, scanning and shell still work. Alternative: select "
+    "an explicit bridge with --docker-network <name>."
+)
 
 
 def parser():
@@ -104,6 +119,8 @@ def main(argv=None):
             else "Run status and inspect the failed phase before resuming.",
         }
         exit_code = 1
+    if platform.system() in ("Windows", "Darwin"):
+        report["host_network_reminder"] = HOST_NETWORK_REMINDER
     if args.json:
         print(json.dumps(report, indent=2))
     else:
@@ -117,6 +134,7 @@ def main(argv=None):
             "cleanup",
             "message",
             "next_action",
+            "host_network_reminder",
         ):
             if key in report:
                 print(f"{key.replace('_', ' ').capitalize()}: {report[key]}")
