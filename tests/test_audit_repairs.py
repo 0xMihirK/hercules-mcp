@@ -889,30 +889,23 @@ def test_network_mode_defaults_host_and_honors_override():
     assert manager.network_mode == "mybridge"
 
 
-def test_browser_relay_port_matches_host_port_under_host_mode(monkeypatch, tmp_path):
+def test_browser_relay_port_matches_host_port_under_host_mode(monkeypatch):
     # Host networking never publishes ports, so the relay must bind the exact
     # port the consumer connects to on every platform — including a non-Linux
     # Docker Desktop VM, where the old code picked a distinct, never-remapped
-    # relay port that left the stream unreachable.
+    # relay port that left the stream unreachable. Faking a non-Linux platform
+    # exercises that branch; constructing a real manager would take the
+    # workspace lock down the Windows (msvcrt) path on a Linux CI runner.
     from hercules.core import docker_manager as dm
 
     monkeypatch.setattr(dm.platform, "system", lambda: "Windows")
-    root = Path(__file__).resolve().parents[1]
-    common = dict(
-        project_root=root,
-        installed_capabilities=frozenset({"browser"}),
-        skip_metasploit=True, listener_ports=(), browser_stream_port=7900,
-        watchdog_interval=0,
-    )
-    host = dm.DockerManager(
-        HerculesConfig(workspace_root=tmp_path / "h", docker_network="host", **common)
-    )
-    assert host.browser_stream_relay_port == host.browser_stream_port == 7900
+    host = DockerManager.__new__(DockerManager)
+    host._config = SimpleNamespace(docker_network="host")
+    assert host._resolve_relay_port(7900) == 7900
     # The named-bridge override still uses a distinct published container port.
-    bridge = dm.DockerManager(
-        HerculesConfig(workspace_root=tmp_path / "b", docker_network="labnet", **common)
-    )
-    assert bridge.browser_stream_relay_port != 7900
+    bridge = DockerManager.__new__(DockerManager)
+    bridge._config = SimpleNamespace(docker_network="labnet")
+    assert bridge._resolve_relay_port(7900) != 7900
 
 
 def test_browser_stream_relay_probe_gates_host_reachability(monkeypatch):
