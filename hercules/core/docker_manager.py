@@ -552,17 +552,7 @@ class DockerManager:
         configured_stream_port = int(
             getattr(config, "browser_stream_port", 0) or 0
         )
-        # A distinct container-internal relay port only makes sense for the
-        # named-bridge override, where it is published back to the host port.
-        # Host networking never publishes, so the relay must bind the exact port
-        # the consumer connects to (the configured host port) on every platform.
-        self._browser_stream_relay_port = (
-            self._select_browser_relay_port(configured_stream_port)
-            if configured_stream_port
-            and platform.system() != "Linux"
-            and self.network_mode != "host"
-            else configured_stream_port
-        )
+        self._browser_stream_relay_port = self._resolve_relay_port(configured_stream_port)
         self._generation_callbacks: list = []
         # Set while stop_container() is tearing down, so the watchdog and
         # recovery paths never resurrect a container we are deliberately killing.
@@ -704,6 +694,19 @@ class DockerManager:
             lock = asyncio.Lock()
             self._browser_stream_lock = lock
         return lock
+
+    def _resolve_relay_port(self, configured_port: int) -> int:
+        # A distinct container-internal relay port only makes sense for the
+        # named-bridge override, where it is published back to the host port.
+        # Host networking never publishes, so the relay must bind the exact port
+        # the consumer connects to (the configured host port) on every platform.
+        if (
+            not configured_port
+            or self.network_mode == "host"
+            or platform.system() == "Linux"
+        ):
+            return configured_port
+        return self._select_browser_relay_port(configured_port)
 
     def _select_browser_relay_port(self, host_port: int) -> int:
         """Choose a private high container port distinct from exposed services."""
