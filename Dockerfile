@@ -113,13 +113,14 @@ COPY hercules/core/browser_assets.json /opt/hercules/browser-assets.json
 COPY docker/install-browser.py /opt/hercules/install-browser.py
 COPY docker/python-toolbox.lock /opt/hercules/python-toolbox.lock
 COPY docker/browser-launch.py /opt/hercules/browser-launch.py
+COPY docker/browser-forwarder.py /opt/hercules/browser-forwarder.py
 ENV AGENT_BROWSER_ENGINE=obscura \
     AGENT_BROWSER_EXECUTABLE_PATH=/opt/hercules/browser-launch.py \
     AGENT_BROWSER_SKILLS_DIR=/opt/hercules/browser/skill-data \
     AGENT_BROWSER_OBSCURA_STEALTH=1 \
     OBSCURA_BLOCK_TRACKERS=0
 RUN python3 /opt/hercules/install-browser.py "$HERCULES_TARGET_PLATFORM" && \
-    chmod 0755 /opt/hercules/browser-launch.py && \
+    chmod 0755 /opt/hercules/browser-launch.py /opt/hercules/browser-forwarder.py && \
     install -d -m 0700 /run/hercules-browser && \
     install -d -o 19731 -g 19731 -m 0700 /tmp/hercules-browser-home && \
     python3 -m venv /opt/hercules-python && \
