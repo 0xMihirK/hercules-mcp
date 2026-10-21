@@ -1029,3 +1029,14 @@ def test_validated_image_labels_match_fingerprint_key_set():
 
     facts = setup_information(Path(__file__).resolve().parents[1])
     assert set(facts["image"]["labels"]) == set(IMAGE_LABEL_KEYS)
+
+
+def test_setup_facts_do_not_claim_removed_private_address_protection():
+    from hercules.core.setup_info import setup_information
+    from hercules.core.target_policy import TargetPolicy
+
+    facts = setup_information(Path(__file__).resolve().parents[1])
+    assert facts["runtime"]["browser_networking"]["private_addresses_denied_unconditionally"] is False
+    assert "no SSRF boundary" in facts["browser"]["boundary"]
+    for target in ("http://127.0.0.1/", "http://10.0.0.1/", "http://169.254.169.254/"):
+        TargetPolicy().validate_target(target)

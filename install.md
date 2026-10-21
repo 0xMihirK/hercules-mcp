@@ -171,6 +171,13 @@ bridge with `--docker-network`; never change Docker settings automatically.
 Container-loopback verification alone does not prove host-stream reachability.
 See [Docker's host-network prerequisites](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
 
+If Docker CLI works but Hercules cannot reach Docker, compare `docker context
+inspect` with the Hercules process's `DOCKER_HOST` and TLS environment. The Python
+SDK does not automatically select the CLI context. Pass the verified endpoint
+and matching TLS configuration only to the selected client's Hercules entry;
+do not guess another daemon, disable TLS, or rewrite other clients. This is
+separate from Docker Desktop's host-network toggle.
+
 Cold verification compares actual STDIO tools/resources with setup facts and
 reads bundled skill resources. Remote resource catalogs are listed but not
 fetched during local-only verification.
