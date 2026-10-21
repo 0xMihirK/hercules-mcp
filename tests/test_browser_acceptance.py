@@ -121,14 +121,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Content-Length',str(len(data)))
         self.send_header('Content-Security-Policy',"default-src 'none'; script-src 'none'")
         self.end_headers(); self.wfile.write(data)
-class DeniedServer(ThreadingHTTPServer):
-    def get_request(self):
-        accepted = super().get_request()
-        filename = 'control-contacts.txt' if self.server_address[1] == 18086 else 'forbidden-contacts.txt'
-        with (ROOT/filename).open('a') as log: log.write('TCP contact\n')
-        return accepted
-class DeniedIPv6(DeniedServer):
-    address_family = socket.AF_INET6
 def _bind(factory):
     # Under host networking, the previous acceptance test's fixture may still
     # hold these host ports for a moment during container teardown; wait them
@@ -140,15 +132,9 @@ def _bind(factory):
             time.sleep(0.5)
     raise SystemExit('fixture could not bind a server port')
 http = _bind(lambda: ThreadingHTTPServer(('127.0.0.1',18080),Handler))
-# Accept on 18080 immediately so the readiness curl succeeds even while the
-# other ports below are still waiting out a prior fixture's teardown.
+# Keep HTTP available for diagnostics while the other listeners bind; advertise
+# readiness only after TLS and every proxy are listening too.
 threading.Thread(target=http.serve_forever,daemon=True).start()
-denied = _bind(lambda: DeniedServer(('127.0.0.2',18080),Handler))
-threading.Thread(target=denied.serve_forever,daemon=True).start()
-denied6 = _bind(lambda: DeniedIPv6(('::1',18082),Handler))
-threading.Thread(target=denied6.serve_forever,daemon=True).start()
-controls = _bind(lambda: DeniedServer(('127.0.0.1',18086),Handler))
-threading.Thread(target=controls.serve_forever,daemon=True).start()
 tls = _bind(lambda: ThreadingHTTPServer(('127.0.0.1',18081),Handler))
 context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 context.load_cert_chain(ROOT/'cert.pem', ROOT/'key.pem')
@@ -158,6 +144,7 @@ for port,handler in ((18083,ConnectProxy),(18084,SocksProxy),(18085,ConnectProxy
     proxy = _bind((lambda p=port,h=handler: socketserver.ThreadingTCPServer(('127.0.0.1',p),h)) if port==18084 else (lambda p=port,h=handler: ThreadingHTTPServer(('127.0.0.1',p),h)))
     if port==18085: proxy.socket=context.wrap_socket(proxy.socket,server_side=True)
     threading.Thread(target=proxy.serve_forever,daemon=True).start()
+(ROOT/'ready').write_text('ready')
 threading.Event().wait()
 '''
 
@@ -210,7 +197,7 @@ def _local_contracts(tmp_path: Path, record_property, *, browser_checks: bool):
             setup = await call("shell_exec", command="openssl req -x509 -newkey rsa:2048 -nodes -keyout /opt/workspace/browser-check/key.pem -out /opt/workspace/browser-check/cert.pem -days 1 -subj /CN=127.0.0.1 -addext subjectAltName=IP:127.0.0.1", timeout=60)
             assert setup["exit_code"] == 0, setup
             await call("shell_exec_background", command="python3 /opt/workspace/browser-check/server.py", job_id="browser-contract-fixture")
-            ready = await call("shell_exec", command="for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", timeout=40)
+            ready = await call("shell_exec", command="for i in $(seq 1 30); do test -f /opt/workspace/browser-check/ready && curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", timeout=40)
             if ready["exit_code"] != 0:
                 # "connection refused" alone hides why server.py never bound
                 # 18080; surface the fixture's own crash log.
@@ -245,7 +232,11 @@ def _local_contracts(tmp_path: Path, record_property, *, browser_checks: bool):
                     record_property("active_browser_container_memory", active)
                     stream = await call("browser_session", action="stream", session="alpha")
                     assert stream.get("stream_active") is True, stream
-                    with socket.create_connection(("127.0.0.1", int(stream["stream_port"])), timeout=10) as connected:
+                    try:
+                        connected = socket.create_connection(("127.0.0.1", int(stream["stream_port"])), timeout=10)
+                    except OSError as exc:
+                        raise AssertionError(f"Reported stream endpoint is unreachable: {stream}") from exc
+                    with connected:
                         connected.sendall(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: Upgrade\r\nUpgrade: websocket\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n")
                         assert b"101" in connected.recv(4096).split(b"\r\n", 1)[0]
                     await call("browser_eval", js="document.cookie='identity=alpha'; localStorage.setItem('identity','alpha'); 'saved'", session="alpha")

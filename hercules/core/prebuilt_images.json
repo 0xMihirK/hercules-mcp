@@ -2,21 +2,21 @@
   "schema_version": 1,
   "images": [
     {
-      "fingerprint": "2bf4cda80d07d0f268c73e0294325535328b278b35dbed5da980fd086e0ac191",
+      "fingerprint": "0ad888087a649c2c460a806f59169e81fc518e3744d4eca8dde00a0a1b4cf38f",
       "platform": "linux/amd64",
-      "source_revision": "86971b68b93ec6751778cd5a6c22ee5a97441cf4",
+      "source_revision": "c542601d08108b98e31c00a7a49d1523cd60fb47",
       "references": [
-        "ghcr.io/0xmihirk/hercules-mcp@sha256:05d6c0b9243f59fccf3dbe126708bea76fc5da6e21c5fcdddf4010971fceb99e",
-        "0xmihirk/hercules-mcp@sha256:05d6c0b9243f59fccf3dbe126708bea76fc5da6e21c5fcdddf4010971fceb99e"
+        "ghcr.io/0xmihirk/hercules-mcp@sha256:c7a3a3d4bb4eaf2165da5a70073b996799b4d772f3a3f3574af6e37770eec7a9",
+        "0xmihirk/hercules-mcp@sha256:c7a3a3d4bb4eaf2165da5a70073b996799b4d772f3a3f3574af6e37770eec7a9"
       ]
     },
     {
-      "fingerprint": "835c0d122864d2b4529dcee9fe260d3e68bbe9726aa1e53f1e64ece07e703865",
+      "fingerprint": "60e66104383f571dbcf858059ad86df4fa83464cfb10dceb66d954343037394c",
       "platform": "linux/arm64",
-      "source_revision": "86971b68b93ec6751778cd5a6c22ee5a97441cf4",
+      "source_revision": "c542601d08108b98e31c00a7a49d1523cd60fb47",
       "references": [
-        "ghcr.io/0xmihirk/hercules-mcp@sha256:7cc14db46cfa2c38b68073d7a1daadee9b204c9554bad64f7c6f5e45b570dea3",
-        "0xmihirk/hercules-mcp@sha256:7cc14db46cfa2c38b68073d7a1daadee9b204c9554bad64f7c6f5e45b570dea3"
+        "ghcr.io/0xmihirk/hercules-mcp@sha256:88d10e1db84b472a2859fbfc9e3c710c4dfa4a1cf46e38537747f9d11966dc9f",
+        "0xmihirk/hercules-mcp@sha256:88d10e1db84b472a2859fbfc9e3c710c4dfa4a1cf46e38537747f9d11966dc9f"
       ]
     }
   ]

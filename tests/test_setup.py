@@ -980,11 +980,14 @@ def test_bootstrap_shell_syntax():
                 check=True,
                 capture_output=True,
             )
-        bash = shutil.which("bash")
+        git = shutil.which("git")
+        candidate = Path(git).parents[1] / "bin/bash.exe" if git else None
+        # PATH may resolve bash to a WSL shim that cannot read Windows paths.
+        bash = str(candidate) if candidate and candidate.is_file() else None
         if not bash:
-            git = shutil.which("git")
-            candidate = Path(git).parents[1] / "bin/bash.exe" if git else None
-            bash = str(candidate) if candidate and candidate.exists() else None
+            bash = shutil.which("bash")
+            if bash and Path(bash).parent.name.lower() in {"system32", "windowsapps"}:
+                bash = None
         if not bash:
             pytest.skip("bash unavailable for setup.sh syntax check")
         subprocess.run(
@@ -998,6 +1001,34 @@ def test_bootstrap_shell_syntax():
             check=True,
             capture_output=True,
         )
+
+
+@pytest.mark.parametrize("shim_directory", ["System32", "WindowsApps"])
+@pytest.mark.parametrize("git_bash_available", [True, False])
+def test_bootstrap_shell_avoids_wsl_shims(
+    monkeypatch, tmp_path, shim_directory, git_bash_available
+):
+    import shutil
+
+    git = tmp_path / "Git" / "cmd" / "git.exe"
+    bash = git.parents[1] / "bin" / "bash.exe"
+    if git_bash_available:
+        bash.parent.mkdir(parents=True)
+        bash.touch()
+    shim = tmp_path / shim_directory / "bash.exe"
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(
+        shutil, "which", lambda name: {"git": str(git), "bash": str(shim)}.get(name)
+    )
+    commands = []
+    monkeypatch.setattr(subprocess, "run", lambda command, **_: commands.append(command))
+    if git_bash_available:
+        test_bootstrap_shell_syntax()
+        assert commands == [[str(bash), "-n", str(Path(__file__).resolve().parents[1] / "scripts/setup.sh")]]
+    else:
+        with pytest.raises(pytest.skip.Exception, match="bash unavailable"):
+            test_bootstrap_shell_syntax()
+        assert commands == []
 
 
 def test_missing_configured_secrets_are_not_regenerated(fake_engine, tmp_path):
