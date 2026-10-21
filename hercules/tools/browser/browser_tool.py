@@ -26,6 +26,7 @@ import shlex
 import struct
 import uuid
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlsplit
 
 from fastmcp import Context
 
@@ -166,7 +167,15 @@ async def _backend(ctx: Context | None, tool: str, *, launch_env: dict | None = 
     env["SSL_CERT_FILE"] = "/etc/ssl/certs/ca-certificates.crt"
     env["AGENT_BROWSER_EXECUTABLE_PATH"] = "/opt/hercules/browser-launch.py"
     if upstream:
-        env["AGENT_BROWSER_PROXY"] = upstream
+        # agent-browser strips URL credentials from --proxy and would set up its
+        # own CDP proxy-auth; hand it a credential-free scheme://host:port so it
+        # does not, and carry the real credentials out-of-band to the launcher's
+        # forwarder via HERCULES_BROWSER_UPSTREAM (the proven contract).
+        parsed = urlsplit(upstream)
+        host = f"[{parsed.hostname}]" if parsed.hostname and ":" in parsed.hostname else (parsed.hostname or "")
+        hostport = f"{host}:{parsed.port}" if parsed.port else host
+        env["AGENT_BROWSER_PROXY"] = f"{parsed.scheme}://{hostport}"
+        env["HERCULES_BROWSER_UPSTREAM"] = upstream
     timezone = _session_profiles.get(session, {}).get("timezone") or getattr(config, "browser_timezone", "")
     if timezone:
         env["OBSCURA_TIMEZONE"] = timezone

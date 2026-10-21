@@ -146,3 +146,39 @@ async def _auth_failure_scenario():
 def test_forwarder_reports_upstream_auth_failure():
     reply = asyncio.run(_auth_failure_scenario())
     assert reply[0] == 5 and reply[1] != 0
+
+
+def _load_launcher():
+    s = importlib.util.spec_from_file_location(
+        "browser_launch", Path(__file__).resolve().parents[1] / "docker" / "browser-launch.py"
+    )
+    m = importlib.util.module_from_spec(s)
+    s.loader.exec_module(m)
+    return m
+
+
+def test_launcher_feeds_forwarder_credentialed_upstream_from_env(monkeypatch):
+    # agent-browser answers proxy auth over CDP and strips URL credentials from
+    # --proxy, so the launcher must take the real upstream from
+    # HERCULES_BROWSER_UPSTREAM, not the stripped argv value, or the forwarder
+    # authenticates with nothing and the upstream rejects the tunnel.
+    bl = _load_launcher()
+    seen = {}
+
+    def fake_start_forwarder(up):
+        seen["up"] = up
+        return "socks5h://127.0.0.1:55000"
+
+    monkeypatch.setattr(bl, "start_forwarder", fake_start_forwarder)
+    captured = {}
+    monkeypatch.setattr(bl.os, "execve", lambda path, argv, env: captured.update(path=path, argv=argv, env=env))
+    monkeypatch.setenv("HERCULES_BROWSER_UPSTREAM", "http://fixture:local-proxy@127.0.0.1:18083")
+    # agent-browser hands the launcher a credential-stripped --proxy.
+    bl.launch(["serve", "--host", "127.0.0.1", "--port", "9", "--proxy", "http://127.0.0.1:18083"])
+    assert seen["up"] == "http://fixture:local-proxy@127.0.0.1:18083"
+    argv = captured["argv"]
+    assert "socks5h://127.0.0.1:55000" in argv
+    assert "http://fixture:local-proxy@127.0.0.1:18083" not in argv
+    # The engine never sees the out-of-band credential var.
+    assert captured["env"].get("HERCULES_BROWSER_UPSTREAM") is None
+    assert captured["env"].get("AGENT_BROWSER_PROXY") is None
