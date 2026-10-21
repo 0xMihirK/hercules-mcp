@@ -125,7 +125,10 @@ def _bind(factory):
     # Under host networking, the previous acceptance test's fixture may still
     # hold these host ports for a moment during container teardown; wait them
     # out instead of crashing the whole fixture (which left 18080 unserved).
-    for _ in range(30):
+    # Generous budget (~60s): Docker Desktop and loaded CI runners can take tens
+    # of seconds to release a host port after the previous test's container is
+    # stopped, and this fixture runs twice back-to-back on the same ports.
+    for _ in range(120):
         try:
             return factory()
         except OSError:
@@ -197,7 +200,7 @@ def _local_contracts(tmp_path: Path, record_property, *, browser_checks: bool):
             setup = await call("shell_exec", command="openssl req -x509 -newkey rsa:2048 -nodes -keyout /opt/workspace/browser-check/key.pem -out /opt/workspace/browser-check/cert.pem -days 1 -subj /CN=127.0.0.1 -addext subjectAltName=IP:127.0.0.1", timeout=60)
             assert setup["exit_code"] == 0, setup
             await call("shell_exec_background", command="python3 /opt/workspace/browser-check/server.py", job_id="browser-contract-fixture")
-            ready = await call("shell_exec", command="for i in $(seq 1 30); do test -f /opt/workspace/browser-check/ready && curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", timeout=40)
+            ready = await call("shell_exec", command="for i in $(seq 1 90); do test -f /opt/workspace/browser-check/ready && curl -fsS http://127.0.0.1:18080/ >/dev/null && exit 0; sleep 1; done; exit 1", timeout=100)
             if ready["exit_code"] != 0:
                 # "connection refused" alone hides why server.py never bound
                 # 18080; surface the fixture's own crash log.
