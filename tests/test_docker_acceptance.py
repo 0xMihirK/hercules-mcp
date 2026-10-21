@@ -138,6 +138,8 @@ def _project_containers() -> dict[str, str]:
     try:
         containers = client.containers.list(
             all=True,
+            # The guardian may remove a listed container before SDK inspection.
+            ignore_removed=True,
             filters={
                 "label": [
                     "hercules.managed=true",

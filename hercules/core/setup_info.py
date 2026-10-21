@@ -884,7 +884,7 @@ def setup_information(
                 "remote_context_may_not_be_client_host": True,
                 "automatic_localhost_rewrite": False,
                 "container_local_acceptance_fixture_required": True,
-                "private_addresses_denied_unconditionally": True,
+                "private_addresses_denied_unconditionally": False,
             },
             "abrupt_exit_guardian": {
                 "enabled_by_default": True,

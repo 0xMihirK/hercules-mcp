@@ -1,156 +1,158 @@
-# Hercules MCP handover for Claude Code
+# Hercules MCP — current handover
 
-Updated: 22 October 2026. Branch: `codex/finish-release-handover`.
-Baseline: `c542601d08108b98e31c00a7a49d1523cd60fb47` on `main`.
+Updated 22 October 2026. Base: `4ec3385b44d2945b5675556b3359663bef4cf26d`.
+Working branch: `codex/finalize-runtime-catalog`.
 
-## Start here
+## Current state and scope
 
-Read this file, inspect `git status`, and preserve existing work. This handover
-records verified results and explicit blockers; it is not permission to change
-client registrations, permission policies, Docker settings, or publish images.
-The delivery is one focused draft pull request, intentionally left unmerged
-while the recorded acceptance/cleanup blockers remain.
+PRs #44, #33, #45 and #46 have been merged. The earlier handover at
+[5927dac](https://github.com/0xMihirK/hercules-mcp/blob/5927daca2fc687e05a8f243d21d3ee80f2258951/handover.md)
+is historical evidence, not today's source/image identity or cleanup status.
 
-The current architecture supersedes the earlier bridge/firewall proposals:
+Merging #33 changed the image fingerprint. Both replacement publish workflows
+completed successfully from 4ec3385; the catalog now points to those images,
+not the older c542601 images. This follow-up verified the published artifacts,
+repaired a test polling race and inaccurate diagnostics/security reporting,
+and repeated Windows acceptance. No new build, publication,
+personal installation activation, Docker setting change, or permission-policy
+change is part of this follow-up. Leave its PR unmerged pending user review.
 
-- The host Python MCP server manages one explicit-start Kali runtime container.
-  Connecting an MCP client must not create a container.
-- Host networking is the default; an explicit bridge override is supported.
-  Docker Desktop does not provide the same localhost/listener behavior as native
-  Linux. Use observed network/stream metadata, not a Linux CI pass, as evidence
-  that a host-side endpoint is reachable.
-- Obscura 0.2.5 and agent-browser 0.39.1 remain pinned. Obscura runs unprivileged,
-  but there is **no browser SSRF boundary** or target allow/block enforcement.
-  Authorized use is an operator/agent responsibility; host-local, LAN, and
-  metadata endpoints are not isolated. Do not restore the retired firewall or
-  validating gateway as part of this maintenance PR.
-- CSP is **not enforced**. Script execution is not evidence of a Chromium CSP
-  bypass. Browser-native downloads are unsupported. Use explicit HTTP/shell
-  downloads into the workspace and verify the resulting file.
-- Workspaces/evidence survive stop/start. A new MCP connection has a different
-  session; a new-session operation intentionally rotates the workspace. Harness
-  task IDs are not Hercules background-job IDs.
+Runtime behavior remains explicit: a cold MCP connection creates no container;
+start/reuse one owned Kali runtime when needed, save evidence, then stop it.
+Stop/start preserves the workspace; session rotation is a separate operation.
+Coordinate parallel workers before stopping/rotating. Harness task IDs are not
+Hercules job IDs.
 
-## Changes in this PR
+The default is host networking, with an explicit bridge override available.
+Obscura 0.2.5 / agent-browser 0.39.1 remain pinned. The browser is unprivileged,
+but has **no SSRF boundary or target allow/block enforcement**. CSP is **not
+enforced**; script execution is not proof of a Chromium CSP bypass.
+Browser-native downloads remain unsupported: use explicit HTTP/shell downloads
+into validated workspace paths and verify the file. Do not claim Chrome parity.
 
-1. Finalize the pending prebuilt catalog for the already published AMD64 and
-   ARM64 images. Preserve source identity, GHCR-primary/Docker-Hub-fallback order,
-   and immutable digests; no image rebuild or publication is needed.
-2. Repair Windows bootstrap syntax verification: prefer Git Bash over a PATH
-   entry that resolves to the WSL shim. If only System32/WindowsApps shims exist,
-   mark the Bash check unavailable instead of invoking it on a Windows path.
-   Four regression cases cover both shim locations with/without Git Bash.
-   PowerShell parsing and POSIX `sh -n` remain unchanged.
-3. Supply this handover with current evidence, cleanup accounting, limitations,
-   and remaining operator actions. No production MCP inputs or responses change.
-4. Document Docker Desktop's opt-in host-network prerequisite in the install
-   guide; include the reported stream metadata when a real WebSocket connection
-   fails in acceptance. Do not alter Docker settings or hide a failed stream test.
-5. Repair fixture readiness: wait for a marker written after TLS and every proxy
-   starts, not just HTTP. Remove orphaned deny/control listeners belonging to the
-   retired boundary tests; no current assertion uses them. This does not remove
-   active browser, TLS, authenticated proxy, or protocol checks.
+## Verified published identities
 
-## Published runtime identities
+Source revision: `4ec3385b44d2945b5675556b3359663bef4cf26d`.
 
-Source revision for both entries: `c542601d08108b98e31c00a7a49d1523cd60fb47`.
-
-| Platform | Build fingerprint | Registry manifest digest |
+| Platform | Fingerprint | Immutable registry manifest digest |
 | --- | --- | --- |
-| linux/amd64 | `0ad888087a649c2c460a806f59169e81fc518e3744d4eca8dde00a0a1b4cf38f` | `sha256:c7a3a3d4bb4eaf2165da5a70073b996799b4d772f3a3f3574af6e37770eec7a9` |
-| linux/arm64 | `60e66104383f571dbcf858059ad86df4fa83464cfb10dceb66d954343037394c` | `sha256:88d10e1db84b472a2859fbfc9e3c710c4dfa4a1cf46e38537747f9d11966dc9f` |
+| linux/amd64 | `00fe9757d64eda5914c9085e885f6823f3388c37655192a08c71ffda94d08c80` | `sha256:bfd19a6ba9021ea92b0782b415dc845301eb4c1eeacc3afc849366dcc4de814c` |
+| linux/arm64 | `95aa4fec14de0a3a4e5c08d5ecbe0ef981dbcd9d645a6cadccb77a11a3af0b98` | `sha256:2f422dd1e660acb38e10ca126534f92517c1a284eb7735e43a5c97ac892eb8d6` |
 
-Both registries use these digests: `ghcr.io/0xmihirk/hercules-mcp` and
-`0xmihirk/hercules-mcp` on Docker Hub. The matching manifest payloads were read
-from both registries. `gh attestation verify` verified GHCR provenance against
-the repository, `.github/workflows/runtime-image.yml`, and exact source commit
-for each architecture. Provenance records origin; it is not a blanket security
-or license assessment of all bundled Kali tools.
+GHCR primary: `ghcr.io/0xmihirk/hercules-mcp`.
+Identical-digest fallback: `0xmihirk/hercules-mcp` on Docker Hub.
 
-Published workflow evidence:
+- [AMD64 publish and acceptance](https://github.com/0xMihirK/hercules-mcp/actions/runs/39679160196).
+- [ARM64 publish and acceptance](https://github.com/0xMihirK/hercules-mcp/actions/runs/39679174183).
 
-- [AMD64 publication, host checks, and six runtime tests](https://github.com/0xMihirK/hercules-mcp/actions/runs/39661705643).
-- [ARM64 publication, host checks, and six runtime tests](https://github.com/0xMihirK/hercules-mcp/actions/runs/39661752825).
+Both downloaded JUnit artifacts contain six tests with zero failures, errors
+or skips. Catalog fields exactly match their published artifacts and the
+current source fingerprints. Both registry manifests match. GHCR provenance
+verifies against the repository, runtime-image workflow and exact source commit
+on both architectures. Provenance is not a blanket vulnerability/license audit.
 
-Both runtime JUnit artifacts contain six tests, zero failures/errors/skips.
-Current source fingerprints match the catalog for both architectures. ARM64
-was exercised on Linux CI, not on a physical Apple Silicon/macOS Docker host.
+## Docker endpoint discovery — important on this host
 
-## Verification on this Windows host
+Docker CLI's selected `desktop-linux` endpoint is healthy:
+`npipe:////./pipe/dockerDesktopLinuxEngine`.
+The Python SDK's default Windows pipe timed out without an explicit endpoint.
+Therefore a generic SDK failure is not proof Docker is stopped or uninstalled.
 
-Local evidence is intentionally ignored by Git at
-`artifacts/runtime-probes/release-20261022/`; do not force-add private logs.
-The results below must not be conflated with historical ledger claims.
+Verification uses the already selected, verified local endpoint through
+**process-scoped DOCKER_HOST only**. No personal client registration, system
+environment, Docker context, or Docker Desktop setting was rewritten. This
+does not establish that an unconfigured launcher using the other pipe works.
 
-| Check | Result / evidence |
+If CLI works but Hercules does not, compare `docker context inspect` against
+the Hercules process's `DOCKER_HOST`, `DOCKER_TLS_VERIFY` and
+`DOCKER_CERT_PATH`. Pass the verified endpoint and matching TLS configuration
+only to the selected client through an authorized registration update.
+Do not silently choose another daemon, weaken TLS, or alter other clients.
+See [Docker SDK environment configuration](https://docker-py.readthedocs.io/en/stable/client.html)
+and [Docker CLI contexts](https://docs.docker.com/engine/manage-resources/contexts/).
+
+Docker Desktop host networking is now **enabled**, observed read-only.
+This differs from the earlier failed Windows runs. It remains an operator
+prerequisite for host-facing streams/listeners in default host mode; it is
+separate from selecting a Docker API endpoint. No agent enabled it here.
+
+## Verification ledger
+
+Fresh evidence is ignored by Git under
+`artifacts/runtime-probes/release-20261022-followup/`.
+Older reports remain under `artifacts/runtime-probes/release-20261022/`.
+Do not publish private logs, credentials, account metadata or transcripts.
+
+| Check | Current result |
 | --- | --- |
-| Locked default host suite | **259 passed, 13 skipped**, `unit-final.xml` (initial run: 258 passed); 12 opt-in acceptance skips and one unavailable Windows symlink-creation check, not passing coverage |
-| Bootstrap syntax + new shell-selection cases | **5 passed**, `bootstrap.xml` |
-| Compilation, production/changed-test Ruff | Passed |
-| Locked dependency compatibility | `uv pip check`: all 88 installed packages compatible; `uv lock --check` passed |
-| MCP surface and existing schema baselines | **47/7, 42/7, 12/7**; baseline/hidden-tool regressions in host suite, `surfaces.txt` |
-| Setup facts / portable guidance | Setup report generated; guidance and setup-report regressions passed in host suite |
-| Wheel/sdist privacy | Built successfully; no private artifacts, evidence/workspaces, wordlists, `.env`, tests, or website packaged; catalog included |
-| Focused setup/migration/failure regressions | **43 passed**, `setup-faults.xml`; full host suite also covers rollback, configuration conflicts, interruption, and locking |
-| Hashed Python toolbox vulnerability check | No known vulnerabilities found; `toolbox-audit.txt`; not an audit of every Kali system package |
-| Windows Docker/browser repetition 1 | **5 passed, 1 failed**, `runtime-1.xml`; host WebSocket connection refused |
-| Windows Docker/browser repetition 2 | **4 passed, 2 failed**, `runtime-2.xml`; host stream inactive and premature fixture readiness before TLS |
-| Windows Docker/browser repetition 3 | **1 passed, 1 failed, 4 errors**, `runtime-3.xml`; Docker API became unavailable during preserved-container stop; later checks blocked at setup |
-| Fixture readiness repair | **1 unit regression passed**, `fixture-unit.xml`; post-fix real protocol repetitions blocked by Docker unavailability, not counted as passed |
-| Isolated real host setup / native registration | **3 passed**, `setup-host.xml`; install/no-op/update/repair/reinstall, old MCP process survival, isolated Claude/Codex registration |
-| Runtime setup verification / pending activation | **2 passed**, `setup-runtime.xml`; local browser verification, pending update, stale-proof rejection, and activation resume |
-| Live Claude Code auto mode | **BLOCKED**: actual 2.1.306, mode `auto`, exit 1, no reported permission denials, no disposable installation activated; `claude-auto.xml` and `claude-auto.log` |
-| macOS/Desktop, physical Windows ARM64 | Not executed in this handover; Linux ARM64 CI does not establish these |
-| Native Windows symlink transfer check | Blocked by unavailable symlink creation; no OS permission change made to force the test |
+| Published AMD64 and ARM64 runtime acceptance | 6 passed / 0 skipped on each Linux CI architecture |
+| Registry identity / manifests / provenance | Verified against exact source and workflow on both architectures |
+| Old orphan sessions ce02afe1 and 9cebdc3b | Confirmed absent through the healthy selected endpoint; `cleanup-existing.json` |
+| Locked host suite including all new regressions | 266 passed, 13 skipped; `unit-complete.xml` |
+| Windows full Docker/STDIO/browser matrix, three serial repetitions | Initial run: 5 passed / 1 test-polling race. Post-fix: **6 passed / 0 skipped in each repetition**; `runtime-final-1.xml` through `runtime-final-3.xml` |
+| Isolated install/no-op/update/repair/reinstall, live old process, native Claude/Codex registration | 3 passed, using disposable destinations |
+| Runtime setup / pending verification, stale-proof rejection and activation | 2 passed using disposable registrations; `setup-runtime.xml` |
+| Live Claude auto mode | BLOCKED: fresh real auto-mode attempt exited 1; no recorded denial, no host activation. Cause not established; `claude-auto.xml` |
+| Schema baselines / 47/7, 42/7, 12/7 profiles | 6 passed: five full/disabled/core/selectively hidden profiles plus schema baseline; `profiles.xml` |
+| Lint, compilation, package privacy, setup facts, diff checks | Passed, including all production/tests Ruff and both wheel/sdist privacy checks |
+| Final cleanup | Confirmed: zero containers, guardians or fixture listeners; build cache 0 bytes; `cleanup-final-docker.json` / `cleanup-final-host.json` |
+| Native Windows symlink creation | Skipped: unavailable without additional OS privileges; junction rejection passed. No permission change made |
+| Physical macOS/Apple Silicon, Windows ARM64 | Not executed here; Linux ARM64 CI is not equivalent |
 
-Docker Desktop's stored host-networking settings are disabled on this machine.
-The combined run failed on a refused host WebSocket connection after a positive
-TCP-only readiness probe; a focused rerun instead reported `stream_active=false`.
-No Docker setting was changed, and neither result counts as successful streaming.
-Windows session-isolation/TLS/proxy checks after that assertion were not reached;
-the Linux CI results above remain separate evidence for those paths. An operator
-must choose the supported host-network setting or an explicit bridge before the
-full Windows browser gate can be accepted. Do not change a failed assertion into
-a passing skip. The native Windows junction/reparse-directory rejection test did
-pass; the separate symlink-creation test remains unavailable.
+The endpoint diagnostic changes only error guidance: it does not add an
+automatic context fallback or change MCP schemas/security checks. The first
+Windows runtime run passed all ten browser tools, streaming, proxies, and file
+checks. Its forced-owner test hit a Docker SDK list/inspect 404 while the
+guardian successfully deleted the container. Polling now uses the SDK's
+`ignore_removed=True`; a deterministic regression verifies disappeared entries
+are omitted but other API failures still propagate. Ownership filters remain.
 
-The second run also exposed an independent fixture startup race: HTTP could
-respond while TLS/proxy startup was unfinished. The fixture now advertises a
-ready marker only after all required listeners are constructed, and removes
-unused listeners from the retired boundary tests. A unit regression rejects an
-early marker and checks the exact required ports. Real post-fix confirmation
-still requires Docker; unit simulation is not container acceptance.
+The setup report also incorrectly retained
+`private_addresses_denied_unconditionally: true` after the boundary was removed.
+It now reports false, with a regression against the actual structural-only
+target policy. This changes no access behavior. PR #45's post-install reminder
+and PR #46's bounded fixture budgets are already present; do not reimplement them.
 
-For prerequisites see [Docker's host-network documentation](https://docs.docker.com/engine/network/drivers/host/#docker-desktop).
+The 13 default-suite skips are 12 separately opted-in acceptance checks and the
+unavailable native symlink fixture. The acceptance checks have their own results
+above; the live auto-mode blocker is not converted into a passing skip.
 
-The focused browser run recorded 7.234 seconds for explicit startup, stabilized
-idle-container samples ending at 302,034,944 bytes and active-browser samples
-ending at 331,264,000 bytes. WSL working set was 2,128,441,344 bytes, **unattributed
-to this container alone**. These are snapshots, not peak measurements or a
-performance comparison. Docker displays 5.22 GB local image storage; image
-inspection reports 1,335,560,725 content bytes. Do not conflate those accounting
-figures or claim an improvement from them.
+## Runtime inventory and measurements
 
-The current Claude attempt stopped without retrying through another tool,
-changing permission settings, adding allow rules/hooks, or altering personal
-client configuration. Its recorded result does not explain the exit-1 cause;
-do not invent a denial or diagnose it as a Hercules server defect. Earlier real
-auto-mode attempts were denied separately. Full install/update/approval/resume
-acceptance is **not established**, and operational readiness must not imply it is.
+The AMD64 immutable local image ID equals its registry manifest digest above.
+`docker image ls` reports **5.22 GB disk usage**; `docker image inspect .Size`
+reports **1,335,559,107 bytes**, consistent with the registry's compressed-layer
+bytes plus image metadata. These are different Docker storage metrics, not two
+different images. No Kali-versus-Debian or percentage-improvement claim is made.
+Package inventories are retained in `ci-amd64/inventory.txt` (462 entries) and
+`ci-arm64/inventory.txt` beside their build/facts/image-inspect artifacts.
 
-## Reproduce the checks
+Post-fix Windows browser-contract fixture measurements, three fresh sessions:
 
-Run from the repository with Git, uv, and Docker available. Read-only host
-checks do not need a container. Keep Docker/setup-runtime runs serial because
-host-network fixtures use common local ports. Use disposable setup destinations,
-not the current user's registrations.
+| Metric | Observed range |
+| --- | --- |
+| Explicit full-runtime readiness, browser initially lazy | 2.50–2.89 seconds |
+| Stabilized idle container RAM | 286.0–288.8 MiB |
+| Stabilized active-browser container RAM | 313.5–316.8 MiB |
+| Separate, unattributed Docker/WSL host working set | 1.75–2.08 GiB |
+
+RAM figures use the median of each stabilized sample window's final three
+samples, excluding inactive file cache. Docker/WSL figures are separate host
+working-set snapshots: they include shared VM/cache overhead, not Hercules-only
+memory or a measured workload peak. These are fixture observations, not universal
+startup/memory guarantees. The JUnit properties retain individual samples.
+
+## Reproduce safely
+
+Use separate shell processes for temporary environment overrides. On this host,
+the following endpoint was verified; do not copy it blindly to another system.
 
 ```powershell
+$env:DOCKER_HOST = 'npipe:////./pipe/dockerDesktopLinuxEngine'
 uv sync --locked --extra dev
 uv run --locked pytest -q
-ruff check hercules tests/test_setup.py tests/test_browser_acceptance.py tests/test_obscura_runtime.py
+ruff check hercules tests/test_explicit_lifecycle.py
 uv run --locked python -m compileall -q hercules
-uv lock --check
 uv pip check
 uv run --locked hercules --setup-info-json
 uv run --locked hercules --validate-mcp-json
@@ -158,12 +160,13 @@ git diff --check
 ```
 
 Profile selectors are `SKIP_METASPLOIT` and
-`HERCULES_INSTALLED_CAPABILITIES` (not `HERCULES_CAPABILITIES`). Clear temporary
-overrides after checking profiles. Do not change persistent shared settings.
+`HERCULES_INSTALLED_CAPABILITIES`. Core tools remain protected; all profiles
+have seven resources. Cold connection success is not runtime verification.
 
-Use the published digest after confirming the current fingerprint still
-matches; never satisfy acceptance with an older image whose labels merely look
-similar. Runtime preparation and asset downloads are separate authorized phases.
+Prepare/reuse only the catalog's immutable image matching current fingerprints
+and labels. Runtime downloads/testing remain separate from host installation.
+Keep an 8 GiB disk reserve, preserve working installations, and use local-only
+fixtures; never scan an external target for setup acceptance.
 
 ```powershell
 $env:HERCULES_RUN_DOCKER_ACCEPTANCE = '1'
@@ -171,72 +174,50 @@ $env:HERCULES_WORDLIST_ROOT = Join-Path (Get-Location) 'wordlists'
 uv run --locked pytest tests/test_docker_acceptance.py tests/test_browser_acceptance.py -q -rs
 ```
 
-Repeat that command three times with fresh owned sessions; do not run another
-same-project runtime verifier concurrently. The tests verify their resource
-ownership and clean their containers in `finally`.
+Run three fresh repetitions serially, and do not overlap same-project runtime
+setup verification: host-network fixtures share ports.
 
 ```powershell
 $env:HERCULES_RUN_SETUP_ACCEPTANCE = '1'
 uv run --locked pytest tests/test_setup_acceptance.py -q -k 'not auto'
 ```
 
-The live classifier check additionally requires an authorized, authenticated
-Claude session and `HERCULES_RUN_CLAUDE_AUTO=1`. It is not a mock classifier and
-can incur model usage. Resolve authentication/usage/permission failures through
-Claude's supported interface before retrying. Do not blindly rerun it or modify
-permission modes to obtain a green result.
+The live classifier check additionally requires an authorized authenticated
+Claude session and `HERCULES_RUN_CLAUDE_AUTO=1`. Stop on denial. Use Claude's
+supported auth/usage/permission interface; do not change modes, install allow
+rules/hooks, mock the classifier, or retry via another tool.
 
-## Cleanup and retained resources
+## Cleanup and remaining actions
 
-- Removed abandoned builder `hercules-build-6894423b1d9f` and its exact cache
-  volume after confirming its cancelled build record pointed to this repository
-  at `f02f3c8`, with no active host build process. Docker confirmed both absent.
-- Preserved all three pre-existing user volumes; their exact inventory remains
-  in the ignored local evidence rather than exposing unrelated workload names.
-- Retain the verified published image/cache, pre-existing images, verified
-  wordlists, and local test evidence. Do not broadly prune Docker or files.
-- Earlier policy-denied benchmark/reparse-point cleanup remains historical and
-  unverified; it has not been retried through a different mechanism.
-- Docker became unavailable during repetition 3: API timeouts and HTTP 500/502.
-  **Final container/VM-port cleanup is unconfirmed.** Last recorded owned
-  sessions needing inspection: `ce02afe1` (container prefix `c46dfe293f70`) and
-  `9cebdc3b` (prefix `30b96a23bb50`). They are test resources, not user sessions.
-  Do not infer removal from a failed Docker API or absent host Python processes.
-- Local-only recovery helper: `artifacts/runtime-probes/release-20261022/cleanup-owned.py`.
-  It targets only those recorded IDs, validates project/workspace/session labels,
-  refuses live/unknown owners, and rechecks identity before removal. Review it,
-  restore Docker through its supported operator interface, then run it with
-  `--cleanup` using the repository's locked environment and project on PYTHONPATH.
-  `cleanup-recovery.json` currently records a blocked API timeout, not success.
-- No orphan-guardian Python process was observed after the failed third run.
-  Docker/WSL was not restarted, settings were not changed, and no broad cleanup
-  or alternate cleanup route was attempted. Retained evidence and the disk reserve
-  remain protected.
+The two historical orphan containers are confirmed absent. No additional manual
+container deletion was needed in this follow-up. Tests settled their exact-owned
+resources in their cleanup paths. Preserve unrelated images, all three pre-existing user
+volumes, verified assets, other live MCP owners, and nonempty evidence. No broad
+pruning or retry of historical policy-denied filesystem cleanup is authorized.
 
-## Next actions for Claude / operator
+Final accounting through the healthy endpoint observed zero containers and zero
+guardian Python processes. No Windows TCP listeners remain on fixture ports
+18080/18081/18083/18084/18085/18484; allocated RPC/listener/stream ports also passed
+the per-run release assertions. Build cache is zero bytes. The three pre-existing
+volumes and older runtime images remain intact. The selected published runtime
+is intentionally cached; verified assets, private measurements and evidence are
+retained, not abandoned temporary build resources. Final free disk was
+72,908,214,272 bytes (67.9 GiB), well above the 8 GiB reserve.
+The old cancelled builder/cache removal remains confirmed historical evidence;
+historical policy-denied filesystem remnants were not rechecked or deleted here.
 
-1. Read the final verification and cleanup rows above, then inspect the PR diff.
-   Merge only with explicit user authorization; leave unrelated branches/PRs alone.
-2. Have the operator restore Docker availability, then settle the two exact-owned
-   resources above and verify port release. Cleanup remains an acceptance blocker
-   until positively confirmed; preserve every unrelated container and session.
-3. Have the operator choose the Docker Desktop host-network prerequisite or an
-   explicit bridge configuration. Rerun the complete Windows browser/lifecycle
-   matrix, including a real host WebSocket handshake, before accepting that
-   gate. Investigate protocol-level readiness if TCP-only success still precedes
-   a refused stream; do not treat one TCP probe as proof of a usable live view.
-4. Resolve the real Claude auto-mode failure using supported authentication,
-   usage-limit, and permission diagnostics. Then run isolated install/update and
-   any required approval/resume checks; record actual outcomes, not assumptions.
-5. Confirm rotation/revocation of the Docker Hub token previously disclosed in
-   conversation. Rotation was an operator action; it has **not been verified**.
-   Never copy that token into this file, logs, source, or client configuration.
-6. Keep existing installations active. Do not activate a candidate or rewrite
-   another client's registration merely because image CI passed.
-7. Open PR #33 (image-fingerprint label changes) is separate work. Any image-input
-   or fingerprint change needs its own matching image/catalog verification;
-   do not merge it opportunistically or reuse this catalog as proof afterward.
+1. Live Claude auto-mode acceptance remains blocked, so do not call the entire
+   installer/release universally accepted. Local Windows runtime/setup gates
+   passed; failed/blocked/skipped checks remain distinct.
+2. Leave the focused follow-up PR unmerged for user review. Do not merge or
+   delete unrelated work or publish another image.
+3. Resolve any remaining Claude auto-mode/auth/permission failure through its
+   supported interface. A successful scripted setup is not classifier approval.
+4. Confirm Docker Hub credential rotation with the operator; it remains
+   unverified. Never copy the previously disclosed credential into code,
+   configuration, logs, this handover, or a PR.
+5. Only activate/update a personal client when explicitly authorized, preserving
+   secrets, environment overrides, workspaces, evidence and other clients.
 
-The website lives on its separate branch. No website source/build is changed by
-this PR. There is no claim of Chrome parity, browser network confinement,
-universal host compatibility, or guaranteed Claude classifier approval.
+The website is maintained on its separate branch; this follow-up does not
+change or deploy it.

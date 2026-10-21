@@ -96,6 +96,45 @@ def test_stopped_runtime_returns_agent_guidance() -> None:
     assert result["next_steps"][0] == "Call system_start_container."
 
 
+def test_unreachable_docker_endpoint_does_not_assume_daemon_is_stopped(monkeypatch):
+    from docker.errors import DockerException
+
+    failure = DockerException("example endpoint failure")
+    monkeypatch.setattr("hercules.core.docker_manager.docker.from_env", Mock(side_effect=failure))
+    monkeypatch.setattr("hercules.core.docker_manager.platform.system", lambda: "Windows")
+    with pytest.raises(RuntimeError, match="configured Docker endpoint") as raised:
+        asyncio.run(_manager()._verify_setup())
+    assert raised.value.__cause__ is failure
+    assert "DOCKER_HOST" in str(raised.value)
+    assert "Docker CLI context" in str(raised.value)
+    assert "not running or Docker is not installed" not in str(raised.value)
+
+
+@pytest.mark.parametrize("disappeared", [True, False])
+def test_acceptance_inventory_handles_only_container_removal(monkeypatch, disappeared):
+    from docker.errors import APIError, NotFound
+    from docker.models.containers import ContainerCollection
+    from test_docker_acceptance import PROJECT_ROOT, _project_containers
+
+    client = Mock()
+    client.containers = ContainerCollection(client)
+    client.api.containers.return_value = [{"Id": "removed"}, {"Id": "live"}]
+    client.api.inspect_container.side_effect = [
+        NotFound("removed") if disappeared else APIError("daemon failure"),
+        {"Id": "live", "State": {"Status": "running"}},
+    ]
+    monkeypatch.setattr("docker.from_env", lambda: client)
+    if disappeared:
+        assert _project_containers() == {"live": "running"}
+    else:
+        with pytest.raises(APIError, match="daemon failure"):
+            _project_containers()
+    client.close.assert_called_once_with()
+    assert client.api.containers.call_args.kwargs["filters"] == {
+        "label": ["hercules.managed=true", f"hercules.project_root={PROJECT_ROOT}"]
+    }
+
+
 def test_explicit_start_is_concurrent_and_idempotent() -> None:
     manager = _manager()
 
