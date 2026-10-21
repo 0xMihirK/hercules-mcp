@@ -66,7 +66,11 @@ def launch(args):
         index = args.index("--proxy") + 1
         if index >= len(args):
             raise ValueError("unsupported engine launch")
-        args[index] = start_forwarder(args[index])
+        # agent-browser strips URL credentials from --proxy (it answers proxy
+        # auth itself over CDP), so the forwarder must get the credentialed
+        # upstream out-of-band from HERCULES_BROWSER_UPSTREAM, not the stripped
+        # argv value. The env scrub below runs after this read.
+        args[index] = start_forwarder(os.environ.get("HERCULES_BROWSER_UPSTREAM") or args[index])
     env = dict(
         os.environ,
         OBSCURA_ALLOW_PRIVATE_NETWORK="1",
