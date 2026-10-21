@@ -552,9 +552,15 @@ class DockerManager:
         configured_stream_port = int(
             getattr(config, "browser_stream_port", 0) or 0
         )
+        # A distinct container-internal relay port only makes sense for the
+        # named-bridge override, where it is published back to the host port.
+        # Host networking never publishes, so the relay must bind the exact port
+        # the consumer connects to (the configured host port) on every platform.
         self._browser_stream_relay_port = (
             self._select_browser_relay_port(configured_stream_port)
-            if configured_stream_port and platform.system() != "Linux"
+            if configured_stream_port
+            and platform.system() != "Linux"
+            and self.network_mode != "host"
             else configured_stream_port
         )
         self._generation_callbacks: list = []
@@ -2815,6 +2821,29 @@ class DockerManager:
         )
         return result.exit_code == 0
 
+    async def _browser_relay_reachable_from_host(self, host_port: int) -> bool:
+        """Confirm the MCP process can actually reach the relay on the host.
+
+        A started in-container listener does not prove host reachability: a
+        Docker Desktop VM only surfaces container ports to the host when host
+        networking is enabled, so probe the real host loopback before claiming
+        the stream is active. Retries briefly to absorb forwarder/start latency.
+        """
+        for _ in range(20):
+            try:
+                _reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection("127.0.0.1", host_port), timeout=0.5
+                )
+                writer.close()
+                try:
+                    await writer.wait_closed()
+                except OSError:
+                    pass
+                return True
+            except (OSError, TimeoutError):
+                await asyncio.sleep(0.1)
+        return False
+
     async def ensure_browser_stream_relay(
         self,
         *,
@@ -2869,15 +2898,19 @@ class DockerManager:
                 replaced = True
             self._browser_stream_relay_state = {}
 
-            # Host networking: the container shares the host network stack, so a
-            # relay bound on loopback is directly reachable on the host at
-            # 127.0.0.1:relay_port (no port publishing involved). Under a named-
-            # bridge override the relay is published from the container's bridge
-            # IP, which docker-proxy reaches via the container's external
-            # interface, not loopback — so it must bind all interfaces there.
+            # Native Linux host networking shares the host stack, so a loopback
+            # bind is reachable on the host at 127.0.0.1:relay_port and 0.0.0.0
+            # would wrongly expose the live-view to the LAN. A Docker Desktop VM
+            # (non-Linux host mode) and the named-bridge override both reach the
+            # relay through a forwarder/docker-proxy on the container's external
+            # interface, so they must bind all interfaces (the VM/bridge still
+            # contains it).
+            # shortcut: on Docker Desktop the host reaches the relay only with
+            # host networking enabled (>=4.34, signed in); with it off no bind
+            # helps — the host-side probe below reports that truthfully.
             bind_host = (
                 "127.0.0.1"
-                if self.network_mode == "host"
+                if self.network_mode == "host" and platform.system() == "Linux"
                 else _CONTAINER_ALL_INTERFACES
             )
             relay_target = f"ncat -4 127.0.0.1 {backend_port}"
@@ -2945,6 +2978,28 @@ class DockerManager:
                     "backend_port": backend_port,
                     "generation": self._generation,
                     "error": "browser stream relay exited before verification",
+                }
+            if not await self._browser_relay_reachable_from_host(host_port):
+                # The listener is up inside the container but the host cannot
+                # reach it (most likely Docker Desktop host networking is off).
+                # Tear it down so no orphan ncat lingers and report honestly
+                # instead of claiming an unreachable stream is active.
+                await self._stop_browser_stream_relay(state)
+                self._browser_stream_relay_state = {}
+                return {
+                    "relay_status": "unreachable_from_host",
+                    "stream_active": False,
+                    "relay_replaced": replaced,
+                    "relay_port": relay_port,
+                    "backend_port": backend_port,
+                    "generation": self._generation,
+                    "error": (
+                        "The live-view relay started in the container but is not "
+                        f"reachable from the host on 127.0.0.1:{host_port}. On Docker "
+                        "Desktop enable Settings > Resources > Network > host networking "
+                        "(requires sign-in, Docker Desktop 4.34+) and restart, or set "
+                        "HERCULES_DOCKER_NETWORK=<bridge-name> to use the published-port relay."
+                    ),
                 }
             self._browser_stream_relay_state = state
             return {

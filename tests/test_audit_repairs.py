@@ -889,6 +889,84 @@ def test_network_mode_defaults_host_and_honors_override():
     assert manager.network_mode == "mybridge"
 
 
+def test_browser_relay_port_matches_host_port_under_host_mode(monkeypatch, tmp_path):
+    # Host networking never publishes ports, so the relay must bind the exact
+    # port the consumer connects to on every platform — including a non-Linux
+    # Docker Desktop VM, where the old code picked a distinct, never-remapped
+    # relay port that left the stream unreachable.
+    from hercules.core import docker_manager as dm
+
+    monkeypatch.setattr(dm.platform, "system", lambda: "Windows")
+    root = Path(__file__).resolve().parents[1]
+    common = dict(
+        project_root=root,
+        installed_capabilities=frozenset({"browser"}),
+        skip_metasploit=True, listener_ports=(), browser_stream_port=7900,
+        watchdog_interval=0,
+    )
+    host = dm.DockerManager(
+        HerculesConfig(workspace_root=tmp_path / "h", docker_network="host", **common)
+    )
+    assert host.browser_stream_relay_port == host.browser_stream_port == 7900
+    # The named-bridge override still uses a distinct published container port.
+    bridge = dm.DockerManager(
+        HerculesConfig(workspace_root=tmp_path / "b", docker_network="labnet", **common)
+    )
+    assert bridge.browser_stream_relay_port != 7900
+
+
+def test_browser_stream_relay_probe_gates_host_reachability(monkeypatch):
+    # The in-container listener can be up while the host cannot reach it (Docker
+    # Desktop host networking off). The relay must report that honestly and tear
+    # itself down, not claim stream_active on a port the host cannot connect to.
+    from hercules.core import docker_manager as dm
+
+    monkeypatch.setattr(dm.platform, "system", lambda: "Windows")
+    mgr = DockerManager.__new__(DockerManager)
+    mgr._config = SimpleNamespace(docker_network="host")
+    mgr._browser_stream_host_port = 7900
+    mgr._browser_stream_relay_port = 7900
+    mgr._generation = 1
+    mgr._browser_stream_lock = None
+    mgr._browser_stream_relay_state = {}
+    captured: dict[str, str] = {}
+    stopped = {"n": 0}
+
+    async def fake_exec(command, **kwargs):
+        captured["command"] = command
+        return SimpleNamespace(exit_code=0, stdout="111 222 333", stderr="")
+
+    async def running(_state):
+        return True
+
+    async def stop(_state):
+        stopped["n"] += 1
+        return True
+
+    mgr.exec_command = fake_exec
+    mgr._browser_relay_is_running = running
+    mgr._stop_browser_stream_relay = stop
+
+    async def unreachable(_port):
+        return False
+
+    mgr._browser_relay_reachable_from_host = unreachable
+    res = asyncio.run(mgr.ensure_browser_stream_relay(session="s", backend_port=9333))
+    assert res["relay_status"] == "unreachable_from_host"
+    assert res["stream_active"] is False
+    assert stopped["n"] == 1  # the orphan relay was torn down
+    assert "0.0.0.0" in captured["command"]  # non-Linux host mode binds all interfaces
+
+    async def reachable(_port):
+        return True
+
+    mgr._browser_stream_relay_state = {}
+    mgr._browser_relay_reachable_from_host = reachable
+    res2 = asyncio.run(mgr.ensure_browser_stream_relay(session="s", backend_port=9333))
+    assert res2["relay_status"] == "started"
+    assert res2["stream_active"] is True
+
+
 def test_listener_reachability_warning_flags_unforwarded_and_udp():
     # Workstream E: on bridge, a port outside the forwarded TCP set or a UDP
     # listener is not reachable from an external target — warn loudly, not silently.
