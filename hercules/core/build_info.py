@@ -16,7 +16,7 @@ from hercules.core.tool_catalog import (
     required_backends,
 )
 
-IMAGE_INPUTS = ("Dockerfile", "docker/entrypoint.sh", "hercules/core/browser_assets.json", "docker/install-browser.py", "docker/python-toolbox.lock", "docker/browser-launch.py")
+IMAGE_INPUTS = ("Dockerfile", "docker/entrypoint.sh", "hercules/core/browser_assets.json", "docker/install-browser.py", "docker/python-toolbox.lock", "docker/browser-launch.py", "docker/browser-forwarder.py")
 BROWSER_ASSETS = json.loads(Path(__file__).with_name("browser_assets.json").read_text(encoding="utf-8"))
 OBSCURA_VERSION = BROWSER_ASSETS["obscura_version"]
 AGENT_BROWSER_VERSION = BROWSER_ASSETS["controller_version"]
