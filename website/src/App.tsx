@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ArrowDown } from "@phosphor-icons/react/ArrowDown";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
@@ -154,16 +153,6 @@ export default function App() {
               reduced={reduced}
               paused={false}
             />
-            <div className="session-note">
-              <p>
-                Tools execute in disposable local Docker labs and return real
-                results. Model responses and decisions are scripted. No public
-                targets are contacted.
-              </p>
-              <a href="#architecture">
-                Explore the architecture <ArrowDown size={18} aria-hidden="true" />
-              </a>
-            </div>
           </div>
         </section>
 

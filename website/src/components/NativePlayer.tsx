@@ -10,11 +10,13 @@ import { PlaybackClock, sessionEnd, PLAYBACK_RATE } from "../pixel-timeline.js";
 import { PixelRenderer, verifiedFetch, type PixelIndex } from "../pixel-renderer";
 import { clients, type Client, type NativeManifest, type NativeRecording } from "../native-types";
 import CapturedPoster from "./CapturedPoster";
-import SessionStory, {stories} from "./SessionStory";
+import ScenarioPicker from "./ScenarioPicker";
+import content from "../showcase-content.json";
 
 type Recording=NativeManifest["recordings"][number];
 type Runtime={renderer:PixelRenderer|null;canvas:HTMLCanvasElement;clock:PlaybackClock;end:number;maximum:number;minimum:number;seek:number|null;record:Recording};
 const key=(r:NativeRecording)=>r.client+"/"+r.scenario+"/"+r.columns;
+const stories:Record<string,{objective:string}>=content;
 export default function NativePlayer({manifest,base,reduced,paused}:{manifest:NativeManifest|null;base:string;reduced:boolean;paused:boolean}){
   const [client,setClient]=useState<Client>("claude"),[scenario,setScenario]=useState(""),[columns,setColumns]=useState<number|null>(null),[replay,setReplay]=useState(0);
   const [explicitPause,setExplicitPause]=useState(false),[allowMotion,setAllowMotion]=useState(false),[expanded,setExpanded]=useState(false);
@@ -189,18 +191,11 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   const replayCase=()=>{restart.current=true;if(reduced)setAllowMotion(true);setReplay(v=>v+1);};
   const stopped=Boolean(error) || paused || explicitPause || reduced && !allowMotion;
   const minimum=runtime.current && shown && key(runtime.current.record)===key(shown)?runtime.current.minimum:shown?.displayStart || 0;
-  const caseEntries=manifest?Object.entries(manifest.cases):[];
   const activeScenario=shown?.scenario || scenario;
   const isPlaying=!stopped && ready;
   return <div className="native-player" data-playing={isPlaying} data-native-ready={ready} data-client={shownClient} data-requested-client={client} data-columns={shown?.columns || columns} data-case={activeScenario} data-recording-sha={shown?.sha256} data-playback-rate={PLAYBACK_RATE}>
     <div className="player-bars">
       <div className="agent-tabs" role="tablist" aria-label="Example agent">{clients.map(({id,name},i)=><button key={id} id={"agent-"+id} aria-controls="native-session" role="tab" aria-selected={client===id} tabIndex={client===id?0:-1} onClick={()=>switchAgent(id)} onKeyDown={e=>{if(["ArrowLeft","ArrowRight","Home","End"].includes(e.key)){e.preventDefault();const n=e.key==="Home"?0:e.key==="End"?3:(i+(e.key==="ArrowRight"?1:3))%4;switchAgent(clients[n].id);(e.currentTarget.parentElement?.children[n] as HTMLButtonElement)?.focus();}}}>{name}<span>{manifest?.clients[id]?.version || ""}</span></button>)}</div>
-      {caseEntries.length>0 && <div className="scenario-tabs" role="group" aria-label="Investigation scenario">
-        <span className="scenario-tabs-label">Scenario</span>
-        <div className="scenario-pills">
-          {caseEntries.map(([id,item])=><button key={id} type="button" aria-pressed={activeScenario===id} onClick={()=>switchScenario(id)}>{item.title}</button>)}
-        </div>
-      </div>}
     </div>
     <div className="player-layout">
       <div className="player-recording">
@@ -225,7 +220,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
       </div>
       </div>
-      <SessionStory recording={shown || null} time={time} base={base} title={currentCase?.title || ""}/>
+      <ScenarioPicker cases={manifest?.cases || {}} activeScenario={activeScenario} onSelect={switchScenario}/>
     </div>
   </div>;
 }

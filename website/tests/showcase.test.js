@@ -21,7 +21,7 @@ async function component(path,replacements={}){
     .replace(/"(@phosphor-icons\/react(?:\/[^"]+)?)"/g,(_,specifier)=>JSON.stringify(import.meta.resolve(specifier)));
   return import("data:text/javascript;base64,"+Buffer.from(code).toString("base64"));
 }
-const {default:Story}=await component("../src/components/SessionStory.tsx",{'import content from "../showcase-content.json";':"const content="+JSON.stringify(data)+";"});
+const {default:ScenarioPicker}=await component("../src/components/ScenarioPicker.tsx");
 const {default:Architecture,roundedRoute,architectureRoutes,createArchitectureLoop}=await component("../src/components/ArchitectureScene.tsx",{'import.meta.env.BASE_URL':'"/"'});
 
 test("architecture exposes named capabilities, accessible controls and truthful static fallback",()=>{
@@ -96,20 +96,37 @@ test("every presentation beat uses a real completed call and an existing artifac
     for(const beat of story.beats){assert.ok(beat.afterCall>=1 && beat.afterCall<=r.synchronized.length);if(beat.artifact)assert.ok(r.artifacts.some(a=>a.path===beat.artifact),r.file+" "+beat.artifact);}
   }
 });
-test("the real companion component gates discoveries, screenshots and verified reports",()=>{
-  const r=manifest.recordings.find(r=>r.client==="claude" && r.scenario==="website" && r.columns===120);
-  const render=time=>renderToStaticMarkup(createElement(Story,{recording:r,time,base:"/assets/recordings/",title:"Website assessment"}));
-  const first=data.website.beats[0],at=r.synchronized[first.afterCall-1].at;
-  assert.ok(!render(at-.01).includes(first.finding));assert.ok(render(at+.01).includes(first.finding));
-  const report=r.reportAvailableAt;assert.ok(!render(report-.01).includes("View report"));assert.ok(render(report+.01).includes("View report"));
-  // Raw JSON browser captures are not used as marketing imagery.
-  assert.ok(!render(report+1).includes("debug.png"));
-  const browser=manifest.recordings.find(r=>r.client==="claude" && r.scenario==="browser" && r.columns===120);
-  const picture=browser.artifacts.find(a=>a.path.includes("dashboard.png"));
-  const browserRender=time=>renderToStaticMarkup(createElement(Story,{recording:browser,time,base:"/assets/recordings/",title:"Browser workflow review"}));
-  assert.ok(!browserRender(picture.availableAt-.01).includes('alt="Verified local dashboard"'));
-  assert.ok(browserRender(picture.availableAt+.01).includes('alt="Verified local dashboard"'));
-  assert.doesNotMatch(render(report+1),/nuclei_run|scriptedObservation|output_complete|matcher-status/);
+test("the right-hand picker exposes each scenario once and selects the requested investigation",()=>{
+  let selected;
+  const props={cases:manifest.cases,activeScenario:"browser",onSelect:id=>selected=id};
+  const markup=renderToStaticMarkup(createElement(ScenarioPicker,props));
+  assert.match(markup,/<aside class="scenario-picker" aria-labelledby="scenario-heading">/);
+  assert.match(markup,/<h2 id="scenario-heading">Scenarios<\/h2>/);
+  assert.equal((markup.match(/<button /g)||[]).length,Object.keys(manifest.cases).length);
+  assert.equal((markup.match(/aria-pressed="true"/g)||[]).length,1);
+  for(const scenario of Object.values(manifest.cases))assert.ok(markup.includes(scenario.title));
+  const options=ScenarioPicker(props).props.children[2].props.children;
+  const target=options.find(button=>button.key==="website");
+  target.props.onClick();
+  assert.equal(selected,"website");
+  assert.doesNotMatch(markup,/Preparing the workspace|story-observations|View report/);
+});
+test("the scenario picker handles recordings that have not loaded",()=>{
+  const markup=renderToStaticMarkup(createElement(ScenarioPicker,{cases:{},activeScenario:"",onSelect:()=>{}}));
+  assert.match(markup,/role="status"/);
+  assert.match(markup,/Scenarios will appear when recordings are ready/);
+  assert.doesNotMatch(markup,/<button /);
+});
+test("the old selector row, workflow panel and session-note banner stay removed",async()=>{
+  const player=await readFile(new URL("../src/components/NativePlayer.tsx",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const styles=await readFile(new URL("../src/styles.css",import.meta.url),"utf8")+await readFile(new URL("../src/showcase.css",import.meta.url),"utf8");
+  assert.equal((player.match(/<ScenarioPicker /g)||[]).length,1);
+  assert.ok(player.indexOf('<div className="player-recording">')<player.indexOf('<ScenarioPicker '));
+  assert.match(player,/onSelect=\{switchScenario\}/);
+  assert.doesNotMatch(player,/scenario-tabs|scenario-pills|SessionStory/);
+  assert.doesNotMatch(app,/session-note|Explore the architecture|Tools execute in disposable local Docker labs/);
+  assert.doesNotMatch(styles,/\.session-note|\.scenario-tabs|\.scenario-pills|\.session-story|\.story-/);
 });
 test("the showcased filtering example is produced by the registered Hercules filter",{skip:HERCULES_AVAILABLE?false:"Hercules package not present (website branch)"},async()=>{
   const specimen=JSON.parse(await readFile(new URL("../assets/filter-example.json",import.meta.url),"utf8"));

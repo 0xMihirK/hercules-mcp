@@ -123,7 +123,7 @@ The four-stage chain never stacks. On narrow screens a focusable, horizontally p
 
 ## Native player
 
-One Canvas2D player, four agent tabs, and a compact investigation summary beside it on desktop and below it on phones. The prompt contains the objective once. The compact summary follows actual completed-call timestamps: current action, up to two observations, available browser evidence, and the verified report action. No findings or report appear before their underlying artifacts are available.
+One Canvas2D player, four agent tabs, and one Scenarios picker beside it on desktop and below it on phones. The picker replaces the workflow summary; the former horizontal scenario row is removed. Choosing a scenario restarts that investigation while retaining the selected agent. Keep native playback, history, pause, replay and enlargement unchanged. The prompt contains the objective once. The disclosure/link strip beneath the player is removed; capture provenance remains in the recording documentation.
 
 Play captured pixels at 2.5×. Switching agents restarts the same case and preserves explicit pause. Shuffled cycling retains the selected agent. Hold six recorded seconds at completion (2.4 wall seconds). Decode the opening before switching, crossfade for 200ms, and retain the last valid frame during loading, buffering, or failures. Reduced motion starts with a captured completed frame and swaps directly.
 

@@ -40,7 +40,7 @@
   max-width: 50ch;
 }
 
-/* NativePlayer viewport & SessionStory companion panel */
+/* NativePlayer viewport and scenario picker */
 .player-recording {
   min-width: 0;
   width: 100%;
@@ -141,8 +141,8 @@
   text-decoration: underline;
 }
 
-/* SessionStory telemetry card */
-.session-story {
+/* The scenario picker replaces the workflow summary and old selector row. */
+.scenario-picker {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -151,7 +151,7 @@
   box-shadow: var(--shadow-elevated);
   position: relative;
 }
-.session-story::before {
+.scenario-picker::before {
   content: "";
   position: absolute;
   top: 0;
@@ -160,19 +160,20 @@
   height: 3px;
   background: var(--ember);
 }
-.story-header {
+.scenario-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 12px;
 }
-.story-case-title {
-  font-size: 14px;
+.scenario-header h2 {
+  font-size: 28px;
+  line-height: 1.2;
   font-weight: 600;
   color: var(--ember-soft);
 }
-.story-call-count {
+.scenario-header > span {
   font-size: 13px;
   font-family: var(--mono);
   color: var(--ink-2);
@@ -180,158 +181,36 @@
   background: var(--surface-3);
   white-space: nowrap;
 }
-.story-progress-bar {
-  width: 100%;
-  height: 4px;
-  background: #1d222b;
-  overflow: hidden;
-  margin-bottom: 18px;
-}
-.story-progress-bar > i {
-  display: block;
-  height: 100%;
-  background: var(--ember);
-  transition: width 0.28s var(--ease-out);
-}
-.story-body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  gap: 16px;
-}
-.story-current {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-.story-current > svg {
-  color: var(--ember);
-  flex-shrink: 0;
-  margin-top: 3px;
-}
-.story-current h3 {
-  font-size: 22px;
-  line-height: 1.15;
-}
-.story-pending {
+.scenario-description {
   font-size: 14px;
   line-height: 1.55;
-  color: var(--ink-3);
-}
-.story-observations {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.story-observations li {
-  padding: 12px 14px;
-  background: var(--surface-2);
-  transition: background-color 0.25s, opacity 0.25s;
-}
-.story-observations li.is-upcoming {
-  opacity: 0.48;
-}
-.story-observations li.is-done {
-  background: #181c23;
-}
-.story-beat-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.story-beat-badge {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font: 600 13px/1 var(--mono);
-  background: var(--surface-3);
-  color: var(--ink-3);
-  flex-shrink: 0;
-}
-.story-observations li.is-done .story-beat-badge {
-  background: var(--ember);
-  color: #0b0908;
-  box-shadow: 0 0 14px rgba(255, 106, 43, 0.5);
-}
-.story-beat-head strong {
-  font-size: 14px;
-  color: var(--ink);
-}
-.story-observations li p {
-  margin-top: 6px;
-  padding-left: 32px;
-  font-size: 13px;
-  line-height: 1.5;
   color: var(--ink-2);
+  margin-bottom: 18px;
 }
-.story-evidence {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  background: #0a0c10;
-}
-.story-evidence-chrome {
-  display: flex;
-  align-items: center;
+.scenario-options {
+  display: grid;
   gap: 6px;
-  font-size: 13px;
-  color: var(--ink-3);
 }
-.story-evidence-chrome span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #343b46;
-}
-.story-evidence-chrome b {
-  margin-left: 4px;
-  font-weight: 500;
-}
-.story-evidence-preview {
-  overflow: hidden;
-  max-height: 150px;
-  background: #050608;
-}
-.story-evidence-preview img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.story-evidence > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--ember-soft);
-}
-.story-conclusion-card {
-  margin-top: auto;
-  padding: 16px;
-  background: #1b1716;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.story-conclusion {
+.scenario-options button {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  color: var(--ink-2);
   font-size: 14px;
-  line-height: 1.52;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+  transition: background-color 0.18s, color 0.18s;
+}
+.scenario-options button:hover:not([aria-pressed="true"]) {
+  background: var(--surface-3);
   color: var(--ink);
 }
-.story-report-link {
-  width: 100%;
-}
-.story-footer {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--edge);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  color: var(--ink-4);
+.scenario-options button[aria-pressed="true"] {
+  background: var(--ember-soft);
+  color: #0b0908;
+  font-weight: 600;
 }
 
 /* Architecture uses the same graphite surfaces and orange actions as the page. */

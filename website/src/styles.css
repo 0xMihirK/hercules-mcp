@@ -528,41 +528,6 @@ svg {
   background: var(--surface-3);
   color: var(--ink);
 }
-.scenario-tabs {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
-  background: var(--surface-1);
-}
-.scenario-tabs-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ember-soft);
-  white-space: nowrap;
-}
-.scenario-pills {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.scenario-pills button {
-  min-height: 34px;
-  padding: 6px 12px;
-  font-size: 13px;
-  color: var(--ink-3);
-  background: var(--surface-2);
-  transition: background-color 0.18s, color 0.18s;
-}
-.scenario-pills button:hover:not([aria-pressed="true"]) {
-  color: var(--ink);
-  background: var(--surface-3);
-}
-.scenario-pills button[aria-pressed="true"] {
-  color: #0b0908;
-  background: var(--ember-soft);
-  font-weight: 600;
-}
 .player-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
@@ -709,29 +674,6 @@ svg {
   font-size: 15px;
   font-weight: 500;
 }
-.session-note {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-  padding: 14px 20px;
-  background: var(--surface-1);
-  color: var(--ink-3);
-}
-.session-note p {
-  font-size: 14px;
-  max-width: 85ch;
-}
-.session-note a {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  min-height: 44px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ember-soft);
-  flex-shrink: 0;
-}
 .native-stage.is-expanded {
   position: fixed;
   inset: 24px;
@@ -848,21 +790,6 @@ svg {
     justify-content: space-between;
     padding: 8px 12px;
   }
-  .scenario-tabs {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .scenario-pills {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    scrollbar-width: thin;
-    padding-bottom: 2px;
-  }
-  .scenario-pills button {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
   .player-layout {
     display: flex;
     flex-direction: column;
@@ -877,11 +804,6 @@ svg {
     flex-wrap: wrap;
     gap: 8px 12px;
     padding: 8px 12px;
-  }
-  .session-note {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
   }
   .native-stage.is-expanded {
     inset: 10px;
