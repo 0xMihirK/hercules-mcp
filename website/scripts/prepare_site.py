@@ -12,6 +12,8 @@ import re
 import shutil
 import sys
 import time
+import hashlib
+from playback_catalog import playback_catalog
 
 ROOT = Path(__file__).resolve().parents[2]
 SITE = ROOT / "website"
@@ -41,9 +43,14 @@ if "--development" in sys.argv and (preview / "manifest.json").is_file():
     shutil.copytree(preview, public / "assets/preview-recordings", dirs_exist_ok=True)
 recording_root = public / "assets" / ("preview-recordings" if "--development" in sys.argv and (preview / "manifest.json").is_file() else "recordings")
 native_manifest = json.loads((recording_root / "manifest.json").read_text(encoding="utf-8"))
-bootstrap = {**native_manifest, "recordings": [{**r,"synchronized":[],"metrics":[],"artifacts":[],"reportPreview":""} for r in native_manifest["recordings"]]}
-bootstrap["assetDirectory"] = recording_root.name
-(SITE / "src/bootstrap.json").write_text(json.dumps(bootstrap), encoding="utf-8", newline="\n")
+objectives = json.loads((SITE / "src/showcase-content.json").read_text(encoding="utf-8"))
+bootstrap = playback_catalog(native_manifest, recording_root, objectives)
+playback_bytes = json.dumps(bootstrap, separators=(",", ":")).encode("utf-8")
+catalog_file = "playback-" + hashlib.sha256(playback_bytes).hexdigest()[:16] + ".json"
+(recording_root / catalog_file).write_bytes(playback_bytes)
+(SITE / "src/bootstrap.json").write_text(json.dumps({
+    **bootstrap, "recordings": [], "catalogFile": catalog_file,
+}, separators=(",", ":")), encoding="utf-8", newline="\n")
 
 if HAVE_SOURCE:
     catalog = catalog_payload()

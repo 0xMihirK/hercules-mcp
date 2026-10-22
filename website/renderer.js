@@ -1068,13 +1068,8 @@ export function createThreadLight(canvas, recipe) {
         elapsed += Math.min(0.1, (clock - lastClock) / 1000);
       lastClock = clock;
       const cost = engine.getStats().averageCost,
-        fps =
-          cost > 40
-            ? 15
-            : typeof window !== "undefined" && window.innerWidth < 800
-              ? 20
-              : 30;
-      if (clock - lastTime < 1000 / fps) return;
+        fps = typeof window !== "undefined" && window.innerWidth < 800 ? 20 : 30;
+      if (clock - lastTime < Math.max(1000 / fps, cost * 3)) return;
       lastTime = clock;
       renderAt(elapsed);
     },

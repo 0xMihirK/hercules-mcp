@@ -18,7 +18,7 @@ const recipe = JSON.parse(
 const emberRecipe = {
   ...recipe,
   tint: "#ff6a2b",
-  tintOpacity: 72,
+  tintOpacity: 52,
   overlayBlend: "multiply",
 };
 const raster = createCanvas(1200, 630),
@@ -31,27 +31,24 @@ const canvas = createCanvas(1200, 630),
   ctx = canvas.getContext("2d");
 ctx.fillStyle = "#07080a";
 ctx.fillRect(0, 0, 1200, 630);
-ctx.globalAlpha = 0.72;
+ctx.globalAlpha = 0.46;
 ctx.drawImage(raster, 0, 0);
 ctx.globalAlpha = 1;
 const scrim = ctx.createLinearGradient(0, 0, 1200, 0);
-scrim.addColorStop(0, "rgba(7,8,10,.78)");
-scrim.addColorStop(1, "rgba(7,8,10,.18)");
+scrim.addColorStop(0, "rgba(7,8,10,.88)");
+scrim.addColorStop(1, "rgba(7,8,10,.25)");
 ctx.fillStyle = scrim;
 ctx.fillRect(0, 0, 1200, 630);
 ctx.drawImage(
   await loadImage(fileURLToPath(asset("lion.png"))),
   62,
-  48,
-  36,
-  36,
+  56,
+  44,
+  44,
 );
 ctx.fillStyle = "#F4EFE9";
 ctx.font = "600 25px Archivo";
-ctx.fillText("hercules / mcp", 112, 76);
-ctx.fillStyle = "#FFB48A";
-ctx.font = "12px Plex Mono";
-ctx.fillText("OPEN SOURCE / MODEL CONTEXT PROTOCOL", 64, 180);
+ctx.fillText("hercules / mcp", 124, 88);
 ctx.fillStyle = "#F4EFE9";
 ctx.font = "600 86px Archivo";
 ctx.fillText("A Kali workspace", 59, 286);
@@ -61,7 +58,7 @@ ctx.fillStyle = "#FF6A2B";
 ctx.fillText("AI agent.", Math.round(59 + prefixWidth), 382);
 ctx.fillStyle = "#CEC5BC";
 ctx.font = "15px Plex Mono";
-ctx.fillText("47 tools     22 capability bundles     7 resources", 64, 504);
+ctx.fillText("Security tools. Browser automation. Your agent.", 64, 470);
 ctx.strokeStyle = "rgba(244,239,233,0.16)";
 ctx.beginPath();
 ctx.moveTo(64, 550);
@@ -69,9 +66,11 @@ ctx.lineTo(1136, 550);
 ctx.stroke();
 ctx.fillStyle = "#B8AFA6";
 ctx.font = "11px Plex Mono";
-ctx.fillText("PYTHON / DOCKER / KALI LINUX", 64, 584);
+ctx.fillText("OPEN SOURCE / KALI LINUX / DOCKER", 64, 584);
 ctx.fillStyle = "#FF6A2B";
-ctx.fillText("github.com/0xMihirK/hercules-mcp", 821, 584);
-await writeFile(asset("social-preview.png"), canvas.toBuffer("image/png"));
+ctx.fillText("0xmihirk.github.io/hercules-mcp", 825, 584);
+const jpeg = canvas.toBuffer("image/jpeg", 88);
+if (jpeg.length > 250 * 1024) throw Error("Social preview exceeds the 250 KiB budget");
+await writeFile(asset("social-preview-v2.jpg"), jpeg);
 engine.destroy();
-console.log("Generated the social preview from the procedural background.");
+console.log(`Generated 1200×630 social preview (${jpeg.length} bytes); original PNG retained.`);

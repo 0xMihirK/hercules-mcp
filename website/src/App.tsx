@@ -6,7 +6,7 @@ import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
 import StatBand from "./components/StatBand";
-import ArchitectureScene from "./components/ArchitectureScene";
+import DeferredArchitecture from "./components/DeferredArchitecture";
 import Setup from "./components/Setup";
 import facts from "./site-facts.json";
 import bootstrap from "./bootstrap.json";
@@ -20,10 +20,22 @@ const asset = (name: string) => `${import.meta.env.BASE_URL}assets/${name}`;
 export default function App() {
   const reduced = useReducedMotion();
   const heroRef = useRef<HTMLElement>(null);
-  const [manifest, setManifest] = useState<NativeManifest | null>(
-    bootstrap.schemaVersion === 3 ? (bootstrap as unknown as NativeManifest) : null,
-  );
+  const [manifest, setManifest] = useState<NativeManifest>(bootstrap as NativeManifest);
+  const [catalogError, setCatalogError] = useState(false);
+  const [catalogAttempt, setCatalogAttempt] = useState(0);
   const recordingBase = asset(`${bootstrap.assetDirectory}/`);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(recordingBase + bootstrap.catalogFile, { signal: controller.signal })
+      .then(response => { if (!response.ok) throw Error("Playback catalog unavailable"); return response.json(); })
+      .then(data => {
+        if (data.schemaVersion !== 3 || !data.realTools || data.scriptedToolResults || !Array.isArray(data.recordings) || !data.recordings.length) throw Error("Invalid playback catalog");
+        if (!controller.signal.aborted) setManifest(data);
+      })
+      .catch(() => { if (!controller.signal.aborted) setCatalogError(true); });
+    return () => controller.abort();
+  }, [recordingBase, catalogAttempt]);
 
   useEffect(() => {
     let frame = 0,
@@ -35,7 +47,7 @@ export default function App() {
       });
     };
     const observer = new ResizeObserver(refresh);
-    for (const element of document.querySelectorAll("#agents,#architecture"))
+    for (const element of document.querySelectorAll("#agents,.deferred-architecture"))
       observer.observe(element);
     document.fonts.ready.then(() => {
       if (live) refresh();
@@ -72,25 +84,6 @@ export default function App() {
     return () => context.revert();
   }, [reduced]);
 
-  useEffect(() => {
-    if (typeof fetch !== "function") return;
-    const controller = new AbortController();
-    fetch(recordingBase + "manifest.json", {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then((r) => {
-        if (!r.ok) throw Error("Native manifest unavailable");
-        return r.json();
-      })
-      .then((data) => {
-        if (data.schemaVersion === 3 && data.realTools && !data.scriptedToolResults)
-          setManifest(data);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [recordingBase]);
-
   return (
     <div className={`site${reduced ? " motion-off" : ""}`}>
       <Background paused={false} reduced={reduced} />
@@ -100,7 +93,7 @@ export default function App() {
       <header className="site-header">
         <div className="site-header-inner wrap">
           <a href="#main" className="brand">
-            <img src={asset("lion.svg")} width="30" height="30" alt="" />
+            <img src={asset("lion.png")} width="30" height="30" alt="" />
             hercules<span>/ mcp</span>
             <span className="brand-beta-tag">BETA</span>
           </a>
@@ -147,6 +140,7 @@ export default function App() {
           </div>
 
           <div id="agents" className="hero-stage wrap" aria-label="Recorded native agent sessions">
+            {catalogError && <p role="alert">Recordings could not load. <button className="button secondary" onClick={() => { setCatalogError(false); setCatalogAttempt(value => value + 1); }}>Retry recordings</button></p>}
             <NativePlayer
               manifest={manifest}
               base={recordingBase}
@@ -161,7 +155,7 @@ export default function App() {
           reduced={reduced}
           paused={false}
         />
-        <ArchitectureScene reduced={reduced} paused={false} />
+        <DeferredArchitecture reduced={reduced} />
         <Setup prompt={facts.installationPrompt} />
       </main>
       <footer className="site-footer">
@@ -170,7 +164,7 @@ export default function App() {
         </div>
         <div className="site-footer-bar wrap">
           <a href="#main" className="brand">
-            <img src={asset("lion.svg")} width="26" height="26" alt="" />
+            <img src={asset("lion.png")} width="26" height="26" alt="" />
             hercules<span>/ mcp</span>
             <span className="brand-beta-tag">BETA</span>
           </a>
@@ -179,7 +173,7 @@ export default function App() {
             <a href={github}>
               Source <ArrowUpRight size={16} />
             </a>
-            <a href={`${github}/blob/main/website/CAPTURE.md`}>
+            <a href={`${github}/blob/website/website/CAPTURE.md`}>
               About the recordings <ArrowUpRight size={16} />
             </a>
             <a href={`${github}/blob/main/LICENSE`}>

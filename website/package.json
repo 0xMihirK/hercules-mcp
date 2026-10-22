@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "python scripts/prepare_site.py --development && vite --host 127.0.0.1 --port 4173",
-    "build": "python scripts/prepare_site.py && tsc --noEmit && vite build",
+    "build": "python scripts/prepare_site.py && tsc --noEmit && vite build && node scripts/check-build.mjs",
     "preview": "vite preview --host 127.0.0.1 --port 4173",
     "test": "node --test tests/*.test.js"
   },

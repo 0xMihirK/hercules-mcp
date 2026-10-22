@@ -46,8 +46,10 @@
   width: 100%;
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
 }
 .native-viewport {
+  aspect-ratio:1320 / 672;
   position: relative;
   display: block;
   min-height: 0;
@@ -55,6 +57,8 @@
   container-type: inline-size;
   touch-action: pan-y;
 }
+@container (max-width:759px) { .native-viewport { aspect-ratio:880 / 672; } }
+@container (max-width:509px) { .native-viewport { aspect-ratio:528 / 672; } }
 .native-viewport.is-reviewing {
   touch-action: none;
 }
@@ -215,6 +219,8 @@
 
 /* Architecture uses the same graphite surfaces and orange actions as the page. */
 .architecture { scroll-margin-top:92px; }
+.architecture-placeholder { min-height:1200px; }
+@media(max-width:900px) { .architecture-placeholder { min-height:1320px; } }
 .architecture-heading { display:grid;grid-template-columns:1.1fr 1fr;gap:64px;align-items:end;max-width:none; }
 .architecture-heading h2 { max-width:none; }.architecture-heading>p { margin:0;max-width:49ch; }
 .map-eyebrow { display:none; }

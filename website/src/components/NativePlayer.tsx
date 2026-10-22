@@ -8,15 +8,14 @@ import { ArrowCounterClockwise } from "@phosphor-icons/react/ArrowCounterClockwi
 import { ShuffleBag, recordingGeometry, mapMilestoneTime } from "../recording.js";
 import { PlaybackClock, sessionEnd, PLAYBACK_RATE } from "../pixel-timeline.js";
 import { PixelRenderer, verifiedFetch, type PixelIndex } from "../pixel-renderer";
+import { nearViewport } from "../playback-loading.js";
 import { clients, type Client, type NativeManifest, type NativeRecording } from "../native-types";
 import CapturedPoster from "./CapturedPoster";
 import ScenarioPicker from "./ScenarioPicker";
-import content from "../showcase-content.json";
 
 type Recording=NativeManifest["recordings"][number];
 type Runtime={renderer:PixelRenderer|null;canvas:HTMLCanvasElement;clock:PlaybackClock;end:number;maximum:number;minimum:number;seek:number|null;record:Recording};
 const key=(r:NativeRecording)=>r.client+"/"+r.scenario+"/"+r.columns;
-const stories:Record<string,{objective:string}>=content;
 export default function NativePlayer({manifest,base,reduced,paused}:{manifest:NativeManifest|null;base:string;reduced:boolean;paused:boolean}){
   const [client,setClient]=useState<Client>("claude"),[scenario,setScenario]=useState(""),[columns,setColumns]=useState<number|null>(null),[replay,setReplay]=useState(0);
   const [explicitPause,setExplicitPause]=useState(false),[allowMotion,setAllowMotion]=useState(false),[expanded,setExpanded]=useState(false);
@@ -108,40 +107,25 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       canvas.setAttribute("role","img");canvas.setAttribute("aria-label","Actual captured "+record.client+" terminal");
       try{const context=canvas.getContext("2d",{alpha:false});if(!context)throw Error("Canvas2D unavailable");context.drawImage(bitmap,0,0);}finally{bitmap.close();}
     }
-    // Warming these small static assets does not advance a paused recording.
-    async function warmEntrances(completed=false){
-      for(const other of manifest!.recordings.filter(r=>r.scenario===record.scenario && r.columns===record.columns && r.client!==record.client)){
-        if(!valid())return;
-        try{
-          if(completed && other.completedStill && other.completedStillSha256){await verifiedFetch(base+other.completedStill,other.completedStillSha256,abort.signal);continue;}
-          let intro:{file:string;sha256:string}|undefined;
-          if(other.pixels){const bytes=await verifiedFetch(base+other.pixels.index,other.pixels.indexSha256,abort.signal);if(other.client==="hermes")intro=JSON.parse(new TextDecoder().decode(bytes)).reviewFrames?.nativeIntro;}
-          if(intro && other.pixels)await verifiedFetch(base+other.pixels.index.replace(/[^/]+$/,intro.file),intro.sha256,abort.signal);
-          else if(other.still && other.stillSha256)await verifiedFetch(base+other.still,other.stillSha256,abort.signal);
-        }catch{return;}
-      }
-    }
     async function initialize(){
       try{
         if(!manifest!.realTools || manifest!.scriptedToolResults)throw Error("A validated native recording is unavailable.");
         const staticView=reduced && !allowMotion;
         const opening=target===minimum;
         if(staticView && record.completedStill && record.completedStillSha256){
-          await poster(record.completedStill,record.completedStillSha256);if(!valid())return;commit();void warmEntrances(true);return;
+          await poster(record.completedStill,record.completedStillSha256);if(!valid())return;commit();return;
         }
+        const entrance=record.entrance;
+        if(entrance){minimum=Math.max(minimum,entrance.at);target=opening?minimum:Math.max(minimum,target);}
+        if(opening){
+          const file=entrance?.file || record.still,sha=entrance?.sha256 || record.stillSha256;
+          if(file && sha)try{await poster(file,sha);if(!valid())return;commit();}catch{if(!valid())return;}
+        }
+        await nearViewport(stage.current!,abort.signal);if(!valid())return;
         const bytes=await verifiedFetch(base+source.index,source.indexSha256,abort.signal);
         const index:PixelIndex=JSON.parse(new TextDecoder().decode(bytes));
         if(index.schemaVersion!==3 || index.width!==source.width || index.height!==source.height || index.fps!==60)throw Error("Invalid capture profile");
         if(!valid())return;
-        // Hermes' verified entrance retains its complete native title. Later
-        // startup screens can naturally scroll the tall banner out of view.
-        const intro=record.client==="hermes"?index.reviewFrames?.nativeIntro:undefined;
-        if(intro){minimum=Math.max(minimum,intro.at);target=opening?minimum:Math.max(minimum,target);}
-        if(opening){
-          const file=intro?source.index.replace(/[^/]+$/,intro.file):record.still;
-          const sha=intro?.sha256 || record.stillSha256;
-          if(file && sha)try{await poster(file,sha);if(!valid())return;commit();void warmEntrances();}catch{if(!valid())return;}
-        }
         renderer=new PixelRenderer(index,new URL(".",new URL(base+source.index,location.href)).href,abort.signal);
         if(!canvas){canvas=document.createElement("canvas");canvas.className="native-canvas";canvas.setAttribute("role","img");canvas.setAttribute("aria-label","Actual captured "+record.client+" terminal");}
         await renderer.paint(target,canvas);if(!valid())return;
@@ -203,9 +187,9 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         if(expanded && e.key==="Escape")setExpanded(false);
         if(expanded && e.key==="Tab"){const targets=stage.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href],[tabindex="0"]');if(targets?.length){const first=targets[0],last=targets[targets.length-1];if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}}}
       }}>
-        <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native recording"}</span><p>{stories[shown?.scenario || ""]?.objective || "Preparing a local investigation…"}</p></div>
+        <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native recording"}</span><p>{currentCase?.objective || "Preparing a local investigation…"}</p></div>
         <p id="native-session-help" className="sr-only">Scroll up to review earlier captured screens. Play resumes from that point. On touch screens, pause first.</p>
-        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={{aspectRatio:presentationPixels?presentationPixels.width+"/"+presentationPixels.height:"120/56"}} onKeyDown={e=>{
+        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={presentationPixels?{aspectRatio:presentationPixels.width+"/"+presentationPixels.height}:undefined} onKeyDown={e=>{
           const r=runtime.current;if(!r)return;
           const steps:Record<string,number>={ArrowUp:-2,ArrowDown:2,PageUp:-12,PageDown:12};
           if(e.key in steps){e.preventDefault();seek((r.seek ?? r.clock.time)+steps[e.key]);}
@@ -216,7 +200,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         </div>
         <div className="recording-history"><span>Recorded history</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,maximum)} disabled={maximum<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(maximum,time))} aria-label="Recorded terminal history" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/></div>
         <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">{stopped?"Scroll to review history":<><span className="desktop-history-hint">Scroll up to review</span><span className="touch-history-hint">Pause to review history</span></>}</span></div>
-        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/main/website/CAPTURE.md">About these recordings</a>}</p>}
+        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/website/website/CAPTURE.md">About these recordings</a>}</p>}
         <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
       </div>
       </div>

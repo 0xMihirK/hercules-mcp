@@ -123,6 +123,20 @@ The four-stage chain never stacks. On narrow screens a focusable, horizontally p
 
 ## Native player
 
+Loading refinements retain this presentation: a compact, content-addressed JSON
+catalog supplies playback fields only; full provenance stays in the original
+manifest. Verify the selected poster before fetching its pixel index. Hermes'
+verified entrance is included in the catalog. Do not warm unused agents'
+indexes or posters. Reserve the captured ratio with container queries before
+JavaScript measures the player, then use the selected capture's exact ratio.
+Autoplay still waits for visibility and preserves explicit pause.
+
+The architecture module loads near the viewport with its heading and space
+reserved. Decorative workers leave headroom after expensive frames and park
+their timer while hidden/reduced; the procedural recipe and captured pixels
+are unchanged. Shared cards use the same lion, graphite/copper palette and
+Archivo headline at 1200×630, with readable crop-safe type and no tiny counters.
+
 One Canvas2D player, four agent tabs, and one Scenarios picker beside it on desktop and below it on phones. The picker replaces the workflow summary; the former horizontal scenario row is removed. Choosing a scenario restarts that investigation while retaining the selected agent. Keep native playback, history, pause, replay and enlargement unchanged. The prompt contains the objective once. The disclosure/link strip beneath the player is removed; capture provenance remains in the recording documentation.
 
 Play captured pixels at 2.5×. Switching agents restarts the same case and preserves explicit pause. Shuffled cycling retains the selected agent. Hold six recorded seconds at completion (2.4 wall seconds). Decode the opening before switching, crossfade for 200ms, and retain the last valid frame during loading, buffering, or failures. Reduced motion starts with a captured completed frame and swaps directly.
