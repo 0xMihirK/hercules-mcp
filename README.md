@@ -47,6 +47,7 @@ interactive introduction to the workflow, tools, and workspace evidence.
 - [Security model](#security-model)
 - [Acknowledgements](#acknowledgements)
 - [License](#license)
+- [Support](#support)
 
 ## Install with your AI agent
 
@@ -453,3 +454,8 @@ maintainers and contributors.
 ## License
 
 Hercules MCP is distributed under the [MIT License](LICENSE).
+
+## Support
+
+If Hercules has helped your work, [buy me a beer](https://buymeacoffee.com/mihirkatoch)
+to support its continued development.

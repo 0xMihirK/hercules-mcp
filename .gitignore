@@ -63,9 +63,10 @@ snapshot_report.html
 /*.png
 /*.svg
 
-# Only the public showcase workflow is tracked; other local CI files stay private.
+# Only public workflows and funding metadata are tracked; local CI files stay private.
 !.github/
 .github/*
+!.github/FUNDING.yml
 !.github/workflows/
 .github/workflows/*
 !.github/workflows/runtime-image.yml
