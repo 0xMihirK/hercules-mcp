@@ -8,6 +8,12 @@ import pytest
 from fastmcp import Client
 
 from hercules.resources import post_exploitation
+from hercules.core.setup_info import capture_surface
+from hercules.core.tool_catalog import catalog_payload
+
+
+def test_catalog_resource_count_matches_live_registration():
+    assert catalog_payload()["resource_count"] == capture_surface()["resources"] == 5
 
 
 @pytest.mark.parametrize(

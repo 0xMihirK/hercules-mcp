@@ -62,6 +62,7 @@ from hercules.core.tool_catalog import (
     ALL_CAPABILITIES,
     METASPLOIT_TOOLS,
     REGISTRARS,
+    RESOURCE_COUNT,
     TOOL_SELECTORS,
     all_tool_names,
     catalog_payload,
@@ -75,7 +76,6 @@ from hercules.core.tool_catalog import (
 from hercules.core.wordlists import WORDLIST_FILES, WORDLIST_SOURCES
 
 MAX_BUILD_CA_BYTES = 1024 * 1024
-RESOURCE_COUNT = 5
 SETUP_INFORMATION_SCHEMA_VERSION = 3
 _CERTIFICATE_BLOCK = re.compile(
     rb"-----BEGIN CERTIFICATE-----\s+.+?\s+-----END CERTIFICATE-----",

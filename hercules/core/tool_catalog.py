@@ -30,6 +30,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 
+RESOURCE_COUNT = 5
+
 
 @dataclass(frozen=True)
 class Capability:
@@ -425,7 +427,7 @@ def catalog_payload() -> dict[str, object]:
         "capabilities": rows,
         "full_tool_count": FULL_TOOL_COUNT,
         "without_metasploit_tool_count": LIGHT_TOOL_COUNT,
-        "resource_count": 7,
+        "resource_count": RESOURCE_COUNT,
     }
 
 
