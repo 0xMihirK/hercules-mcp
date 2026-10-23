@@ -84,6 +84,7 @@ Parallelize independent passive or light probes within advertised concurrency li
 - For CTF objectives, continuity notes, candidate validation, rate coordination, or custom tools, read [ctf-workflow.md](references/ctf-workflow.md).
 - For LinPEAS, WinPEAS, PowerUp, GTFOBins, or LOLBAS selection and handling, read [post-exploitation-resources.md](references/post-exploitation-resources.md).
 - For token-efficient execution, output completeness, `include_raw`, artifacts, polling, and result interpretation, read [efficiency-and-output.md](references/efficiency-and-output.md).
+- For assessment-wide tool choice and reporting, use the bundled `hercules-operator` skill. For a specific domain, load only its matching `hercules-application-testing`, `hercules-infrastructure`, `hercules-wireless-embedded`, `hercules-binary-analysis`, or `hercules-assessment-operations` skill and the topic reference it points to. These playbooks guide authorized testing; their presence does not grant permission for high-impact actions.
 
 ## Handle failures truthfully
 

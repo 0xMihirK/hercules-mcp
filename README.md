@@ -257,12 +257,18 @@ portable [workspace guide](skills/hercules-mcp/references/workspace-and-evidence
 
 ## MCP resources and agent guidance
 
-The plugin bundles the general [`hercules-mcp` skill](skills/hercules-mcp/SKILL.md)
-and focused [`hercules-nmap-nse`](skills/hercules-nmap-nse/SKILL.md) and
-[`hercules-nuclei`](skills/hercules-nuclei/SKILL.md) authoring skills. Setup installs
-them for the selected client independently of native plugin adapters. Progressive
-references teach tool selection, parameters, bounded parallelism, output
-interpretation, artifacts, and recovery; the full handbooks load on demand.
+The plugin bundles the general [`hercules-mcp` skill](skills/hercules-mcp/SKILL.md),
+focused [`hercules-nmap-nse`](skills/hercules-nmap-nse/SKILL.md) and
+[`hercules-nuclei`](skills/hercules-nuclei/SKILL.md) authoring skills, and an
+[`operator skill`](skills/hercules-operator/SKILL.md) plus focused
+[application](skills/hercules-application-testing/SKILL.md),
+[infrastructure](skills/hercules-infrastructure/SKILL.md),
+[wireless/embedded](skills/hercules-wireless-embedded/SKILL.md),
+[binary-analysis](skills/hercules-binary-analysis/SKILL.md), and
+[assessment-operations](skills/hercules-assessment-operations/SKILL.md) skills.
+Setup installs all nine for the selected client independently of native plugin
+adapters. The 79 topic playbooks load only when relevant; the MCP tool and
+resource surface is unchanged.
 
 Hercules exposes five resources and two optional exact-name lookup templates.
 The former `resource://agent_skills/nse` and

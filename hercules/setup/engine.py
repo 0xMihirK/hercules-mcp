@@ -80,7 +80,17 @@ def skill_fingerprint(path: Path | None) -> str:
     return checksum.hexdigest()
 
 
-SKILL_NAMES = ("hercules-mcp", "hercules-nmap-nse", "hercules-nuclei")
+SKILL_NAMES = (
+    "hercules-mcp",
+    "hercules-nmap-nse",
+    "hercules-nuclei",
+    "hercules-operator",
+    "hercules-application-testing",
+    "hercules-infrastructure",
+    "hercules-wireless-embedded",
+    "hercules-binary-analysis",
+    "hercules-assessment-operations",
+)
 
 
 def skill_paths(main: Path | None, checkout: Path) -> list[Path]:

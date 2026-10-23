@@ -104,6 +104,12 @@ def validate_source_association(root: Path) -> None:
         source / "skills" / "hercules-nmap-nse" / "references" / "handbook.md",
         source / "skills" / "hercules-nuclei" / "SKILL.md",
         source / "skills" / "hercules-nuclei" / "references" / "handbook.md",
+        source / "skills" / "hercules-operator" / "SKILL.md",
+        source / "skills" / "hercules-application-testing" / "SKILL.md",
+        source / "skills" / "hercules-infrastructure" / "SKILL.md",
+        source / "skills" / "hercules-wireless-embedded" / "SKILL.md",
+        source / "skills" / "hercules-binary-analysis" / "SKILL.md",
+        source / "skills" / "hercules-assessment-operations" / "SKILL.md",
     )
     if package_root.parent != source or any(not path.is_file() for path in required):
         raise SourceAssociationError(

@@ -17,17 +17,18 @@ from hercules.core.security import redact_secrets
 SERVER_INSTRUCTIONS = """
 Hercules runs authorized security tools in a managed Kali container. Confirm
 scope, start passive/light, verify evidence, and escalate only when authorized.
-Prefer structured tools; shell_exec, browser_cmd, raw_args, and extra_args are
-administrator escape hatches outside complete structured-target guarantees.
+shell_exec, browser_cmd, raw_args, and extra_args bypass structured-target
+guarantees; use them only as authorized administrator escape hatches.
 The container starts only when you call system_start_container. Reuse it while
 Docker-backed work is active, then call system_stop_container when finished.
 Inspect files with workspace_inspect even while stopped. Keep challenge folders
 and dependency notes in the workspace; coordinate parallel workers before
 rotating or stopping. Confirm cleanup fields; retained workspaces are not containers.
 
-Use HTTP tools for direct requests and browser_open -> wait/snapshot ->
-act/read -> screenshot for JavaScript, session state, interaction, or visual
-evidence. Browser configuration cannot guarantee CAPTCHA/bot avoidance.
+Reuse workspace evidence; choose one narrow structured HTTP, browser, Nmap, or
+installed-template check. Use shell only for gaps. In the browser, open ->
+wait/snapshot -> act/read -> screenshot. Browser configuration cannot guarantee
+CAPTCHA/bot avoidance.
 The browser is Obscura: CSP is NOT enforced. Script execution is not proof of
 a Chromium CSP bypass. Native browser downloads are unsupported; save direct
 HTTP downloads in the workspace and verify the file before claiming success.

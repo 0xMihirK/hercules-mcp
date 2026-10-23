@@ -805,7 +805,7 @@ def test_migration_can_replace_an_empty_destination(migration):
     assert (migration.destination / migration.session / "handout.bin").read_bytes() == b"\x00\xffevidence"
 
 
-# --- /ponytail-audit safe-set regression tests ---
+# --- Focused regression tests for earlier audit repairs ---
 
 
 def test_browser_ref_selector_is_shlex_quoted():

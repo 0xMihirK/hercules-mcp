@@ -63,7 +63,7 @@ def test_resource_template_reads_one_entry_without_docker(monkeypatch):
     assert asyncio.run(scenario()) == {"functions": {"sudo": []}}
 
 
-def test_plugin_exposes_three_skills_without_duplicate_handbooks():
+def test_plugin_exposes_bundled_skills_without_duplicate_handbooks():
     root = Path(__file__).resolve().parents[1]
     manifest = json.loads((root / ".codex-plugin/plugin.json").read_text())
     assert manifest["skills"] == "./skills/"
@@ -71,6 +71,12 @@ def test_plugin_exposes_three_skills_without_duplicate_handbooks():
         skill = root / "skills" / name
         assert (skill / "SKILL.md").is_file()
         assert (skill / "references/handbook.md").is_file()
+    for name in (
+        "hercules-operator", "hercules-application-testing",
+        "hercules-infrastructure", "hercules-wireless-embedded",
+        "hercules-binary-analysis", "hercules-assessment-operations",
+    ):
+        assert (root / "skills" / name / "SKILL.md").is_file()
     for name in ("nmap-nse", "nuclei"):
         pointer = root / "skills/hercules-mcp/references" / f"{name}.md"
         assert len(pointer.read_text()) < 500

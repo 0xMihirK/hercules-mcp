@@ -9,7 +9,7 @@ import pytest
 
 from hercules.setup.clients import CLIENTS, duplicate_entries, resolve
 from hercules.setup.documents import ConfigError, JsonDocument, edit, lookup, parse
-from hercules.setup.engine import Engine, skill_paths
+from hercules.setup.engine import SKILL_NAMES, Engine, skill_paths
 from hercules.setup.transaction import InstallLock, SetupError, Transaction, recover
 from hercules.setup_cli import parser
 
@@ -272,7 +272,7 @@ def test_installation_lock_prevents_concurrent_writers(tmp_path):
 def fake_engine(monkeypatch, tmp_path, isolated_home):
     root = tmp_path / "managed"
     source = tmp_path / "source"
-    for name in ("hercules-mcp", "hercules-nmap-nse", "hercules-nuclei"):
+    for name in SKILL_NAMES:
         (source / "skills" / name).mkdir(parents=True)
         (source / "skills" / name / "SKILL.md").write_text("fixture skill")
     args = parser().parse_args(
@@ -321,9 +321,7 @@ def test_first_install_only_writes_current_client(fake_engine, isolated_home):
     state = json.loads(fake_engine.state_path.read_text())
     assert state["clients"] == ["claude-code"]
     assert state["schema_version"] == 4
-    assert [Path(path).name for path in state["skill_paths"]] == [
-        "hercules-mcp", "hercules-nmap-nse", "hercules-nuclei"
-    ]
+    assert [Path(path).name for path in state["skill_paths"]] == list(SKILL_NAMES)
     assert all((Path(path) / "SKILL.md").is_file() for path in state["skill_paths"])
 
 
@@ -333,6 +331,18 @@ def test_legacy_repair_does_not_claim_unbundled_skills(tmp_path):
     (checkout / "skills/hercules-mcp/SKILL.md").write_text("legacy")
     destination = tmp_path / "client/skills/hercules-mcp"
     assert skill_paths(destination, checkout) == [destination]
+
+
+def test_previous_three_skill_checkout_keeps_its_own_peer_set(tmp_path):
+    checkout = tmp_path / "previous"
+    for name in SKILL_NAMES[:3]:
+        path = checkout / "skills" / name / "SKILL.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("previous guidance")
+    destination = tmp_path / "client/skills/hercules-mcp"
+    assert skill_paths(destination, checkout) == [destination] + [
+        destination.parent / name for name in SKILL_NAMES[1:3]
+    ]
 
 
 def test_custom_skill_path_cannot_overlap_peer(tmp_path):
@@ -345,8 +355,9 @@ def test_custom_skill_path_cannot_overlap_peer(tmp_path):
     assert caught.value.code == "skill_path_conflict"
 
 
-def test_peer_skill_conflict_rolls_back_selected_client(fake_engine):
-    peer = fake_engine.adapter.skill.parent / "hercules-nmap-nse"
+@pytest.mark.parametrize("peer_name", ["hercules-nmap-nse", "hercules-operator"])
+def test_peer_skill_conflict_rolls_back_selected_client(fake_engine, peer_name):
+    peer = fake_engine.adapter.skill.parent / peer_name
     peer.mkdir(parents=True)
     (peer / "SKILL.md").write_text("user-owned guidance")
     with pytest.raises(SetupError, match="unrecognized local edits"):
@@ -585,10 +596,8 @@ def test_pending_resume_restores_selected_skill_destination(fake_engine, tmp_pat
     fake_engine.adapter.skill = chosen
     fake_engine.old = {"image_fingerprint": "old"}
     assert fake_engine.execute("install")["status"] == "pending"
-    assert fake_engine.pending()["skill_paths"] == [
-        str(chosen),
-        str(chosen.parent / "hercules-nmap-nse"),
-        str(chosen.parent / "hercules-nuclei"),
+    assert fake_engine.pending()["skill_paths"] == [str(chosen)] + [
+        str(chosen.parent / name) for name in SKILL_NAMES[1:]
     ]
     fake_engine.args.skill_path = None
     fake_engine.adapter.skill = tmp_path / "old guidance"
@@ -596,15 +605,16 @@ def test_pending_resume_restores_selected_skill_destination(fake_engine, tmp_pat
     result = fake_engine.execute("resume")
     assert result["registration"] == "configured"
     assert (chosen / "SKILL.md").read_text() == "fixture skill"
-    assert (chosen.parent / "hercules-nmap-nse/SKILL.md").read_text() == "fixture skill"
-    assert (chosen.parent / "hercules-nuclei/SKILL.md").read_text() == "fixture skill"
+    for name in SKILL_NAMES[1:]:
+        assert (chosen.parent / name / "SKILL.md").read_text() == "fixture skill"
     assert not (tmp_path / "old guidance").exists()
 
 
-def test_pending_resume_detects_peer_skill_edit(fake_engine, monkeypatch):
+@pytest.mark.parametrize("peer_name", ["hercules-nmap-nse", "hercules-operator"])
+def test_pending_resume_detects_peer_skill_edit(fake_engine, monkeypatch, peer_name):
     fake_engine.old = {"image_fingerprint": "old"}
     assert fake_engine.execute("install")["status"] == "pending"
-    peer = fake_engine.adapter.skill.parent / "hercules-nmap-nse"
+    peer = fake_engine.adapter.skill.parent / peer_name
     peer.mkdir(parents=True)
     (peer / "SKILL.md").write_text("user-owned guidance")
     monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
