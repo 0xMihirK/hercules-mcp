@@ -128,9 +128,6 @@
   font-size: 13px !important;
   color: var(--ink-3) !important;
 }
-.touch-history-hint {
-  display: none;
-}
 .player-status {
   background: var(--surface-2);
   display: flex;

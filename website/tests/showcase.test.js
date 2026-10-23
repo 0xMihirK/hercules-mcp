@@ -139,6 +139,12 @@ test("the old selector row, workflow panel and session-note banner stay removed"
   assert.doesNotMatch(app,/session-note|Explore the architecture|Tools execute in disposable local Docker labs/);
   assert.doesNotMatch(styles,/\.session-note|\.scenario-tabs|\.scenario-pills|\.session-story|\.story-/);
 });
+test("the scrubber and progress bar share the full recording timeline",async()=>{
+  const player=await readFile(new URL("../src/components/NativePlayer.tsx",import.meta.url),"utf8");
+  assert.match(player,/r\.seek=Math\.max\(r\.minimum,Math\.min\(r\.end,next\)\)/);
+  assert.match(player,/className="history-scroll"[^>]+max=\{Math\.max\(minimum\+\.001,end\)\}/);
+  assert.match(player,/aria-label="Recording progress" value=\{Math\.max\(0,time-minimum\)\} max=\{Math\.max\(\.001,end-minimum\)\}/);
+});
 test("the showcased filtering example is produced by the registered Hercules filter",{skip:HERCULES_AVAILABLE?false:"Hercules package not present (website branch)"},async()=>{
   const specimen=JSON.parse(await readFile(new URL("../assets/filter-example.json",import.meta.url),"utf8"));
   const actual=execFileSync("python",["-c","import json,sys;from hercules.output.filters import filter_nikto;s=json.load(sys.stdin);print(json.dumps(filter_nikto(s['raw'])))"],{cwd:new URL("../../",import.meta.url),input:JSON.stringify(specimen),encoding:"utf8"});

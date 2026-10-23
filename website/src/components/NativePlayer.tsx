@@ -19,7 +19,7 @@ const key=(r:NativeRecording)=>r.client+"/"+r.scenario+"/"+r.columns;
 export default function NativePlayer({manifest,base,reduced,paused}:{manifest:NativeManifest|null;base:string;reduced:boolean;paused:boolean}){
   const [client,setClient]=useState<Client>("claude"),[scenario,setScenario]=useState(""),[columns,setColumns]=useState<number|null>(null),[replay,setReplay]=useState(0);
   const [explicitPause,setExplicitPause]=useState(false),[allowMotion,setAllowMotion]=useState(false),[expanded,setExpanded]=useState(false);
-  const [committed,setCommitted]=useState<Recording|null>(null),[ready,setReady]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(false),[buffering,setBuffering]=useState(false),[error,setError]=useState(""),[time,setTime]=useState(0),[maximum,setMaximum]=useState(0);
+  const [committed,setCommitted]=useState<Recording|null>(null),[ready,setReady]=useState(false),[fallback,setFallback]=useState(false),[loading,setLoading]=useState(false),[buffering,setBuffering]=useState(false),[error,setError]=useState(""),[time,setTime]=useState(0);
   const stage=useRef<HTMLDivElement>(null),viewport=useRef<HTMLDivElement>(null),host=useRef<HTMLDivElement>(null),openButton=useRef<HTMLButtonElement>(null);
   const generation=useRef(0),bag=useRef<ShuffleBag<string>|null>(null),visible=useRef(false),runtime=useRef<Runtime|null>(null),retained=useRef<HTMLCanvasElement|null>(null),restart=useRef(true),initialSeek=useRef<number|null>(null);
   const flags=useRef({explicitPause,allowMotion,reduced,paused,expanded});flags.current={explicitPause,allowMotion,reduced,paused,expanded};
@@ -29,7 +29,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   const currentCase=manifest?.cases[shown?.scenario || ""],shownClient=shown?.client || client;
   const seek=(next:number)=>{
     const r=runtime.current;if(!r)return;
-    r.seek=Math.max(r.minimum,Math.min(r.maximum,next));r.clock.suspend();setExplicitPause(true);if(!r.renderer){initialSeek.current=r.seek;restart.current=false;setAllowMotion(true);}
+    r.seek=Math.max(r.minimum,Math.min(r.end,next));r.clock.suspend();setExplicitPause(true);if(!r.renderer){initialSeek.current=r.seek;restart.current=false;setAllowMotion(true);}
   };
   const seekRef=useRef(seek);seekRef.current=seek;
   useEffect(()=>{
@@ -95,7 +95,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       retained.current=canvas;clock.time=target;clock.suspend();
       const known=!restart.current && previous && previous.record.client===record.client && previous.record.scenario===record.scenario ? mapMilestoneTime(previous.maximum,previous.record.chapters,record.chapters,record.duration,previous.record.duration) : target;
       runtime.current={renderer,canvas,clock,end,minimum,maximum:Math.max(target,Math.min(end,known)),seek:null,record};
-      initialSeek.current=null;flushSync(()=>{setCommitted(record);setTime(target);setMaximum(runtime.current!.maximum);setReady(true);setLoading(false);setFallback(false);});restart.current=false;
+      initialSeek.current=null;flushSync(()=>{setCommitted(record);setTime(target);setReady(true);setLoading(false);setFallback(false);});restart.current=false;
       canvas.dataset.commitLatencyMs=String(performance.now()-requestedAt);
     }
     const requestedAt=performance.now();
@@ -138,7 +138,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
           if(r.seek!==null){
             const next=r.seek;r.seek=null;clock.suspend();setBuffering(true);
             await renderer!.paint(next,canvas!);if(!valid())return;
-            clock.time=next;setTime(next);setBuffering(false);
+            clock.time=next;r.maximum=Math.max(r.maximum,next);setTime(next);setBuffering(false);
           }else if(!stopped()){
             if(!renderer!.hasBuffer(clock.time,Math.min(end,clock.time+5))){
               clock.suspend();setBuffering(true);await renderer!.prepare(clock.time,5);if(!valid())return;setBuffering(false);now=performance.now();
@@ -148,7 +148,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
             if(!valid())return;
             r.maximum=Math.max(r.maximum,clock.time);renderer!.warm(clock.time,12);
           }else clock.suspend();
-          if(now-lastUpdate>100){setTime(clock.time);setMaximum(r.maximum);lastUpdate=now;}
+          if(now-lastUpdate>100){setTime(clock.time);lastUpdate=now;}
           if(clock.time>=end && !stopped()){
             restart.current=true;const next=bag.current?.next();if(next===scenario)setReplay(v=>v+1);else if(next)setScenario(next);return;
           }
@@ -160,7 +160,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
     async function fail(cause:unknown){
       if(!valid())return;
       if(!retained.current && record.completedStill && record.completedStillSha256){
-        try{await poster(record.completedStill,record.completedStillSha256);if(!valid())return;commit();const at=record.completedStillAt ?? end;clock.time=at;if(runtime.current)runtime.current.maximum=at;setTime(at);setMaximum(at);}catch{}
+        try{await poster(record.completedStill,record.completedStillSha256);if(!valid())return;commit();const at=record.completedStillAt ?? end;clock.time=at;if(runtime.current)runtime.current.maximum=at;setTime(at);}catch{}
       }
       if(!valid())return;
       clock.suspend();setLoading(false);setBuffering(false);if(!retained.current)setFallback(true);
@@ -175,6 +175,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
   const replayCase=()=>{restart.current=true;if(reduced)setAllowMotion(true);setReplay(v=>v+1);};
   const stopped=Boolean(error) || paused || explicitPause || reduced && !allowMotion;
   const minimum=runtime.current && shown && key(runtime.current.record)===key(shown)?runtime.current.minimum:shown?.displayStart || 0;
+  const end=sessionEnd(shown?.duration || 1,shown?.chapters.report);
   const activeScenario=shown?.scenario || scenario;
   const isPlaying=!stopped && ready;
   return <div className="native-player" data-playing={isPlaying} data-native-ready={ready} data-client={shownClient} data-requested-client={client} data-columns={shown?.columns || columns} data-case={activeScenario} data-recording-sha={shown?.sha256} data-playback-rate={PLAYBACK_RATE}>
@@ -188,20 +189,20 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         if(expanded && e.key==="Tab"){const targets=stage.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href],[tabindex="0"]');if(targets?.length){const first=targets[0],last=targets[targets.length-1];if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}}}
       }}>
         <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native recording"}</span><p>{currentCase?.objective || "Preparing a local investigation…"}</p></div>
-        <p id="native-session-help" className="sr-only">Scroll up to review earlier captured screens. Play resumes from that point. On touch screens, pause first.</p>
+        <p id="native-session-help" className="sr-only">Scroll up to review earlier captured screens, or drag the recording timeline to seek anywhere. Play resumes from that point. On touch screens, pause before swiping the screen.</p>
         <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={presentationPixels?{aspectRatio:presentationPixels.width+"/"+presentationPixels.height}:undefined} onKeyDown={e=>{
           const r=runtime.current;if(!r)return;
           const steps:Record<string,number>={ArrowUp:-2,ArrowDown:2,PageUp:-12,PageDown:12};
           if(e.key in steps){e.preventDefault();seek((r.seek ?? r.clock.time)+steps[e.key]);}
-          if(e.key==="Home" || e.key==="End"){e.preventDefault();seek(e.key==="Home"?r.minimum:r.maximum);}
+          if(e.key==="Home" || e.key==="End"){e.preventDefault();seek(e.key==="Home"?r.minimum:r.end);}
         }}><div ref={host} className="native-host"/>
-          {fallback && !retained.current && requested && <CapturedPoster base={base} opening={requested.still && requested.stillSha256?{file:requested.still,sha256:requested.stillSha256}:undefined} completed={requested.completedStill && requested.completedStillSha256?{file:requested.completedStill,sha256:requested.completedStillSha256}:undefined} preferCompleted={true} label={"Captured native "+requested.client+" interface"} onReady={file=>{if(file!==requested.completedStill && file!==requested.still)return;setCommitted(requested);const at=file===requested.completedStill?requested.completedStillAt ?? requested.duration:requested.displayStart || 0;setTime(at);setMaximum(at);setReady(true);}}/>}
+          {fallback && !retained.current && requested && <CapturedPoster base={base} opening={requested.still && requested.stillSha256?{file:requested.still,sha256:requested.stillSha256}:undefined} completed={requested.completedStill && requested.completedStillSha256?{file:requested.completedStill,sha256:requested.completedStillSha256}:undefined} preferCompleted={true} label={"Captured native "+requested.client+" interface"} onReady={file=>{if(file!==requested.completedStill && file!==requested.still)return;setCommitted(requested);const at=file===requested.completedStill?requested.completedStillAt ?? requested.duration:requested.displayStart || 0;setTime(at);setReady(true);}}/>}
           {!retained.current && !fallback && <div className="recording-loading" role="status">Loading the captured interface…</div>}
         </div>
-        <div className="recording-history"><span>Recorded history</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,maximum)} disabled={maximum<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(maximum,time))} aria-label="Recorded terminal history" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/></div>
-        <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">{stopped?"Scroll to review history":<><span className="desktop-history-hint">Scroll up to review</span><span className="touch-history-hint">Pause to review history</span></>}</span></div>
+        <div className="recording-history"><span>Recording timeline</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,end)} disabled={end<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(end,time))} aria-label="Recording timeline" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/></div>
+        <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">Drag timeline to seek</span></div>
         {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/website/website/CAPTURE.md">About these recordings</a>}</p>}
-        <progress aria-label="Recording progress" value={time} max={sessionEnd(shown?.duration || 1,shown?.chapters.report)}/>
+        <progress aria-label="Recording progress" value={Math.max(0,time-minimum)} max={Math.max(.001,end-minimum)}/>
       </div>
       </div>
       <ScenarioPicker cases={manifest?.cases || {}} activeScenario={activeScenario} onSelect={switchScenario}/>
