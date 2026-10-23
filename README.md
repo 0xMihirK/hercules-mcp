@@ -30,7 +30,7 @@ interactive introduction to the workflow, tools, and workspace evidence.
 > egress against an external target.
 
 <p align="center">
-  <img src="assets/architecture.png" alt="Hercules MCP architecture" width="720" />
+  <img src="assets/architecture-v2.jpg" alt="AI agent connects to Hercules MCP over STDIO; an explicit start launches the Kali tools and Obscura browser, while host workspace evidence persists separately" width="900" />
 </p>
 
 ## Contents
