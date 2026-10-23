@@ -14,6 +14,8 @@ test("the site describes current resources and on-demand skills",async()=>{
   assert.equal(facts.catalog.full_tool_count,47);
   assert.equal(facts.catalog.resource_count,5);
   assert.match(stats,/PEAS · PowerUp · GTFOBins · LOLBAS/);
+  assert.match(stats,/without Metasploit/);
+  assert.ok(stats.indexOf("<dt>Registered MCP tools</dt>")<stats.indexOf("<dd>"));
   assert.doesNotMatch(stats,/NSE, Nuclei, PEAS/);
   assert.match(setup,/nine\s+portable agent skills/);
   assert.match(setup,/79 topic guides load on\s+demand/);
@@ -144,6 +146,12 @@ test("the scrubber and progress bar share the full recording timeline",async()=>
   assert.match(player,/r\.seek=Math\.max\(r\.minimum,Math\.min\(r\.end,next\)\)/);
   assert.match(player,/className="history-scroll"[^>]+max=\{Math\.max\(minimum\+\.001,end\)\}/);
   assert.match(player,/aria-label="Recording progress" value=\{Math\.max\(0,time-minimum\)\} max=\{Math\.max\(\.001,end-minimum\)\}/);
+});
+test("the support link finishes the footer and names its destination",async()=>{
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  assert.match(app,/const support = "https:\/\/buymeacoffee\.com\/mihirkatoch"/);
+  assert.ok(app.indexOf('className="footer-toast wrap"')>app.indexOf('className="site-footer-bar wrap"'));
+  assert.match(app,/aria-label="Buy me a beer on Buy Me a Coffee"/);
 });
 test("the showcased filtering example is produced by the registered Hercules filter",{skip:HERCULES_AVAILABLE?false:"Hercules package not present (website branch)"},async()=>{
   const specimen=JSON.parse(await readFile(new URL("../assets/filter-example.json",import.meta.url),"utf8"));

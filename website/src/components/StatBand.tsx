@@ -94,6 +94,7 @@ export default function StatBand({
     >
       <dl className="stat-band-grid wrap">
         <div className="stat-cell">
+          <dt>Registered MCP tools</dt>
           <dd>
             <strong
               className="stat-value"
@@ -102,12 +103,12 @@ export default function StatBand({
               {catalog.full_tool_count}
             </strong>
             <span>
-              {catalog.without_metasploit_tool_count} with SKIP_METASPLOIT
+              {catalog.without_metasploit_tool_count} without Metasploit
             </span>
           </dd>
-          <dt>Registered MCP tools</dt>
         </div>
         <div className="stat-cell">
+          <dt>Capability bundles</dt>
           <dd>
             <strong
               className="stat-value"
@@ -117,25 +118,24 @@ export default function StatBand({
             </strong>
             <span>Across {catalog.categories.length} security domains</span>
           </dd>
-          <dt>Capability bundles</dt>
         </div>
         <div className="stat-cell">
+          <dt>Agent resources</dt>
           <dd>
             <strong className="stat-value" data-target={catalog.resource_count}>
               {catalog.resource_count}
             </strong>
             <span>PEAS · PowerUp · GTFOBins · LOLBAS</span>
           </dd>
-          <dt>Agent resources</dt>
         </div>
         <div className="stat-cell">
+          <dt>Validated lab sessions</dt>
           <dd>
             <strong className="stat-value" data-target={120}>
               120
             </strong>
             <span>4 native clients · 10 investigations</span>
           </dd>
-          <dt>Validated lab sessions</dt>
         </div>
       </dl>
     </section>

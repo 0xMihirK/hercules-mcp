@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
+import { BeerStein } from "@phosphor-icons/react/BeerStein";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
@@ -15,6 +16,7 @@ import type { NativeManifest } from "./native-types";
 gsap.registerPlugin(ScrollTrigger);
 
 const github = "https://github.com/0xMihirK/hercules-mcp";
+const support = "https://buymeacoffee.com/mihirkatoch";
 const asset = (name: string) => `${import.meta.env.BASE_URL}assets/${name}`;
 
 export default function App() {
@@ -181,6 +183,11 @@ export default function App() {
             </a>
           </div>
         </div>
+        <a className="footer-toast wrap" href={support} aria-label="Buy me a beer on Buy Me a Coffee">
+          <span className="footer-toast-icon" aria-hidden="true"><BeerStein size={30} weight="duotone" /></span>
+          <span className="footer-toast-copy"><span>Open source, on tap.</span><strong>Buy me a beer</strong></span>
+          <ArrowUpRight size={23} aria-hidden="true" />
+        </a>
       </footer>
     </div>
   );

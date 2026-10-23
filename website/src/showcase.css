@@ -518,6 +518,39 @@
   align-items: center;
   gap: 6px;
 }
+.footer-toast {
+  border-top: 1px solid rgba(255, 106, 43, 0.4);
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 18px;
+  min-height: 92px;
+  color: var(--ink);
+}
+.footer-toast:hover {
+  color: var(--ember-soft);
+}
+.footer-toast-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 106, 43, 0.4);
+  color: var(--ember-soft);
+  background: rgba(255, 106, 43, 0.07);
+}
+.footer-toast-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.footer-toast-copy > span {
+  color: var(--ink-3);
+  font: 400 12px/1.5 var(--mono);
+}
+.footer-toast-copy strong {
+  font: 700 clamp(20px, 2vw, 27px)/1.2 var(--display);
+}
 
 /* Motion-off & reduced-motion states */
 .motion-off .radar-sweep-group,
