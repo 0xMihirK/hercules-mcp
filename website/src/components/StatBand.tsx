@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { TerminalWindow } from "@phosphor-icons/react/TerminalWindow";
+import { Stack } from "@phosphor-icons/react/Stack";
+import { Books } from "@phosphor-icons/react/Books";
 export type CatalogItem = {
   key: string;
   category: string;
@@ -106,6 +109,7 @@ export default function StatBand({
               {catalog.without_metasploit_tool_count} without Metasploit
             </span>
           </dd>
+          <span className="stat-illustration" aria-hidden="true"><TerminalWindow size={64} weight="duotone" /></span>
         </div>
         <div className="stat-cell">
           <dt>Capability bundles</dt>
@@ -118,6 +122,7 @@ export default function StatBand({
             </strong>
             <span>Across {catalog.categories.length} security domains</span>
           </dd>
+          <span className="stat-illustration" aria-hidden="true"><Stack size={64} weight="duotone" /></span>
         </div>
         <div className="stat-cell">
           <dt>Agent resources</dt>
@@ -127,6 +132,7 @@ export default function StatBand({
             </strong>
             <span>PEAS · PowerUp · GTFOBins · LOLBAS</span>
           </dd>
+          <span className="stat-illustration" aria-hidden="true"><Books size={64} weight="duotone" /></span>
         </div>
       </dl>
     </section>
