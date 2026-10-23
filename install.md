@@ -101,7 +101,8 @@ merged into the real file. Other adapters use round-trip document edits.
 A failed native invocation is not retried through another method.
 
 Use `--config-path` for an explicitly selected non-default profile/config and
-`--skill-path` for a custom portable-skill destination. The adapters honor
+`--skill-path` for a custom destination for the general skill; the two focused
+skills are installed beside it. The adapters honor
 `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `HERMES_HOME`, XDG paths, and OpenCode's disk
 config overrides. OpenCode supports direct `mcp.hercules` and nested
 `mcp.servers.hercules`. Conflicting files/layouts and inline config overrides
@@ -113,7 +114,7 @@ Cascade configuration and skill path; do not guess which agent is running.
 Duplicate Hercules entries/plugins are reported, not deleted or silently
 enabled. Unknown clients use the generic export. Clients without local STDIO
 support need manual resolution; never invent a remote proxy. Install the
-portable skill independently from native plugin adapters.
+three bundled skills independently from native plugin adapters.
 Prefer client-specific skill directories. When a recorded skill path is shared
 with another client, setup refuses to overwrite different guidance there;
 select an independent `--skill-path` for the client being updated.

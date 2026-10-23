@@ -215,6 +215,7 @@ async def verify(
         async with Client(transport(), timeout=180) as client:
             tools = await client.list_tools()
             resources = await client.list_resources()
+            templates = await client.list_resource_templates()
             if sorted(t.name for t in tools) != sorted(
                 facts["mcp_surface"]["tool_names"]
             ):
@@ -227,10 +228,12 @@ async def verify(
                 raise SetupError(
                     "surface_mismatch", "Cold MCP resources differ from setup facts"
                 )
-            # Remote catalog resources are deliberately not fetched during setup.
-            for resource in resources:
-                if str(resource.uri).startswith("resource://agent_skills/"):
-                    await client.read_resource(resource.uri)
+            if sorted(str(t.uri_template) for t in templates) != sorted(
+                facts["mcp_surface"]["resource_template_uris"]
+            ):
+                raise SetupError(
+                    "surface_mismatch", "Cold MCP templates differ from setup facts"
+                )
             checks.append("cold_stdio_surface")
             if not runtime:
                 return {"host": "passed", "runtime": "not_run", "checks": checks}

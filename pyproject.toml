@@ -11,8 +11,8 @@ requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
     "anyio>=4.5,<5",
-    "fastmcp>=3.4.5,<4",
-    "mcp>=1.29,<2",
+    "fastmcp>=4.1.3,<5",
+    "mcp>=2.3,<3",
     "docker>=7.1,<8",
     # No fixed upstream release exists for GHSA-qpc3-8vqg-8g6w. Hercules does
     # not call the affected run_module_with_output API and rejects CR/LF in all
@@ -59,6 +59,8 @@ packages = ["hercules"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "skills/hercules-mcp" = "hercules/_bundled_skill/hercules-mcp"
+"skills/hercules-nmap-nse" = "hercules/_bundled_skill/hercules-nmap-nse"
+"skills/hercules-nuclei" = "hercules/_bundled_skill/hercules-nuclei"
 "install.md" = "hercules/_bundled_install.md"
 ".codex-plugin" = "hercules/_bundled_plugin/.codex-plugin"
 ".claude-plugin" = "hercules/_bundled_plugin/.claude-plugin"
@@ -69,6 +71,8 @@ packages = ["hercules"]
 
 [tool.hatch.build.targets.sdist.force-include]
 "skills/hercules-mcp" = "skills/hercules-mcp"
+"skills/hercules-nmap-nse" = "skills/hercules-nmap-nse"
+"skills/hercules-nuclei" = "skills/hercules-nuclei"
 "install.md" = "install.md"
 ".codex-plugin" = ".codex-plugin"
 ".claude-plugin" = ".claude-plugin"

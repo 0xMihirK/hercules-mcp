@@ -14,7 +14,7 @@
 
 ## Routing rules
 
-Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 47 tools with Metasploit and 42 without it; operator opt-outs can make fewer tools available. Core-only exposes 12 tools and all profiles retain seven resources.
+Use the most specific structured tool that fits. Move from passive discovery to active validation, then to exploitation only with explicit authorization. The full surface is 47 tools with Metasploit and 42 without it; operator opt-outs can make fewer tools available. Core-only exposes 12 tools and all profiles retain five resources and two optional lookup templates.
 
 Inspect the tools the client actually exposes before planning. If an optional
 tool is absent, prefer another structured capability. Do not assume an omitted
@@ -62,7 +62,7 @@ evidence, or recovering a stale background job.
 | Need | Tool | Selectors or progression |
 | --- | --- | --- |
 | Port/service scan | `nmap_scan` | `quick` → `port`/`aggressive`; `script` for installed NSE; `custom` only for trusted raw arguments. |
-| Author missing NSE logic | `nmap_write_nse_script` | Read `nmap-nse.md`; write a complete, scoped Lua script. |
+| Author missing NSE logic | `nmap_write_nse_script` | Use `hercules-nmap-nse`; write a complete, scoped Lua script. |
 | Run authored NSE | `nmap_run_nse_script` | Run only the named custom script and pass narrow script args. |
 | Deterministic HTTP request | `network_curl` | Prefer over browser when DOM or session interaction is unnecessary. |
 | Connect, listen, or interact with a socket | `ncat` | Actions: `connect`, `listen`, `interact`; background listeners require follow-up. |
@@ -70,7 +70,7 @@ evidence, or recovering a stale background job.
 
 Choose installed NSE first: use `nmap_scan(mode="script", scripts="...")` when a shipped script or category expresses the check. Author custom NSE only for protocol logic, parsing, or evidence that existing scripts cannot provide.
 
-For complex custom authoring, read `resource://agent_skills/nse` before writing.
+For complex custom authoring, use the `hercules-nmap-nse` skill before writing.
 Use `extra_args` and `raw_args` only as trusted administrator input; they are not
 substitutes for structured target, port, script, and mode fields.
 
@@ -83,12 +83,12 @@ substitutes for structured target, port, script, and mode fields.
 | Content discovery | `fuzz_dirs` | `ffuf` for flexible matching; `gobuster` for simple directory discovery. |
 | XSS or command injection | `web_vuln_scan` | `dalfox` for XSS; `commix` for command injection. |
 | Known-template vulnerability checks | `nuclei_run` | Prefer tags/severity or installed template paths; keep rate limits scoped. |
-| Author missing Nuclei detection | `nuclei_write_template` | Read `nuclei.md`, use strong evidence, validate, then run explicitly. |
+| Author missing Nuclei detection | `nuclei_write_template` | Use `hercules-nuclei`, require strong evidence, validate, then run explicitly. |
 | SQL injection workflow | `sqlmap_run` | Actions: `scan_basic`, `scan_custom`, `enumerate`, `dump`, `os_cmd`. For `enumerate`, choose `dbs`, `tables`, `columns`, `users`, `privileges`, or `passwords`. |
 
 Do not substitute a browser for broad scanning. Use browser tools to reproduce one flow, inspect rendered state, or collect visual evidence after discovery.
 
-For complex custom templates, read `resource://agent_skills/nuclei`. Prefer
+For complex custom templates, use the `hercules-nuclei` skill. Prefer
 `severity`, `tags`, `templates`, and `rate_limit` over raw `extra_args`. Use
 `include_raw` only for exact request/response evidence or parser debugging.
 

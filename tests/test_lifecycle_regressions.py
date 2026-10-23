@@ -272,7 +272,7 @@ def test_core_profile_stdio_matches_setup_facts(monkeypatch, tmp_path):
             resources = await client.list_resources()
             assert {tool.name for tool in tools} == set(facts["mcp_surface"]["tool_names"])
             assert len(tools) == facts["mcp_surface"]["tools"] == 12
-            assert len(resources) == facts["mcp_surface"]["resources"] == 7
+            assert len(resources) == facts["mcp_surface"]["resources"] == 5
 
     asyncio.run(scenario())
 

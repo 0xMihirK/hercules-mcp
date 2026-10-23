@@ -80,6 +80,28 @@ def skill_fingerprint(path: Path | None) -> str:
     return checksum.hexdigest()
 
 
+SKILL_NAMES = ("hercules-mcp", "hercules-nmap-nse", "hercules-nuclei")
+
+
+def skill_paths(main: Path | None, checkout: Path) -> list[Path]:
+    if main is None:
+        return []
+    if not (checkout / "skills/hercules-mcp/SKILL.md").is_file():
+        return []
+    paths = [
+        main if name == "hercules-mcp" else main.parent / name
+        for name in SKILL_NAMES
+        if (checkout / "skills" / name / "SKILL.md").is_file()
+    ]
+    if len({path.resolve() for path in paths}) != len(paths):
+        raise SetupError(
+            "skill_path_conflict",
+            "The selected skill path overlaps a bundled peer skill",
+            "Choose a separate --skill-path for the general Hercules skill.",
+        )
+    return paths
+
+
 def readonly(argv, cwd=None, env=None):
     try:
         result = subprocess.run(
@@ -586,8 +608,12 @@ class Engine:
             "launcher": str(launcher(root)),
             "scope": self.scope,
             "config_path": str(self.adapter.path) if self.adapter.path else None,
-            "skill_paths": [str(self.adapter.skill)] if self.adapter.skill else [],
+            "skill_paths": [str(path) for path in skill_paths(self.adapter.skill, root)],
             "skill_fingerprint": skill_fingerprint(self.adapter.skill),
+            "skill_fingerprints": {
+                str(path): skill_fingerprint(path)
+                for path in skill_paths(self.adapter.skill, root)
+            },
         }
 
     def progress(self, message):
@@ -757,66 +783,83 @@ class Engine:
         )
         self.transaction.phase("activating")
         if self.adapter.skill:
-            source = Path(candidate["checkout"]) / "skills/hercules-mcp"
+            if not candidate["skill_paths"]:
+                raise SetupError(
+                    "skill_missing", "The candidate has no general Hercules skill"
+                )
+            destinations = list(zip(SKILL_NAMES, map(Path, candidate["skill_paths"])))
+            source_root = Path(candidate["checkout"]) / "skills"
             for client in self.state.get("clients", []):
                 if client == self.client:
                     continue
                 association = self.state.get("registrations", {}).get(
                     client, self.state
                 )
-                if any(
-                    Path(path).resolve() == self.adapter.skill.resolve()
-                    for path in association.get("skill_paths", [])
-                ) and any(
-                        read(self.adapter.skill / item.relative_to(source))
+                for name, destination_root in destinations:
+                    source = source_root / name
+                    if any(
+                        Path(path).resolve() == destination_root.resolve()
+                        for path in association.get("skill_paths", [])
+                    ) and any(
+                        read(destination_root / item.relative_to(source))
                         != item.read_bytes()
                         for item in source.rglob("*")
                         if item.is_file()
-                ):
-                    raise SetupError(
-                        "shared_skill_path",
-                        "Another client uses this skill directory; its guidance was not replaced",
-                        "Select a client-specific --skill-path or explicitly coordinate both client updates.",
-                    )
-            previous = self.old.get("skill_files", {})
-            hashes = {}
-            from hercules.setup.transaction import digest
-
-            for item in source.rglob("*"):
-                if not item.is_file():
-                    continue
-                if item.is_symlink():
-                    raise SetupError(
-                        "unsafe_skill", "Portable skill contains a symlink"
-                    )
-                relative = item.relative_to(source).as_posix()
-                destination = self.adapter.skill / relative
-                actual = read(destination)
-                content = item.read_bytes()
-                if (
-                    actual is not None
-                    and actual != content
-                    and digest(actual) != previous.get(relative)
-                ):
-                    legacy_source = (
-                        Path(self.old.get("checkout", ""))
-                        / "skills/hercules-mcp"
-                        / relative
-                    )
-                    if (
-                        not legacy_source.is_file()
-                        or actual != legacy_source.read_bytes()
                     ):
                         raise SetupError(
-                            "skill_modified",
-                            "The installed skill contains unrecognized local edits",
-                            "Preserve those edits and choose an explicit --skill-path.",
+                            "shared_skill_path",
+                            "Another client uses this skill directory; its guidance was not replaced",
+                            "Select a client-specific --skill-path or explicitly coordinate both client updates.",
                         )
-                self.transaction.write(destination, content, expected=actual)
-                hashes[relative] = digest(content)
-            candidate["skill_files"] = hashes
-            candidate["skill_paths"] = [str(self.adapter.skill)]
+            from hercules.setup.transaction import digest
+
+            file_maps = {}
+            for name, destination_root in destinations:
+                source = source_root / name
+                previous = self.old.get("skill_file_maps", {}).get(name, {})
+                if name == "hercules-mcp" and not previous:
+                    previous = self.old.get("skill_files", {})
+                hashes = {}
+                for item in source.rglob("*"):
+                    if not item.is_file():
+                        continue
+                    if item.is_symlink():
+                        raise SetupError(
+                            "unsafe_skill", "Portable skill contains a symlink"
+                        )
+                    relative = item.relative_to(source).as_posix()
+                    destination = destination_root / relative
+                    actual = read(destination)
+                    content = item.read_bytes()
+                    if (
+                        actual is not None
+                        and actual != content
+                        and digest(actual) != previous.get(relative)
+                    ):
+                        legacy_source = (
+                            Path(self.old.get("checkout", ""))
+                            / "skills"
+                            / name
+                            / relative
+                        )
+                        if (
+                            not legacy_source.is_file()
+                            or actual != legacy_source.read_bytes()
+                        ):
+                            raise SetupError(
+                                "skill_modified",
+                                "The installed skill contains unrecognized local edits",
+                                "Preserve those edits and choose an explicit --skill-path.",
+                            )
+                    self.transaction.write(destination, content, expected=actual)
+                    hashes[relative] = digest(content)
+                file_maps[name] = hashes
+            candidate["skill_file_maps"] = file_maps
+            candidate["skill_files"] = file_maps["hercules-mcp"]
             candidate["skill_fingerprint"] = skill_fingerprint(self.adapter.skill)
+            candidate["skill_fingerprints"] = {
+                str(path): skill_fingerprint(path) for _, path in destinations
+            }
         if self.adapter.path:
             self.transaction.write(
                 self.adapter.path,
@@ -1019,7 +1062,14 @@ class Engine:
                     if self.args.skill_path and self.args.skill_path.resolve() != (saved_skill.resolve() if saved_skill else None):
                         raise SetupError("pending_skill_changed", "Resume selected a different skill destination", "Use the original skill destination or prepare a new candidate.")
                     self.adapter.skill = saved_skill
-                    if skill_fingerprint(saved_skill) != candidate["skill_fingerprint"]:
+                    fingerprints = candidate.get("skill_fingerprints") or (
+                        {str(saved_skill): candidate["skill_fingerprint"]}
+                        if saved_skill else {}
+                    )
+                    if any(
+                        skill_fingerprint(Path(path)) != fingerprint
+                        for path, fingerprint in fingerprints.items()
+                    ):
                         raise SetupError("pending_skill_changed", "Guidance changed since this candidate was prepared", "Preserve the edits and run install against the current guidance.")
                     from hercules.setup.transaction import digest
 

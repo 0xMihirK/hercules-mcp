@@ -9,7 +9,7 @@ import pytest
 
 from hercules.setup.clients import CLIENTS, duplicate_entries, resolve
 from hercules.setup.documents import ConfigError, JsonDocument, edit, lookup, parse
-from hercules.setup.engine import Engine
+from hercules.setup.engine import Engine, skill_paths
 from hercules.setup.transaction import InstallLock, SetupError, Transaction, recover
 from hercules.setup_cli import parser
 
@@ -46,6 +46,9 @@ def test_browser_only_runtime_verification_does_not_require_curl(monkeypatch, tm
         async def list_resources(self):
             return []
 
+        async def list_resource_templates(self):
+            return []
+
         async def call_tool(self, name, arguments=None, **kwargs):
             result = {"status": "success", "exit_code": 0}
             if name == "system_start_container":
@@ -72,7 +75,7 @@ def test_browser_only_runtime_verification_does_not_require_curl(monkeypatch, tm
     result = asyncio.run(verify(
         tmp_path / "hercules", {},
         {"selection": {"capabilities": ["shell", "session", "browser"]},
-         "mcp_surface": {"tool_names": [], "resource_uris": []}},
+         "mcp_surface": {"tool_names": [], "resource_uris": [], "resource_template_uris": []}},
         tmp_path / "workspace", runtime=True,
     ))
     assert result["runtime"] == "passed"
@@ -269,8 +272,9 @@ def test_installation_lock_prevents_concurrent_writers(tmp_path):
 def fake_engine(monkeypatch, tmp_path, isolated_home):
     root = tmp_path / "managed"
     source = tmp_path / "source"
-    (source / "skills/hercules-mcp").mkdir(parents=True)
-    (source / "skills/hercules-mcp/SKILL.md").write_text("fixture skill")
+    for name in ("hercules-mcp", "hercules-nmap-nse", "hercules-nuclei"):
+        (source / "skills" / name).mkdir(parents=True)
+        (source / "skills" / name / "SKILL.md").write_text("fixture skill")
     args = parser().parse_args(
         ["install", "--client", "claude-code", "--root", str(root), "--yes"]
     )
@@ -288,7 +292,7 @@ def fake_engine(monkeypatch, tmp_path, isolated_home):
             image_fingerprint="a",
             image_platform="linux/amd64",
             expected_tool_count=12,
-            resources_count=7,
+            resources_count=5,
         )
         return facts
 
@@ -317,6 +321,39 @@ def test_first_install_only_writes_current_client(fake_engine, isolated_home):
     state = json.loads(fake_engine.state_path.read_text())
     assert state["clients"] == ["claude-code"]
     assert state["schema_version"] == 4
+    assert [Path(path).name for path in state["skill_paths"]] == [
+        "hercules-mcp", "hercules-nmap-nse", "hercules-nuclei"
+    ]
+    assert all((Path(path) / "SKILL.md").is_file() for path in state["skill_paths"])
+
+
+def test_legacy_repair_does_not_claim_unbundled_skills(tmp_path):
+    checkout = tmp_path / "legacy"
+    (checkout / "skills/hercules-mcp").mkdir(parents=True)
+    (checkout / "skills/hercules-mcp/SKILL.md").write_text("legacy")
+    destination = tmp_path / "client/skills/hercules-mcp"
+    assert skill_paths(destination, checkout) == [destination]
+
+
+def test_custom_skill_path_cannot_overlap_peer(tmp_path):
+    checkout = tmp_path / "candidate"
+    for name in ("hercules-mcp", "hercules-nmap-nse", "hercules-nuclei"):
+        (checkout / "skills" / name).mkdir(parents=True)
+        (checkout / "skills" / name / "SKILL.md").write_text("fixture")
+    with pytest.raises(SetupError) as caught:
+        skill_paths(tmp_path / "client/hercules-nmap-nse", checkout)
+    assert caught.value.code == "skill_path_conflict"
+
+
+def test_peer_skill_conflict_rolls_back_selected_client(fake_engine):
+    peer = fake_engine.adapter.skill.parent / "hercules-nmap-nse"
+    peer.mkdir(parents=True)
+    (peer / "SKILL.md").write_text("user-owned guidance")
+    with pytest.raises(SetupError, match="unrecognized local edits"):
+        fake_engine.execute("install")
+    assert (peer / "SKILL.md").read_text() == "user-owned guidance"
+    assert not (fake_engine.adapter.skill / "SKILL.md").exists()
+    assert not fake_engine.adapter.path.exists()
 
 
 def test_bridge_override_is_selected_client_only(fake_engine):
@@ -548,14 +585,33 @@ def test_pending_resume_restores_selected_skill_destination(fake_engine, tmp_pat
     fake_engine.adapter.skill = chosen
     fake_engine.old = {"image_fingerprint": "old"}
     assert fake_engine.execute("install")["status"] == "pending"
-    assert fake_engine.pending()["skill_paths"] == [str(chosen)]
+    assert fake_engine.pending()["skill_paths"] == [
+        str(chosen),
+        str(chosen.parent / "hercules-nmap-nse"),
+        str(chosen.parent / "hercules-nuclei"),
+    ]
     fake_engine.args.skill_path = None
     fake_engine.adapter.skill = tmp_path / "old guidance"
     monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
     result = fake_engine.execute("resume")
     assert result["registration"] == "configured"
     assert (chosen / "SKILL.md").read_text() == "fixture skill"
+    assert (chosen.parent / "hercules-nmap-nse/SKILL.md").read_text() == "fixture skill"
+    assert (chosen.parent / "hercules-nuclei/SKILL.md").read_text() == "fixture skill"
     assert not (tmp_path / "old guidance").exists()
+
+
+def test_pending_resume_detects_peer_skill_edit(fake_engine, monkeypatch):
+    fake_engine.old = {"image_fingerprint": "old"}
+    assert fake_engine.execute("install")["status"] == "pending"
+    peer = fake_engine.adapter.skill.parent / "hercules-nmap-nse"
+    peer.mkdir(parents=True)
+    (peer / "SKILL.md").write_text("user-owned guidance")
+    monkeypatch.setattr("hercules.setup.engine.image_status", lambda facts: "ready")
+    with pytest.raises(SetupError) as caught:
+        fake_engine.execute("resume")
+    assert caught.value.code == "pending_skill_changed"
+    assert (peer / "SKILL.md").read_text() == "user-owned guidance"
 
 
 def test_pending_resume_rejects_new_skill_override(fake_engine, tmp_path):

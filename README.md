@@ -89,9 +89,9 @@ report installed and exposed capabilities separately.
 
 | Profile | Registered tools | Resources |
 | --- | ---: | ---: |
-| Full, including Metasploit | 47 | 7 |
-| Full, with `SKIP_METASPLOIT=true` | 42 | 7 |
-| Custom selection | Fewer, according to selected and hidden tools | 7 |
+| Full, including Metasploit | 47 | 5 |
+| Full, with `SKIP_METASPLOIT=true` | 42 | 5 |
+| Custom selection | Fewer, according to selected and hidden tools | 5 |
 
 The catalog groups these stable capability keys:
 
@@ -257,23 +257,30 @@ portable [workspace guide](skills/hercules-mcp/references/workspace-and-evidence
 
 ## MCP resources and agent guidance
 
-The canonical [`hercules-mcp` skill](skills/hercules-mcp/SKILL.md) is installed
-independently of native plugins. Plugin manifests contain MCP adapter metadata
-only; they do not embed, copy, or declare a skill. Progressive references teach
-tool selection, parameters, bounded parallelism, output interpretation,
-artifacts, and recovery without bloating the always-on MCP context.
+The plugin bundles the general [`hercules-mcp` skill](skills/hercules-mcp/SKILL.md)
+and focused [`hercules-nmap-nse`](skills/hercules-nmap-nse/SKILL.md) and
+[`hercules-nuclei`](skills/hercules-nuclei/SKILL.md) authoring skills. Setup installs
+them for the selected client independently of native plugin adapters. Progressive
+references teach tool selection, parameters, bounded parallelism, output
+interpretation, artifacts, and recovery; the full handbooks load on demand.
 
-Hercules exposes seven resources:
+Hercules exposes five resources and two optional exact-name lookup templates.
+The former `resource://agent_skills/nse` and
+`resource://agent_skills/nuclei` handbook URIs are no longer registered; load
+the corresponding bundled skills instead.
 
 | Resource | Use it when |
 | --- | --- |
-| `resource://agent_skills/nse` | Installed NSE scripts cannot express an authorized protocol/check; read it before custom Lua authoring |
-| `resource://agent_skills/nuclei` | Installed Nuclei templates/tags cannot express the required detection; read it before custom YAML authoring |
 | `resource://post_exploitation/linpeas` | An authorized Linux shell needs broad local enumeration; this is an embedded lite variant |
 | `resource://post_exploitation/winpeas` | An authorized Windows command shell needs broad local enumeration |
 | `resource://post_exploitation/powerup` | An authorized PowerShell shell needs service or registry follow-up |
 | `resource://post_exploitation/gtfobins` | Linux evidence identifies an exact sudo, SUID, or capability-enabled binary |
 | `resource://post_exploitation/lolbas` | Windows evidence identifies an exact signed binary, script, library, or component |
+
+For a known binary, read `resource://post_exploitation/gtfobins/{name}` or
+`resource://post_exploitation/lolbas/{name}` with its URL-encoded executable name
+to avoid loading the full catalog. Clients without resource-template support may
+continue reading the full resource.
 
 Prefer installed NSE scripts and Nuclei templates before authoring custom
 content. Do not load large post-exploitation resources speculatively.
@@ -397,7 +404,7 @@ hercules/
 |-- output/                  # Rendering, filters, redaction, and truncation
 |-- tools/                   # Structured MCP tools, including browser operations
 `-- resources/               # MCP resources and embedded lite scripts
-skills/hercules-mcp/         # Canonical provider-neutral portable skill
+skills/                     # General and focused portable plugin skills
 docker/entrypoint.sh         # Container readiness and loopback-only services
 Dockerfile                   # Full Kali/Obscura runtime with locked browser/toolbox assets
 install.md                   # Shared setup CLI workflow and recovery guide
@@ -418,8 +425,9 @@ distributions are local-only. The wheel and source distribution exclude tests.
   from display metadata while invoked processes still receive original values.
 - `shell_exec`, `browser_cmd`, and documented raw `extra_args` fields are
   trusted administrator escape hatches outside structured target guarantees.
-- There is no configurable target allow/block list; the browser gateway always
-  refuses private/loopback/reserved destinations, and you are responsible for scope.
+- There is no configurable target allow/block list or browser SSRF boundary on
+  host networking. Browser traffic can reach host-local, LAN, and metadata
+  services; you are responsible for browsing only authorized targets.
 - `pymetasploit3` remains pinned despite
   [GHSA-qpc3-8vqg-8g6w](https://osv.dev/vulnerability/GHSA-qpc3-8vqg-8g6w)
   because no fixed release exists. Hercules does not call the affected API and

@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from hercules.core.concurrency import ConcurrencyManager
 from hercules.core.config import HerculesConfig
 from hercules.core.docker_manager import DockerManager, ExecResult
-from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirewall
+from hercules.core.firewall import ParameterFilterMiddleware, ToolExceptionFirewall, classify_exception
 from hercules.core.workspace import MANIFEST_NAME, WorkspaceManager
 from hercules.tools.network.network_tool import _parse_headers
 from hercules.tools.system.file_tool import register_file_tools
@@ -33,6 +33,17 @@ def workspace(tmp_path):
     manager = WorkspaceManager(tmp_path / "owned", max_inline_bytes=3)
     session = manager.allocate_session()
     return manager, session
+
+
+def test_uncaught_errors_do_not_return_secret_bearing_exception_text():
+    secret = "https://user:password@example.invalid/path?token=private"
+    internal = classify_exception(RuntimeError(secret), "shell_exec")
+    unavailable = classify_exception(
+        type("MetasploitUnavailable", (Exception,), {})(secret), "metasploit_search"
+    )
+    assert internal["error_type"] == "internal_error"
+    assert secret not in json.dumps(internal)
+    assert secret not in json.dumps(unavailable)
 
 
 def test_workspace_metadata_and_read_are_bounded_and_readonly(workspace):

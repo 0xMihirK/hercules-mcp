@@ -17,6 +17,7 @@
     "nuclei"
   ],
   "mcpServers": "./.mcp.json",
+  "skills": "./skills/",
   "interface": {
     "displayName": "Hercules MCP",
     "shortDescription": "Authorized security workflows through Kali",

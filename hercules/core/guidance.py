@@ -38,8 +38,8 @@ The Obscura browser runs unprivileged but has NO SSRF boundary: it can reach
 host-local, the LAN, and cloud-metadata (169.254.169.254) services, so only browse
 explicitly authorized targets. Privileged shell commands are not confined either.
 
-Prefer installed NSE/Nuclei content. For missing logic read
-resource://agent_skills/nse or resource://agent_skills/nuclei before authoring.
+Prefer installed NSE/Nuclei content. For missing logic, use the bundled
+hercules-nmap-nse or hercules-nuclei skill before authoring.
 After authorized local execution, select only the needed linpeas, winpeas,
 powerup, gtfobins, or lolbas post-exploitation resource; enumeration does not
 authorize escalation.
@@ -90,7 +90,7 @@ TOOL_DESCRIPTIONS = {
     ),
     "nmap_write_nse_script": _desc(
         "Write a custom NSE script into the container and update the Nmap script database.",
-        "Custom NSE authoring after reading resource://agent_skills/nse.",
+        "Custom NSE authoring with the hercules-nmap-nse skill.",
         "Pass name without path separators; Hercules sanitizes it and writes /opt/workspace/nmap-scripts/<name>.nse. Use nmap_run_nse_script to execute that managed artifact. Include NSEDoc metadata and correct categories in content.",
         "nmap_write_nse_script(name='http-custom-check', content='description = [[...]]\\nauthor = ...')",
     ),
@@ -216,7 +216,7 @@ TOOL_DESCRIPTIONS = {
     ),
     "nuclei_write_template": _desc(
         "Write a custom Nuclei YAML template into /opt/workspace/nuclei-templates.",
-        "Custom vulnerability checks after reading resource://agent_skills/nuclei.",
+        "Custom vulnerability checks with the hercules-nuclei skill.",
         "Path traversal is rejected. Use relative paths such as custom/check.yaml. Validate with nuclei -validate via shell_exec or run with nuclei_run using the returned path.",
         "nuclei_write_template(path='custom/basic-detect.yaml', content='id: basic-detect\\ninfo: ...')",
     ),

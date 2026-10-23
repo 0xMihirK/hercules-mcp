@@ -32,7 +32,7 @@ Consolidated selector fields include `tool`, `module_type`, `encoding`,
 | `recon_amass` | **`domain`**; `active`; `brute`; raw `extra_args`. |
 | `recon_dns` | **`tool=dig|dnsx`**; `target`; `domains`; `record_type`; `server`; `short`; `axfr`; `silent`; raw `extra_args`. `dig` needs `target`; `dnsx` needs `domains` or `target`. |
 | `nmap_scan` | **`mode=quick|aggressive|port|script|custom`**; `target`; `ports`; `scripts`; raw `raw_args`; raw `extra_args`. `target` is required except for `custom`; `port` also needs `ports`; `script` also needs `scripts`; `custom` needs `raw_args`. |
-| `nmap_write_nse_script` | **`name`**, **`content`**. Read `resource://agent_skills/nse` before writing missing logic. |
+| `nmap_write_nse_script` | **`name`**, **`content`**. Use the `hercules-nmap-nse` skill before writing missing logic. |
 | `nmap_run_nse_script` | **`target`**, **`script_name`**; raw `extra_args`. |
 | `network_curl` | **`url`**; `method`; string `headers` as a JSON object, newline-separated headers, or unambiguous legacy pairs; `data`; `cookie`; `include_headers`; `follow_redirects`; raw `extra_args`. |
 | `ncat` | **`action=connect|listen|interact`**; `target`; `port`; `listen_port`; `job_id`; `command`; `tail_lines`; `execute`; `udp`; raw `extra_args`; `background`. `connect` needs `target` and `port`; listener/interact fields depend on the selected action. |
@@ -42,7 +42,7 @@ Consolidated selector fields include `tool`, `module_type`, `encoding`,
 | `web_vuln_scan` | **`tool=dalfox|commix`**, **`target_url`**; `data`; `cookie`; `threads`; raw `extra_args`; `include_raw`. |
 | `sqlmap_run` | **`action=scan_basic|scan_custom|enumerate|dump|os_cmd`**, **`target_url`**; `method`; `data`; `cookies`; `level`; `risk`; `techniques`; `tamper`; `proxy`; `forms`; raw `extra_args`; `enum_what=dbs|tables|columns|users|privileges|passwords`; `db`; `table`; `command`; `include_raw`. `enumerate` needs `enum_what`; `dump` uses `db`/`table`; `os_cmd` needs `command`. |
 | `nuclei_run` | **`targets`**; `templates`; `severity`; `tags`; `rate_limit`; raw `extra_args`; `include_raw`. Prefer installed templates/tags. |
-| `nuclei_write_template` | **`path`**, **`content`**. Read `resource://agent_skills/nuclei` before authoring missing detection logic. |
+| `nuclei_write_template` | **`path`**, **`content`**. Use the `hercules-nuclei` skill before authoring missing detection logic. |
 
 ## Exploitation, password, and CTF
 

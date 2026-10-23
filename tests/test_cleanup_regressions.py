@@ -162,7 +162,7 @@ def test_native_visibility_matches_stdio_and_setup(
             tools = await client.list_tools()
             assert {tool.name for tool in tools} == expected_names
             assert len(tools) == validation["tools"] == count
-            assert len(await client.list_resources()) == validation["resources"] == 7
+            assert len(await client.list_resources()) == validation["resources"] == 5
             assert CORE_TOOLS <= expected_names
             assert {tool.name: tool.model_dump() for tool in tools} == {
                 name: baseline[name] for name in expected_names

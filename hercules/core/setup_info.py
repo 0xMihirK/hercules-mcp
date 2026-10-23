@@ -75,7 +75,7 @@ from hercules.core.tool_catalog import (
 from hercules.core.wordlists import WORDLIST_FILES, WORDLIST_SOURCES
 
 MAX_BUILD_CA_BYTES = 1024 * 1024
-RESOURCE_COUNT = 7
+RESOURCE_COUNT = 5
 SETUP_INFORMATION_SCHEMA_VERSION = 3
 _CERTIFICATE_BLOCK = re.compile(
     rb"-----BEGIN CERTIFICATE-----\s+.+?\s+-----END CERTIFICATE-----",
@@ -100,6 +100,10 @@ def validate_source_association(root: Path) -> None:
         source / "Dockerfile",
         source / "docker" / "entrypoint.sh",
         source / "skills" / "hercules-mcp" / "SKILL.md",
+        source / "skills" / "hercules-nmap-nse" / "SKILL.md",
+        source / "skills" / "hercules-nmap-nse" / "references" / "handbook.md",
+        source / "skills" / "hercules-nuclei" / "SKILL.md",
+        source / "skills" / "hercules-nuclei" / "references" / "handbook.md",
     )
     if package_root.parent != source or any(not path.is_file() for path in required):
         raise SourceAssociationError(
@@ -115,6 +119,7 @@ def capture_surface() -> dict[str, Any]:
     tools: list[str] = []
     tool_parameters: dict[str, list[str]] = {}
     resources: list[str] = []
+    resource_templates: list[str] = []
 
     class Capture:
         def tool(self, *args: Any, **_kwargs: Any):
@@ -133,7 +138,7 @@ def capture_surface() -> dict[str, Any]:
 
         def resource(self, uri: str, *_args: Any, **_kwargs: Any):
             def decorate(function: Any):
-                resources.append(uri)
+                (resource_templates if "{" in uri else resources).append(uri)
                 return function
 
             return decorate
@@ -148,27 +153,32 @@ def capture_surface() -> dict[str, Any]:
         except Exception as exc:  # pragma: no cover - diagnostic boundary
             errors.append(f"{path}: {exc.__class__.__name__}: {exc}")
     try:
-        from hercules.resources.agent_skills import register_agent_skill_resources
         from hercules.resources.post_exploitation import (
             register_post_exploitation_resources,
         )
 
-        register_agent_skill_resources(capture)  # type: ignore[arg-type]
         register_post_exploitation_resources(capture)  # type: ignore[arg-type]
     except Exception as exc:  # pragma: no cover - diagnostic boundary
         errors.append(f"resources: {exc.__class__.__name__}: {exc}")
     unique_tools = list(dict.fromkeys(tools))
     unique_resources = list(dict.fromkeys(resources))
+    unique_templates = list(dict.fromkeys(resource_templates))
     return {
         "full_tools": len(unique_tools),
         "without_metasploit_tools": len(
             [name for name in unique_tools if name not in METASPLOIT_TOOLS]
         ),
         "resources": len(unique_resources),
+        "resource_templates": len(unique_templates),
         "tool_names": unique_tools,
         "tool_parameters": tool_parameters,
         "resource_uris": unique_resources,
-        "catalog_matches": set(unique_tools) == set(all_tool_names()),
+        "resource_template_uris": unique_templates,
+        "catalog_matches": (
+            set(unique_tools) == set(all_tool_names())
+            and len(unique_resources) == RESOURCE_COUNT
+            and len(unique_templates) == 2
+        ),
         "errors": errors,
     }
 
@@ -708,9 +718,11 @@ def setup_information(
             "tools": len(tool_names),
             "tool_names": sorted(tool_names),
             "resources": RESOURCE_COUNT,
+            "resource_templates": surface["resource_templates"],
             "full_tools": surface["full_tools"],
             "without_metasploit_tools": surface["without_metasploit_tools"],
             "resource_uris": surface["resource_uris"],
+            "resource_template_uris": surface["resource_template_uris"],
             "catalog_matches": surface["catalog_matches"],
             "errors": surface["errors"],
         },
@@ -999,7 +1011,7 @@ def setup_information(
             "Every selected backend passes the image capability manifest check",
             "The MCP launcher is absolute and client configuration contains no secrets",
             "The portable skill exists independently from native plugin adapters",
-            "MCP validation reports the expected tool count and seven resources",
+            "MCP validation reports the expected tool count, five resources, and two templates",
             "Cold STDIO initialization succeeds without starting Docker",
             "OpenCode uses a 120000 millisecond local-MCP timeout when selected",
             "Transaction-owned temporary files, processes, containers, and ports are cleaned",

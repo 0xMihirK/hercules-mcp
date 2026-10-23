@@ -136,7 +136,7 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
         )
 
     if _is(exc, MetasploitUnavailable) or name == "MetasploitUnavailable":
-        result = backend_unavailable(tool, msg or "Metasploit RPC is unavailable.")
+        result = backend_unavailable(tool, "Metasploit RPC is unavailable. Check server logs for details.")
         result["recoverable"] = False
         return result
 
@@ -182,7 +182,7 @@ def classify_exception(exc: BaseException, tool: str) -> dict:
     return usage_error(
         tool,
         "internal_error",
-        f"Internal server error ({name}): {msg[:300]}",
+        f"Internal server error ({name}). Check server logs for details.",
         recoverable=False,
         next_steps=[
             "This is an internal server error, not a usage error.",

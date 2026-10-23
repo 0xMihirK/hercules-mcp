@@ -453,7 +453,7 @@ def test_cold_mcp_connection_starts_no_container(monkeypatch, tmp_path) -> None:
 
     tools, resource_count, result, rotated = asyncio.run(scenario())
     assert len(tools) == 47
-    assert resource_count == 7
+    assert resource_count == 5
     assert "system_start_container" in tools
     assert result["error_type"] == "runtime_not_started"
     assert rotated["status"] == "success"
@@ -493,17 +493,16 @@ def test_every_docker_backed_tool_uses_the_cold_runtime_guard(
 
 def test_real_stdio_cold_connection_starts_no_container(tmp_path) -> None:
     project_root = Path(__file__).resolve().parents[1]
-    transport = StdioTransport(
-        sys.executable,
-        ["-m", "hercules.main"],
-        cwd=str(project_root),
-        env={
-            **os.environ,
-            "HERCULES_WORKSPACE_ROOT": str(tmp_path),
-        },
-    )
-
     async def scenario() -> tuple[int, int, dict, set[str]]:
+        transport = StdioTransport(
+            sys.executable,
+            ["-m", "hercules.main"],
+            cwd=str(project_root),
+            env={
+                **os.environ,
+                "HERCULES_WORKSPACE_ROOT": str(tmp_path),
+            },
+        )
         async with Client(transport) as client:
             tools = await client.list_tools()
             resources = await client.list_resources()
@@ -523,7 +522,7 @@ def test_real_stdio_cold_connection_starts_no_container(tmp_path) -> None:
             )
 
     tool_count, resource_count, result, first_sessions = asyncio.run(scenario())
-    assert (tool_count, resource_count) == (47, 7)
+    assert (tool_count, resource_count) == (47, 5)
     assert result["error_type"] == "runtime_not_started"
     assert len(first_sessions) == 1
 
@@ -531,16 +530,7 @@ def test_real_stdio_cold_connection_starts_no_container(tmp_path) -> None:
     assert second_result["error_type"] == "runtime_not_started"
     assert len(second_sessions) == 1
     assert second_sessions.isdisjoint(first_sessions)
-
-    workspace = WorkspaceManager(tmp_path)
-    for session in second_sessions:
-        manifest = workspace.read_manifest(session)
-        assert manifest is not None
-        workspace.mark_inactive(session, int(manifest["generation"]))
-        assert workspace.cleanup_empty_owned(
-            active_session="",
-            only_session=session,
-        ) == [session]
+    assert not any(path.is_dir() for path in tmp_path.iterdir())
 
 
 def test_start_tool_reports_the_public_lifecycle_fields(monkeypatch, tmp_path) -> None:

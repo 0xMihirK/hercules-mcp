@@ -34,7 +34,6 @@ from hercules.core.tool_catalog import (
 )
 
 # Resource registrations
-from hercules.resources.agent_skills import register_agent_skill_resources
 from hercules.resources.post_exploitation import register_post_exploitation_resources
 
 # ---------------------------------------------------------------------------
@@ -249,7 +248,6 @@ if _hidden_tools:
     )
 
 # Register post-exploitation resources (resources are never opt-out-able).
-register_agent_skill_resources(mcp)
 register_post_exploitation_resources(mcp)
 
 # ---------------------------------------------------------------------------

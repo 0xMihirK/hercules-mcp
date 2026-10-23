@@ -5,18 +5,18 @@ categories.
 
 Single source of truth shared by:
 
-  * Hercules' read-only setup-information surface and selective image metadata;
-  * the server ([hercules/main.py]) — to decide which tools to register, honoring
+  * Hercules' read-only setup-information surface and full-image metadata;
+  * the server ([hercules/main.py]) — to decide which tools to expose, honoring
     the operator's selection while NEVER hiding the *core* tools the agent
     depends on. ``shell_exec`` remains the privileged raw-command escape hatch;
-    omitted capabilities are not preinstalled, not a sandbox against root.
+    omitted capabilities remain installed, not a sandbox against root.
 
 **Opt-out granularity is the capability, not the individual MCP tool.** Opting
 out of (say) ``metasploit`` automatically opts out of every ``metasploit_*``
 subtool; opting out of ``nmap`` drops ``nmap_scan`` + the NSE author/run tools.
 The capability's subtools are hidden from the MCP surface, so their
 name/description/JSON-schema never enter the model's context (that is the token
-saving). New managed images contain only confirmed capability bundles.
+saving). Managed images contain every capability bundle.
 Independently hidden tools remain installed but are not exposed to clients.
 
 This module is deliberately dependency-free (only the standard library) so it is

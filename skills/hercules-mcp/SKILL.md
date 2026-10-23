@@ -76,8 +76,8 @@ Parallelize independent passive or light probes within advertised concurrency li
 
 ## Use advanced workflows deliberately
 
-- For Nmap mode choice, stock NSE selection, or custom Lua, read [nmap-nse.md](references/nmap-nse.md). Before complex custom authoring, also read `resource://agent_skills/nse`.
-- For Nuclei tags/templates or custom YAML, read [nuclei.md](references/nuclei.md). Before complex custom authoring, also read `resource://agent_skills/nuclei`.
+- For Nmap mode choice or stock NSE selection, read [nmap-nse.md](references/nmap-nse.md). For custom Lua, use the bundled `hercules-nmap-nse` skill.
+- For Nuclei tags or installed templates, read [nuclei.md](references/nuclei.md). For custom YAML, use the bundled `hercules-nuclei` skill.
 - For interactive or visual web work, read [browser.md](references/browser.md).
 - For Metasploit, payloads, listeners, background jobs, and recovery, read [exploitation-and-sessions.md](references/exploitation-and-sessions.md).
 - For workspace selection, paged evidence reads, retention, jobs, artifacts, and recovery, read [workspace-and-evidence.md](references/workspace-and-evidence.md).

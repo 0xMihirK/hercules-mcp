@@ -211,7 +211,7 @@ def test_real_stdio_explicit_container_lifecycle(tmp_path: Path, cached_runtime,
         async with Client(_transport(tmp_path)) as client:
             tools = await client.list_tools()
             resources = await client.list_resources()
-            assert (len(tools), len(resources)) == (47, 7)
+            assert (len(tools), len(resources)) == (47, 5)
             assert _project_containers() == initial_containers
 
             inventory = (await client.call_tool("system_list_sessions")).structured_content
