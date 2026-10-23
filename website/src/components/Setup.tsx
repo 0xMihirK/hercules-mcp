@@ -148,10 +148,6 @@ export default function Setup({ prompt }: { prompt: string }) {
         </li>
       </ol>
       <div className="installation-bottom">
-        <p>
-          Requires Git, <code>uv</code>, and a terminal-capable STDIO MCP agent
-          for host setup; Docker when preparing or starting the Kali runtime.
-        </p>
         <a
           className="text-link"
           href="https://github.com/0xMihirK/hercules-mcp/blob/main/install.md"
