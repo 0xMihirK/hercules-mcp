@@ -7,6 +7,17 @@ import {execFileSync} from "node:child_process";
 import ts from "typescript";
 const data=JSON.parse(await readFile(new URL("../src/showcase-content.json",import.meta.url),"utf8"));
 const manifest=JSON.parse(await readFile(new URL("../assets/recordings/manifest.json",import.meta.url),"utf8"));
+test("the site describes current resources and on-demand skills",async()=>{
+  const facts=JSON.parse(await readFile(new URL("../src/site-facts.json",import.meta.url),"utf8"));
+  const stats=await readFile(new URL("../src/components/StatBand.tsx",import.meta.url),"utf8");
+  const setup=await readFile(new URL("../src/components/Setup.tsx",import.meta.url),"utf8");
+  assert.equal(facts.catalog.full_tool_count,47);
+  assert.equal(facts.catalog.resource_count,5);
+  assert.match(stats,/PEAS · PowerUp · GTFOBins · LOLBAS/);
+  assert.doesNotMatch(stats,/NSE, Nuclei, PEAS/);
+  assert.match(setup,/nine\s+portable agent skills/);
+  assert.match(setup,/79 topic guides load on\s+demand/);
+});
 // The showcase↔source filter check needs the Hercules package. It runs on main;
 // on the standalone website branch (package absent) it is skipped, since the
 // site-sync workflow already derives the committed data from the real source.

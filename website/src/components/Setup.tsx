@@ -46,9 +46,9 @@ export default function Setup({ prompt }: { prompt: string }) {
             one prompt.
           </h2>
           <p className="installation-lead">
-            One setup CLI installs, updates, or repairs Hercules for your
-            current agent while keeping existing preferences and evidence
-            intact.
+            One setup CLI installs, updates, or repairs Hercules and nine
+            portable agent skills for your current agent while keeping
+            existing preferences and evidence intact.
           </p>
           <div
             className="supported-clients"
@@ -132,8 +132,8 @@ export default function Setup({ prompt }: { prompt: string }) {
           </div>
           <h3>Paste into your agent.</h3>
           <p>
-            Configures only your active client. Host setup verifies a cold MCP
-            handshake without starting the Kali container.
+            Configures only your active client. The 79 topic guides load on
+            demand; a cold MCP handshake does not start the Kali container.
           </p>
         </li>
         <li>

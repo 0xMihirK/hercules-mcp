@@ -22,6 +22,8 @@ The host-side MCP server owns explicit runtime lifecycle, client sessions, selec
 
 Windows, macOS, and Linux hosts with Docker and local STDIO MCP clients are supported. Docker contains powerful tooling; networking and privileges remain operator-controlled. The four showcased clients are examples, not the compatibility boundary.
 
+Nine bundled agent skills route to 79 on-demand topic guides. They improve tool choice and evidence handling without adding MCP tools or granting authorization for high-impact actions.
+
 Demonstrations use real native clients and real Hercules tools in disposable local labs. Model responses and reasoning are scripted. Personal accounts, credentials, paid model calls, and external target scans are excluded. Visitors receive static recordings and evidence files.
 
 ## Brand Commitments

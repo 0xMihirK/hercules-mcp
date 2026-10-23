@@ -5,6 +5,11 @@ workflow. Product counts, the tool catalog and the installation prompt come
 from Hercules source. Docker is required for capturing demonstrations, not for
 building the website or viewing it.
 
+The current plugin also bundles nine agent skills with 79 on-demand topic
+guides. These guide tool choice and testing workflows; they do not add MCP
+tools or authorize new targets. The standalone website branch receives its
+tool/resource counts from `main` through `site-sync`.
+
 ```sh
 cd website
 npm ci

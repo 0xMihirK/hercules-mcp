@@ -124,7 +124,7 @@ export default function StatBand({
             <strong className="stat-value" data-target={catalog.resource_count}>
               {catalog.resource_count}
             </strong>
-            <span>NSE, Nuclei, PEAS, GTFOBins, LOLBAS</span>
+            <span>PEAS · PowerUp · GTFOBins · LOLBAS</span>
           </dd>
           <dt>Agent resources</dt>
         </div>
