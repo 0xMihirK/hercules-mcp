@@ -128,15 +128,6 @@ export default function StatBand({
             <span>PEAS · PowerUp · GTFOBins · LOLBAS</span>
           </dd>
         </div>
-        <div className="stat-cell">
-          <dt>Validated lab sessions</dt>
-          <dd>
-            <strong className="stat-value" data-target={120}>
-              120
-            </strong>
-            <span>4 native clients · 10 investigations</span>
-          </dd>
-        </div>
       </dl>
     </section>
   );

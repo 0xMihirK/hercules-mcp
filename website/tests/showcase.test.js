@@ -16,6 +16,8 @@ test("the site describes current resources and on-demand skills",async()=>{
   assert.match(stats,/PEAS · PowerUp · GTFOBins · LOLBAS/);
   assert.match(stats,/without Metasploit/);
   assert.ok(stats.indexOf("<dt>Registered MCP tools</dt>")<stats.indexOf("<dd>"));
+  assert.equal(stats.match(/className="stat-cell"/g)?.length,3);
+  assert.doesNotMatch(stats,/Validated lab sessions|4 native clients · 10 investigations/);
   assert.doesNotMatch(stats,/NSE, Nuclei, PEAS/);
   assert.match(setup,/nine\s+portable agent skills/);
   assert.match(setup,/79 topic guides load on\s+demand/);
