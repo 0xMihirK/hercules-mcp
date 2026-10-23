@@ -4,9 +4,6 @@ import { Check } from "@phosphor-icons/react/Check";
 import { Copy } from "@phosphor-icons/react/Copy";
 import { ChatText } from "@phosphor-icons/react/ChatText";
 import { PlugsConnected } from "@phosphor-icons/react/PlugsConnected";
-import { AppleLogo } from "@phosphor-icons/react/AppleLogo";
-import { WindowsLogo } from "@phosphor-icons/react/WindowsLogo";
-import { LinuxLogo } from "@phosphor-icons/react/LinuxLogo";
 
 const SUPPORTED_CLIENTS = [
   "Claude Code",
@@ -18,6 +15,7 @@ const SUPPORTED_CLIENTS = [
   "Windsurf",
   "Hermes",
 ];
+const brand = (name: string) => `${import.meta.env.BASE_URL}assets/brands/${name}.svg`;
 
 export default function Setup({ prompt }: { prompt: string }) {
   const [status, setStatus] = useState("");
@@ -63,21 +61,20 @@ export default function Setup({ prompt }: { prompt: string }) {
           <div className="platform-inline" aria-label="Supported operating systems">
             <div className="platform-badges">
               <span className="platform-pill">
-                <WindowsLogo size={18} weight="fill" />
+                <img src={brand("windows11-original")} width="20" height="20" alt="" />
                 Windows
               </span>
               <span className="platform-pill">
-                <AppleLogo size={18} weight="fill" />
+                <img className="platform-logo-mono" src={brand("apple-original")} width="20" height="20" alt="" />
                 macOS
               </span>
               <span className="platform-pill">
-                <LinuxLogo size={18} weight="fill" />
+                <img className="platform-logo-mono" src={brand("linux-plain")} width="20" height="20" alt="" />
                 Linux
               </span>
             </div>
             <div className="platform-meta">
-              <span className="platform-dot" aria-hidden="true" />
-              <span>Same STDIO MCP host server · Docker on each system</span>
+              Run it where your work happens.
             </div>
           </div>
         </div>

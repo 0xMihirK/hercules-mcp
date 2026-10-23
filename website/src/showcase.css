@@ -349,9 +349,11 @@
   letter-spacing: -0.01em;
   transition: border-color 0.18s, color 0.18s;
 }
-.platform-pill svg {
-  color: var(--ember-soft);
+.platform-pill img {
   flex-shrink: 0;
+}
+.platform-logo-mono {
+  filter: invert(1);
 }
 .platform-pill:hover {
   border-color: rgba(255, 106, 43, 0.4);
@@ -367,14 +369,6 @@
   font-size: 12px;
   color: var(--ink-3);
   letter-spacing: -0.01em;
-}
-.platform-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 8px var(--signal);
-  flex-shrink: 0;
 }
 .installation-cta-box {
   background: var(--surface-1);

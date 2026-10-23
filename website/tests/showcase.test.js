@@ -20,6 +20,15 @@ test("the site describes current resources and on-demand skills",async()=>{
   assert.match(setup,/nine\s+portable agent skills/);
   assert.match(setup,/79 topic guides load on\s+demand/);
 });
+test("the platform row uses pinned brand marks and workspace-first copy",async()=>{
+  const setup=await readFile(new URL("../src/components/Setup.tsx",import.meta.url),"utf8");
+  assert.match(setup,/Run it where your work happens\./);
+  assert.doesNotMatch(setup,/Same STDIO MCP host server/);
+  for(const name of ["windows11-original","apple-original","linux-plain"]){
+    assert.ok(setup.includes(`brand("${name}")`));
+    assert.match(await readFile(new URL(`../assets/brands/${name}.svg`,import.meta.url),"utf8"),/^<svg /);
+  }
+});
 // The showcase↔source filter check needs the Hercules package. It runs on main;
 // on the standalone website branch (package absent) it is skipped, since the
 // site-sync workflow already derives the committed data from the real source.
