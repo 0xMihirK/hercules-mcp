@@ -109,7 +109,7 @@ export default function StatBand({
               {catalog.without_metasploit_tool_count} without Metasploit
             </span>
           </dd>
-          <span className="stat-illustration" aria-hidden="true"><TerminalWindow size={64} weight="duotone" /></span>
+          <span className="stat-illustration" aria-hidden="true"><TerminalWindow size={40} weight="regular" /></span>
         </div>
         <div className="stat-cell">
           <dt>Capability bundles</dt>
@@ -122,7 +122,7 @@ export default function StatBand({
             </strong>
             <span>Across {catalog.categories.length} security domains</span>
           </dd>
-          <span className="stat-illustration" aria-hidden="true"><Stack size={64} weight="duotone" /></span>
+          <span className="stat-illustration" aria-hidden="true"><Stack size={40} weight="regular" /></span>
         </div>
         <div className="stat-cell">
           <dt>Agent resources</dt>
@@ -132,7 +132,7 @@ export default function StatBand({
             </strong>
             <span>PEAS · PowerUp · GTFOBins · LOLBAS</span>
           </dd>
-          <span className="stat-illustration" aria-hidden="true"><Books size={64} weight="duotone" /></span>
+          <span className="stat-illustration" aria-hidden="true"><Books size={40} weight="regular" /></span>
         </div>
       </dl>
     </section>
