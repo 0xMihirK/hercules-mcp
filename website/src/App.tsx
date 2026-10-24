@@ -183,7 +183,7 @@ export default function App() {
             </a>
           </div>
         </div>
-        <a className="footer-toast wrap" href={support} aria-label="Buy me a beer on Buy Me a Coffee">
+        <a className="footer-toast wrap" href={support} target="_blank" rel="noopener noreferrer" aria-label="Buy me a beer on Buy Me a Coffee (opens in a new tab)">
           <span className="footer-toast-icon" aria-hidden="true"><BeerStein size={30} weight="duotone" /></span>
           <span className="footer-toast-copy"><span>Open source, on tap.</span><strong>Buy me a beer</strong></span>
           <ArrowUpRight size={23} aria-hidden="true" />

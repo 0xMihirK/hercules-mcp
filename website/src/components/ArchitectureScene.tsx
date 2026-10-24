@@ -13,8 +13,10 @@ const details = {
   docker: { title: "A tool environment inside Docker.", text: "Selected Kali tools run in a session-owned container rather than being installed on your host. You control networking, permissions, and target scope; Docker is not an absolute security boundary." },
   browser: { title: "Browser automation, with limits.", text: "Obscura handles pages, screenshots, and named sessions in the Kali container. It does not enforce CSP, has incomplete browser fidelity, and does not support native downloads. Browser traffic is not confined: with host networking it can reach host-local and private-network services. Browse only trusted, authorized targets." },
   network: { title: "From a target to a service map.", text: "Use Amass and DNS tools to discover hosts, then Nmap to inspect reachable services. The agent can follow up with curl or Ncat to check what a service actually returns." },
+  protocol: { title: "Check a service at the protocol level.", text: "Use Ncat for controlled TCP or UDP exchanges and Hping3 for packet-level probes against authorized targets. Compare responses with a known control before treating silence or a timeout as a finding." },
   web: { title: "Discover, then verify web issues.", text: "Use ffuf for endpoint discovery, Nuclei for template-based checks, and SQLMap for database injection testing. Browser checks can help the agent verify a result instead of treating every scanner alert as a finding." },
-  files: { title: "Follow clues inside files.", text: "Binwalk, ExifTool, and Steghide help examine embedded data, metadata, and hidden content. Shell and workspace tools let the agent inspect extracted files and continue an investigation." },
+  files: { title: "Follow clues inside files.", text: "ExifTool and Steghide help examine metadata and hidden content. Shell and workspace tools let the agent inspect saved artifacts and continue an investigation." },
+  reverse: { title: "Start with binary and firmware evidence.", text: "Binwalk can identify and extract embedded files; shell access to binutils such as readelf and objdump helps triage executable structure. This is basic analysis, not a full decompiler or reverse-engineering service." },
   research: { title: "Research and test applicability.", text: "SearchSploit searches exploit references; the optional Metasploit bundle supports module search and managed execution. These are operator-scoped capabilities, not an automatic claim that a service is exploitable." },
   passwords: { title: "Test credentials in an authorized lab.", text: "Hydra supports online authentication checks, while John the Ripper works with password hashes. The agent can combine these with shell tools and files in the active workspace." },
   parallel: { title: "Independent work can overlap.", text: "Hercules supports concurrent calls within configured limits and background jobs with partial output. A service scan can keep running while the agent inspects a page or examines a file." },
@@ -26,7 +28,9 @@ const capabilities = [
   { key: "browser", title: "Browser control", tools: "Obscura · no CSP" },
   { key: "network", title: "Recon & services", tools: "Amass · DNS · Nmap" },
   { key: "web", title: "Web assessment", tools: "ffuf · Nuclei · SQLMap" },
-  { key: "files", title: "Files & forensics", tools: "Binwalk · ExifTool · Steghide" },
+  { key: "protocol", title: "Protocol testing", tools: "Ncat · Hping3" },
+  { key: "files", title: "Files & forensics", tools: "ExifTool · Steghide · workspace files" },
+  { key: "reverse", title: "Reverse engineering", tools: "Binwalk · readelf · objdump" },
   { key: "research", title: "Exploit research", tools: "SearchSploit · Metasploit" },
   { key: "passwords", title: "Credential testing", tools: "Hydra · John the Ripper" },
 ] as const;
@@ -35,8 +39,10 @@ const capabilities = [
 const illustrations = {
   browser: <><rect x="2" y="4" width="66" height="49" rx="2"/><path d="M2 15H68M9 10H11M16 10H18M23 10H25M10 23H33M10 30H47M10 37H37"/><rect className="map-mini-field" x="43" y="40" width="17" height="7"/><path className="map-mini-cursor" d="M53 32L53 44L57 40L62 40Z"/></>,
   network: <><rect x="2" y="23" width="20" height="16"/><path d="M22 31H34V10H49M34 31H49M34 31V52H49M7 28H16M7 33H13"/><rect x="49" y="3" width="20" height="14"/><rect x="49" y="24" width="20" height="14"/><rect x="49" y="45" width="20" height="14"/><path className="map-mini-node" d="M55 10H63"/><path className="map-mini-node" d="M55 31H63"/><path className="map-mini-node" d="M55 52H63"/></>,
+  protocol: <><path d="M3 30H16L21 19L29 43L37 24L43 30H69M10 14H26M46 14H62M11 47H24M48 47H62"/><circle className="map-mini-accent" cx="35" cy="14" r="3"/><circle className="map-mini-accent" cx="36" cy="47" r="3"/></>,
   web: <><rect x="3" y="5" width="48" height="48"/><path d="M3 15H51M10 10H12M17 10H19M10 24H37M10 33H31M10 42H27"/><circle className="map-mini-accent" cx="48" cy="36" r="13"/><path className="map-mini-accent" d="M58 46L68 56M43 36L47 40L54 32"/></>,
   files: <><path d="M4 17V7H40L51 18V29M40 7V18H51M10 14H31M10 21H30"/><path d="M13 32V25H40L47 32H66V54H13Z"/><path className="map-mini-accent" d="M24 47L29 42L24 37M36 37H53M36 43H57M36 49H49"/><path d="M4 32V51H8"/></>,
+  reverse: <><rect x="4" y="8" width="64" height="44" rx="2"/><path d="M14 19H28M14 27H22M14 35H27M37 18L30 30L37 42M49 18L56 30L49 42M42 16L39 44" className="map-mini-accent"/></>,
   research: <><path d="M4 8H28V43H4ZM10 16H22M10 22H19M10 28H22M10 35H16M12 48H34V14"/><path d="M38 29H47M44 25L48 29L44 33"/><rect className="map-mini-accent" x="51" y="16" width="17" height="29"/><path className="map-mini-accent" d="M56 24L63 30L56 36Z"/></>,
   passwords: <><rect x="3" y="7" width="40" height="43"/><path d="M3 17H43M10 12H12M17 12H19M10 27H34M10 37H12M17 37H19M24 37H26M31 37H33"/><circle className="map-mini-accent" cx="53" cy="38" r="9"/><path className="map-mini-accent" d="M53 29V15H63M59 15V21M53 21H59"/></>,
 };
@@ -221,11 +227,11 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     onKeyDown={event => { if (event.key === "Escape") { setSelected(null); setHovered(null); setFocused(null); } }}>
     <div className="wrap">
       <div className="feature-heading architecture-heading">
-        <div><span className="map-eyebrow">One connection. A complete tool environment.</span><h2 id="architecture-title">Powerful tools.<br/>A separate workspace.</h2></div>
-        <p>Your agent coordinates the investigation. Hercules brings browser control and Kali tools together in Docker, manages their workspaces, and filters the output returned to your agent.</p>
+        <div><span className="map-eyebrow">One connection. A complete tool environment.</span><h2 id="architecture-title">Your agent, equipped.<br/>Your evidence, retained.</h2></div>
+        <p>Hercules connects your agent to a session-owned Kali runtime. Run selected tools and browser checks, get useful results back, and keep evidence in a workspace on your host.</p>
       </div>
       <div className="capability-scene" data-active={active ?? "overview"} data-inspecting={selected || focused ? "true" : undefined}>
-        <div className="map-caption"><span>Give your agent security tools in a Docker workspace.</span><span><Info size={15} aria-hidden="true"/> Select a part to explore</span></div>
+        <div className="map-caption"><span>Follow a request from your agent to Kali—and back.</span><span><Info size={15} aria-hidden="true"/> Select a part to explore</span></div>
         <p className="map-pan-hint">Follow the connection → <span>Swipe horizontally or focus the diagram and use the arrow keys.</span></p>
         <div className="map-flow-viewport" role="region" aria-label="Horizontal Hercules connection diagram" tabIndex={0}>
         <div className="architecture-map">
@@ -236,7 +242,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
             {(["request", "response", "mount"] as const).map(key => <g key={key}>{routes[key].split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className={`map-route map-route-${key}`} d={segment} markerEnd={key === "mount" ? undefined : "url(#map-arrow)"}/>)}{key !== "mount" && <path className={`map-${key}-pulse`} d={routes[key]} pathLength="1"/>}</g>)}
             {routes.arrows.map((point, index) => <path key={index} className="map-flow-arrow" d={`M${point.x + 5},${point.y} H${point.x - 5}`} markerEnd="url(#map-arrow)"/>)}
           </svg>
-          <div className="map-agent"><div className="map-node-head"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={26} aria-hidden="true"/><span><strong>Your agent</strong><small>Any STDIO MCP client</small></span></div><p className="map-agent-task">“Investigate this local lab.”</p><i className="map-port map-agent-return" aria-hidden="true"/></div>
+          <div className="map-agent"><div className="map-node-head"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={26} aria-hidden="true"/><span><strong>Your agent</strong><small>STDIO MCP client</small></span></div><div className="map-agent-brands">{([["Claude Code", "claude.svg"], ["Cursor", "cursor.svg"], ["Codex", "codex.png"], ["Hermes", "hermes.png"]] as const).map(([name, file]) => <span key={name}><img src={asset(`brands/${file}`)} width="20" height="20" alt=""/>{name}</span>)}</div><p className="map-agent-note">Other STDIO clients supported</p><i className="map-port map-agent-return" aria-hidden="true"/></div>
           <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><span className="map-node-head"><img src={asset("lion.png")} width="44" height="50" alt=""/><span><strong>Hercules</strong><small>Host MCP server</small></span><Info size={14} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-dispatch" aria-hidden="true"/></span><span className="map-node-copy">Routes calls and manages execution on your computer.</span></button>
           <div className="map-runtime-stage"><i className="map-port map-docker-return" aria-hidden="true"/><i className="map-port map-mount-port" aria-hidden="true"/>
             <div className="map-runtime-status" aria-hidden="true"><span>Current session</span><strong>{runtimeLabels[reduced || paused ? "ready" : runtimeState]}</strong></div>
@@ -251,14 +257,13 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
             </div>
           </div>
           <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><i className="map-port map-filter-input" aria-hidden="true"/><i className="map-port map-filter-output" aria-hidden="true"/><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Output filtering</strong><Info size={14} aria-hidden="true"/></span><span className="map-filter-direction">Part of Hercules · on the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span><Check size={14} aria-hidden="true"/>Findings kept</span><span><Info size={14} aria-hidden="true"/>Important diagnostics kept</span></span></button>
-          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><i className="map-port map-workspace-port" aria-hidden="true"/><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><span><strong>Managed workspaces</strong><small>Stored on your host</small></span><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span><FolderOpen size={20} aria-hidden="true"/><span>Previous session<small>Retained · available to inspect</small></span></span><span className="map-current-workspace"><FolderOpen size={20} aria-hidden="true"/><span>Current session<small>Active · mounted in this runtime</small></span></span></span><small>One active workspace per connection. Separate clients can own independent runtimes.</small></button>
+          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><span><strong>Managed workspaces</strong><small>Evidence stays on your host</small></span><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span className="map-previous-workspace"><FolderOpen size={22} aria-hidden="true"/><span>Previous session<small>Retained · available to inspect</small></span></span><span className="map-current-workspace"><i className="map-port map-workspace-port" aria-hidden="true"/><FolderOpen size={22} aria-hidden="true"/><span>Current session<small>Active · mounted in this runtime</small></span></span></span><small>Each connection has its own active workspace; earlier sessions remain inspectable.</small></button>
         </div>
         </div>
 
-        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "How an investigation flows."}</h3><p>{current?.text ?? "Your agent sends a request. Hercules runs selected tools in Docker, removes routine output noise, and returns useful results."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
+        <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "From request to retained evidence."}</h3><p>{current?.text ?? "Your agent requests a tool. Hercules runs it in the selected Kali runtime, filters routine output, and returns results while evidence stays in your host workspace."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>
       <p className="sr-only">The illustrative cycle shows a request, concurrent jobs, filtered results, and an explicit new session stopping the current runtime before a fresh runtime starts.</p>
-      <p className="map-scope">Tools start only when requested. You control networking, permissions, and target scope. Tool availability depends on your selected bundles.</p>
     </div>
   </section>;
 }

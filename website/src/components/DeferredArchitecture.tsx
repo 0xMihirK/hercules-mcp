@@ -32,8 +32,8 @@ export default function DeferredArchitecture({ reduced }: { reduced: boolean }) 
       <section id="architecture" className="chapter architecture architecture-placeholder" aria-labelledby="architecture-title" aria-busy={!failed}>
         <div className="wrap">
           <div className="feature-heading architecture-heading">
-            <div><h2 id="architecture-title">Powerful tools.<br />A separate workspace.</h2></div>
-            <p>Your agent coordinates the investigation. Hercules brings browser control and Kali tools together in Docker, manages their workspaces, and filters the output returned to your agent.</p>
+            <div><h2 id="architecture-title">Your agent, equipped.<br />Your evidence, retained.</h2></div>
+            <p>Hercules connects your agent to a session-owned Kali runtime. Run selected tools and browser checks, get useful results back, and keep evidence in a workspace on your host.</p>
           </div>
           {failed && <p role="alert">The architecture diagram could not load. <button className="button secondary" onClick={() => location.reload()}>Reload page</button></p>}
         </div>
