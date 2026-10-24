@@ -515,6 +515,19 @@
   align-items: center;
   gap: 6px;
 }
+.footer-links .footer-linkedin {
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 106, 43, 0.4);
+  background: rgba(255, 106, 43, 0.07);
+  color: var(--ink);
+}
+.footer-linkedin svg:first-child {
+  color: var(--ember-soft);
+}
+.footer-links .footer-linkedin:hover {
+  border-color: var(--ember-soft);
+  color: var(--ember-soft);
+}
 .footer-toast {
   border-top: 1px solid rgba(255, 106, 43, 0.4);
   display: grid;

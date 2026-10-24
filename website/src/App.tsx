@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
 import { BeerStein } from "@phosphor-icons/react/BeerStein";
+import { LinkedinLogoIcon } from "@phosphor-icons/react/LinkedinLogo";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
 import NativePlayer from "./components/NativePlayer";
@@ -17,6 +18,7 @@ gsap.registerPlugin(ScrollTrigger);
 
 const github = "https://github.com/0xMihirK/hercules-mcp";
 const support = "https://buymeacoffee.com/mihirkatoch";
+const linkedin = "https://www.linkedin.com/in/mihir-katoch/?isSelfProfile=true";
 const asset = (name: string) => `${import.meta.env.BASE_URL}assets/${name}`;
 
 export default function App() {
@@ -180,6 +182,9 @@ export default function App() {
             </a>
             <a href={`${github}/blob/main/LICENSE`}>
               License <ArrowUpRight size={16} />
+            </a>
+            <a className="footer-linkedin" href={linkedin} target="_blank" rel="noopener noreferrer" aria-label="Mihir Katoch on LinkedIn (opens in a new tab)">
+              <LinkedinLogoIcon size={17} weight="fill" aria-hidden="true" /> LinkedIn <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </div>
         </div>
