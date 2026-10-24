@@ -30,7 +30,7 @@ interactive introduction to the workflow, tools, and workspace evidence.
 > egress against an external target.
 
 <p align="center">
-  <img src="assets/architecture-v2.jpg" alt="AI agent connects to Hercules MCP over STDIO; an explicit start launches the Kali tools and Obscura browser, while host workspace evidence persists separately" width="900" />
+  <img src="assets/architecture-v3.png" alt="Claude Code, Codex, Cursor, Gemini CLI, and custom agents connect to the Hercules MCP host server over STDIO. It explicitly starts a session-owned Kali container with Nmap, Metasploit, SQLMap, Nuclei, Obscura, and other tools. Evidence persists in a host workspace." width="900" />
 </p>
 
 ## Contents
