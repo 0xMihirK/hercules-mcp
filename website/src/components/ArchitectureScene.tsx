@@ -19,7 +19,6 @@ const details = {
   reverse: { title: "Start with binary and firmware evidence.", text: "Binwalk can identify and extract embedded files; shell access to binutils such as readelf and objdump helps triage executable structure. This is basic analysis, not a full decompiler or reverse-engineering service." },
   research: { title: "Research and test applicability.", text: "SearchSploit searches exploit references; the optional Metasploit bundle supports module search and managed execution. These are operator-scoped capabilities, not an automatic claim that a service is exploitable." },
   passwords: { title: "Test credentials in an authorized lab.", text: "Hydra supports online authentication checks, while John the Ripper works with password hashes. The agent can combine these with shell tools and files in the active workspace." },
-  parallel: { title: "Independent work can overlap.", text: "Hercules supports concurrent calls within configured limits and background jobs with partial output. A service scan can keep running while the agent inspects a page or examines a file." },
   workspaces: { title: "Fresh runtime. Separate investigation.", text: "Creating a fresh session stops the connection’s current runtime and creates a new workspace; prior workspaces remain inspectable. Separate client connections can own independent runtimes and workspaces." },
   filter: { title: "Keep useful output in the conversation.", text: "Within Hercules, tool-specific filters remove known routine chatter while preserving characterized findings and diagnostics. Separate response-size limits can shorten large results, with raw-output availability disclosed." },
 };
@@ -78,16 +77,14 @@ export function architectureRoutes(ports: Record<string, Point>) {
 }
 const runtimeLabels = { request: "Requesting tools", working: "Running…", results: "Returning results", complete: "Complete", requested: "New session requested", stopping: "Stopping", stopped: "Runtime stopped", starting: "Starting", ready: "Ready" };
 type RuntimeState = keyof typeof runtimeLabels;
-type MotionTargets = { runtime: gsap.TweenTarget; rows: gsap.TweenTarget; bars: gsap.TweenTarget; request: gsap.TweenTarget; response: gsap.TweenTarget; noise: gsap.TweenTarget };
+type MotionTargets = { runtime: gsap.TweenTarget; rows: gsap.TweenTarget; request: gsap.TweenTarget; response: gsap.TweenTarget; noise: gsap.TweenTarget };
 export function createArchitectureLoop(targets: MotionTargets, stage: (state: RuntimeState) => void, replace: (value: boolean) => void, stable: () => void) {
   return gsap.timeline({ paused: true, repeat: -1 })
     .call(() => stage("request"), [], 0)
-    .set(targets.bars, { scaleX: 0 }, 0)
     .set(targets.noise, { opacity: 1, x: 0 }, 0)
     .fromTo(targets.request, { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: .7, immediateRender: false }, 0)
     .to(targets.request, { opacity: 0, duration: .1 }, .7)
     .call(() => stage("working"), [], .8)
-    .to(targets.bars, { scaleX: 1, duration: 2.6, stagger: .4, ease: "power1.inOut" }, .8)
     .call(() => stage("results"), [], 4.2)
     .fromTo(targets.response, { strokeDashoffset: 1, opacity: 0 }, { strokeDashoffset: 0, opacity: 1, duration: 1.2, immediateRender: false }, 4.2)
     .to(targets.noise, { opacity: .2, x: -6, duration: .5 }, 4.6)
@@ -98,7 +95,6 @@ export function createArchitectureLoop(targets: MotionTargets, stage: (state: Ru
     .to(targets.rows, { opacity: 0, y: 6, duration: .65, stagger: .04, ease: "power2.in" }, 7.15)
     .to(targets.runtime, { opacity: 0, scale: .96, filter: "grayscale(1)", duration: 1.25, ease: "power2.in" }, 7.15)
     .call(() => stage("stopped"), [], 8.4)
-    .set(targets.bars, { scaleX: 0 }, 8.4)
     .call(() => stage("starting"), [], 9.1)
     .to(targets.runtime, { opacity: 1, scale: 1.02, filter: "grayscale(0)", duration: 1.2, ease: "power2.out" }, 9.1)
     .to(targets.rows, { opacity: 1, y: 0, duration: 1.1, stagger: { each: .04, from: "end" }, ease: "power2.out" }, 9.3)
@@ -170,7 +166,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     let visible = false;
     const context = gsap.context(() => {
       const loop = createArchitectureLoop({
-        runtime: section.querySelector(".map-runtime-unit")!, rows: section.querySelectorAll(".map-capability"), bars: section.querySelectorAll(".map-job-fill"),
+        runtime: section.querySelector(".map-runtime-unit")!, rows: section.querySelectorAll(".map-capability"),
         request: section.querySelectorAll(".map-request-pulse"), response: section.querySelectorAll(".map-response-pulse"), noise: section.querySelectorAll(".map-noise"),
       }, setRuntimeState, value => { transitioning.current = value; setReplacing(value); }, () => syncMotion.current?.());
       const sync = () => {
@@ -186,7 +182,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
     }, section);
     return () => {
       context.revert();
-      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-capability,.map-job-fill,.map-noise,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
+      gsap.set(section.querySelectorAll(".map-runtime-unit,.map-capability,.map-noise,.map-request-pulse,.map-response-pulse"), { clearProps: "all" });
       delete section.dataset.motion;
     };
   }, [reduced, paused]);
@@ -253,7 +249,6 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
               <div className="map-capabilities">{capabilities.map(({ key, title }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><Info className="map-capability-info" size={13} aria-hidden="true"/></button>)}</div>
               <p className="map-tool-preview" aria-live="polite">{capabilities.find(item => item.key === active)?.tools ?? "Select a capability to see its tools."}</p>
 
-              <button {...interaction("parallel", "map-parallel")} aria-label="Explore parallel tool execution"><span className="map-feature-title"><strong>Example job progress</strong><Info size={14} aria-hidden="true"/></span><span className="map-job-lanes">{["Service scan", "Browser check", "File analysis"].map(label => <span key={label}><span>{label}</span><i><b className="map-job-fill"/></i></span>)}</span><small>Illustrated concurrent work</small></button>
             </div>
           </div>
           <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><i className="map-port map-filter-input" aria-hidden="true"/><i className="map-port map-filter-output" aria-hidden="true"/><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Output filtering</strong><Info size={14} aria-hidden="true"/></span><span className="map-filter-direction">Part of Hercules · on the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span><Check size={14} aria-hidden="true"/>Findings kept</span><span><Info size={14} aria-hidden="true"/>Important diagnostics kept</span></span></button>
@@ -263,7 +258,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
 
         <div id="architecture-detail" className="map-detail" role="region" aria-label="Architecture explanation" tabIndex={0} aria-live="polite" aria-atomic="true"><h3>{current?.title ?? "From request to retained evidence."}</h3><p>{current?.text ?? "Your agent requests a tool. Hercules runs it in the selected Kali runtime, filters routine output, and returns results while evidence stays in your host workspace."}</p>{selected && <button type="button" aria-label="Clear selected explanation" onClick={() => { root.current?.querySelector<HTMLButtonElement>(`[data-feature="${selected}"]`)?.focus(); setSelected(null); setHovered(null); setFocused(null); }}><X size={18}/></button>}</div>
       </div>
-      <p className="sr-only">The illustrative cycle shows a request, concurrent jobs, filtered results, and an explicit new session stopping the current runtime before a fresh runtime starts.</p>
+      <p className="sr-only">The illustrative cycle shows a request, filtered results, and an explicit new session stopping the current runtime before a fresh runtime starts.</p>
     </div>
   </section>;
 }

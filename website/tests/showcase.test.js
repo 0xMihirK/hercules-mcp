@@ -51,9 +51,9 @@ const {default:Architecture,roundedRoute,architectureRoutes,createArchitectureLo
 
 test("architecture exposes named capabilities, accessible controls and truthful static fallback",()=>{
   const markup=renderToStaticMarkup(createElement(Architecture,{reduced:true,paused:false}));
-  assert.equal((markup.match(/data-feature=/g)||[]).length,13);
-  assert.equal((markup.match(/aria-controls="architecture-detail"/g)||[]).length,13);
-  assert.equal((markup.match(/aria-pressed="false"/g)||[]).length,13);
+  assert.equal((markup.match(/data-feature=/g)||[]).length,12);
+  assert.equal((markup.match(/aria-controls="architecture-detail"/g)||[]).length,12);
+  assert.equal((markup.match(/aria-pressed="false"/g)||[]).length,12);
   assert.match(markup,/Active \u00b7 mounted in this runtime/);
   assert.match(markup,/Retained \u00b7 available to inspect/);
   assert.match(markup,/Important diagnostics kept/);
@@ -62,7 +62,7 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.match(markup,/Your evidence, retained/);
   assert.doesNotMatch(markup,/18MB|98\.5|AST Filter|Zero host pollution|live telemetry|sandbox-controls/);
   assert.match(markup,/Started on request/);
-  assert.equal((markup.match(/<button /g)||[]).length,13);
+  assert.equal((markup.match(/<button /g)||[]).length,12);
   for(const name of ["Browser control","Recon &amp; services","Web assessment","Protocol testing","Files &amp; forensics","Reverse engineering","Exploit research","Credential testing"]) assert.ok(markup.includes(name));
   for(const [name,file] of [["Claude Code","claude.svg"],["Cursor","cursor.svg"],["Codex","codex.png"],["Hermes","hermes.png"]]) {assert.match(markup,new RegExp(`brands/${file.replace(".","\\.")}`));assert.ok(markup.includes(name));}
   assert.match(markup,/Other STDIO clients supported/);
@@ -74,7 +74,7 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.match(markup,/map-mount-port/);
   assert.match(markup,/map-workspace-port/);
   assert.match(markup,/Workspace mount/);
-  assert.match(markup,/Example job progress/);
+  assert.doesNotMatch(markup,/Example job progress|Illustrated concurrent work|map-job-lanes/);
   assert.doesNotMatch(markup,/Independent checks running|Large responses have separate size limits/);
   assert.match(markup,/Follow a request from your agent to Kali/);
   assert.match(markup,/map-runtime-unit/);
@@ -113,18 +113,18 @@ test("return routing is one rounded channel through the filter, with left-facing
   assert.equal(tight,"M0,0 L1,0 Q2,0 2,1 L2,2","radius is bounded by available space");
 });
 test("the actual 15-second GSAP loop stops before arrival and preserves the empty-slot interval",()=>{
-  const targets={runtime:{opacity:1,scale:1,filter:"grayscale(0)"},rows:Array.from({length:8},()=>({opacity:1,y:0})),bars:Array.from({length:3},()=>({scaleX:0})),request:{opacity:0,strokeDashoffset:1},response:{opacity:0,strokeDashoffset:1},noise:{opacity:1,x:0}};
+  const targets={runtime:{opacity:1,scale:1,filter:"grayscale(0)"},rows:Array.from({length:8},()=>({opacity:1,y:0})),request:{opacity:0,strokeDashoffset:1},response:{opacity:0,strokeDashoffset:1},noise:{opacity:1,x:0}};
   let stage="ready",replacing=false,stable=0;
   const loop=createArchitectureLoop(targets,value=>stage=value,value=>replacing=value,()=>stable++);
   try{
     assert.equal(loop.duration(),15);
-    loop.totalTime(1,false);assert.equal(stage,"working");assert.ok(targets.bars[0].scaleX>targets.bars[2].scaleX);
-    loop.totalTime(5.6,false);assert.equal(stage,"complete");assert.ok(targets.bars.every(bar=>Math.abs(bar.scaleX-1)<.001));
+    loop.totalTime(1,false);assert.equal(stage,"working");
+    loop.totalTime(5.6,false);assert.equal(stage,"complete");
     loop.totalTime(7.2,false);assert.equal(stage,"stopping");assert.equal(replacing,true);
     loop.totalTime(8.41,false);assert.equal(stage,"stopped");assert.equal(targets.runtime.opacity,0);assert.ok(targets.rows.every(row=>row.opacity===0));
     loop.totalTime(9.09,false);assert.equal(stage,"stopped");assert.equal(targets.runtime.opacity,0);
     loop.totalTime(9.35,false);assert.equal(stage,"starting");assert.ok(targets.rows.at(-1).opacity>targets.rows[0].opacity,"rows arrive in reverse order");
-    loop.totalTime(10.81,false);assert.equal(stage,"ready");assert.equal(replacing,false);assert.equal(stable,1);assert.equal(targets.runtime.opacity,1);assert.equal(targets.runtime.scale,1);assert.ok(targets.bars.every(bar=>bar.scaleX===0));
+    loop.totalTime(10.81,false);assert.equal(stage,"ready");assert.equal(replacing,false);assert.equal(stable,1);assert.equal(targets.runtime.opacity,1);assert.equal(targets.runtime.scale,1);
     loop.totalTime(15.1,false);assert.equal(stage,"request");
   }finally{loop.kill();}
 });
