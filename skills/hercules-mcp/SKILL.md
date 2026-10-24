@@ -80,6 +80,7 @@ Parallelize independent passive or light probes within advertised concurrency li
 - For Nuclei tags or installed templates, read [nuclei.md](references/nuclei.md). For custom YAML, use the bundled `hercules-nuclei` skill.
 - For interactive or visual web work, read [browser.md](references/browser.md).
 - For Metasploit, payloads, listeners, background jobs, and recovery, read [exploitation-and-sessions.md](references/exploitation-and-sessions.md).
+- To check a product/version against CVEs, advisories, and PoC leads, read [vulnerability-research.md](references/vulnerability-research.md).
 - For workspace selection, paged evidence reads, retention, jobs, artifacts, and recovery, read [workspace-and-evidence.md](references/workspace-and-evidence.md).
 - For CTF objectives, continuity notes, candidate validation, rate coordination, or custom tools, read [ctf-workflow.md](references/ctf-workflow.md).
 - For LinPEAS, WinPEAS, PowerUp, GTFOBins, or LOLBAS selection and handling, read [post-exploitation-resources.md](references/post-exploitation-resources.md).

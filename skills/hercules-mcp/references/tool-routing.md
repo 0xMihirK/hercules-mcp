@@ -96,7 +96,7 @@ For complex custom templates, use the `hercules-nuclei` skill. Prefer
 
 | Need | Tool | Selectors or progression |
 | --- | --- | --- |
-| Search or retrieve Exploit-DB material | `searchsploit` | `search` before `get`; review retrieved code before use. |
+| Search or retrieve Exploit-DB material | `searchsploit` | `search` before `get`; a broadened `degraded_from` result is only a lead. Review retrieved code before use. |
 | Find a Metasploit module | `metasploit_search` | Match the observed product/version and review module requirements. |
 | Run a module | `metasploit_run_module` | Choose module type `exploit`, `auxiliary`, or `post`; supply validated options and prefer check/safe behavior. |
 | Sessions and jobs | `metasploit_manage` | `list_sessions`, `interact_session`, `close_session`, `list_jobs`, `stop_job`. |
@@ -104,6 +104,7 @@ For complex custom templates, use the `hercules-nuclei` skill. Prefer
 | Start a reverse listener | `metasploit_start_listener` | Derive reachable LHOST/LPORT with `system_network_info`. |
 
 Read `exploitation-and-sessions.md` before module execution, payload generation, or listener work.
+Read `vulnerability-research.md` when deciding whether an observed product and version is affected by a CVE or when assessing PoC leads. Use the agent's own online search capability for current advisories; Hercules has no general web search tool.
 Read `post-exploitation-resources.md` after a session proves local execution
 and privilege-escalation enumeration is authorized.
 
