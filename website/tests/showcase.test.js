@@ -78,6 +78,7 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.doesNotMatch(markup,/Independent checks running|Large responses have separate size limits/);
   assert.match(markup,/Follow a request from your agent to Kali/);
   assert.match(markup,/map-runtime-unit/);
+  assert.doesNotMatch(markup,/map-runtime-status/);
   assert.match(markup,/map-host-boundary/);
   assert.equal((markup.match(/class="map-capability-info"/g)||[]).length,0);
   assert.match(markup,/class="map-feature-name"/);
