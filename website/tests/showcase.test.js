@@ -78,6 +78,9 @@ test("architecture exposes named capabilities, accessible controls and truthful 
   assert.doesNotMatch(markup,/Independent checks running|Large responses have separate size limits/);
   assert.match(markup,/Follow a request from your agent to Kali/);
   assert.match(markup,/map-runtime-unit/);
+  assert.match(markup,/map-host-boundary/);
+  assert.equal((markup.match(/class="map-capability-info"/g)||[]).length,0);
+  assert.match(markup,/class="map-feature-name"/);
   const agent=markup.indexOf('class="map-agent"'), filter=markup.indexOf('data-feature="filter"'), hub=markup.indexOf('data-feature="hercules"'), docker=markup.indexOf('class="map-runtime-stage"');
   assert.ok(agent<hub && hub<docker && docker<filter,"request row followed by an inline return filter");
   assert.match(markup,/Part of Hercules/);
@@ -100,10 +103,14 @@ test("return routing is one rounded channel through the filter, with left-facing
   const ports={agent:{x:200,y:80},hub:{x:270,y:80},dispatch:{x:550,y:80},docker:{x:620,y:80},agentReturn:{x:200,y:190},filter:{x:270,y:340},filterInput:{x:550,y:340},result:{x:620,y:400},mount:{x:990,y:430},workspace:{x:990,y:480}};
   const routes=architectureRoutes(ports);
   assert.equal((routes.response.match(/M/g)||[]).length,1,"return channel must not branch");
-  assert.match(routes.response,/^M620,400/);
+  assert.match(routes.response,/^M620,340 L247,340/);
   assert.match(routes.response,/L200,190$/);
   assert.ok(routes.response.includes("Q"),"orthogonal bends are rounded");
+  assert.equal(routes.mount,"M990,430 L990,480","workspace mount stays vertical");
+  assert.deepEqual(routes.mountLabel,{x:990,y:455});
+  assert.ok(routes.returnLabel.x>200 && routes.returnLabel.x<270);
   assert.equal((routes.request.match(/M/g)||[]).length,2);
+  assert.equal(architectureRoutes({...ports,docker:{x:620,y:81}}).request,"M200,80 L270,80 M550,80 L620,80");
   assert.equal(routes.arrows.length,2);
   for(const arrow of routes.arrows){assert.equal(arrow.y,340);assert.ok(arrow.x>200 && arrow.x<620);}
   assert.doesNotMatch(routes.response,/NaN|Infinity/);

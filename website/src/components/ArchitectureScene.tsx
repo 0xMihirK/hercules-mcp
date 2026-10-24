@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FocusEvent, type MouseEvent } from "react";
 import gsap from "gsap";
 import { Check } from "@phosphor-icons/react/Check";
+import { CaretRight } from "@phosphor-icons/react/CaretRight";
 import { FolderOpen } from "@phosphor-icons/react/FolderOpen";
 import { FunnelSimple } from "@phosphor-icons/react/FunnelSimple";
 import { Info } from "@phosphor-icons/react/Info";
@@ -62,17 +63,15 @@ export function roundedRoute(input: Point[], radius = 12) {
 }
 export function architectureRoutes(ports: Record<string, Point>) {
   const { agent, hub, dispatch, docker, agentReturn, filter, filterInput, result, mount, workspace } = ports;
-  const request = (from: Point, to: Point) => {
-    const x = (from.x + to.x) / 2;
-    return roundedRoute([from, { x, y: from.y }, { x, y: to.y }, to]);
-  };
-  const left = (agentReturn.x + filter.x) / 2, right = (result.x + filterInput.x) / 2;
+  const request = (from: Point, to: Point) => roundedRoute([from, { x: to.x, y: from.y }]);
+  const left = (agentReturn.x + filter.x) / 2;
   return {
     request: request(agent, hub) + " " + request(dispatch, docker),
-    response: roundedRoute([result, { x: right, y: result.y }, { x: right, y: filterInput.y }, filterInput, filter, { x: left, y: filter.y }, { x: left, y: agentReturn.y }, agentReturn]),
-    mount: roundedRoute([mount, { x: mount.x, y: workspace.y - 16 }, { x: workspace.x, y: workspace.y - 16 }, workspace]),
-    arrows: [{ x: (right + filterInput.x) / 2, y: filterInput.y }, { x: (left + filter.x) / 2, y: filter.y }],
-    mountLabel: { x: mount.x - 12, y: (mount.y + workspace.y) / 2 },
+    response: roundedRoute([{ x: result.x, y: filterInput.y }, { x: left, y: filter.y }, { x: left, y: agentReturn.y }, agentReturn]),
+    mount: roundedRoute([{ x: workspace.x, y: mount.y }, workspace]),
+    arrows: [{ x: (result.x + filterInput.x) / 2, y: filterInput.y }, { x: (left + filter.x) / 2, y: filter.y }],
+    returnLabel: { x: left - 8, y: (filter.y + agentReturn.y) / 2 },
+    mountLabel: { x: workspace.x, y: (mount.y + workspace.y) / 2 },
   };
 }
 const runtimeLabels = { request: "Requesting tools", working: "Running…", results: "Returning results", complete: "Complete", requested: "New session requested", stopping: "Stopping", stopped: "Runtime stopped", starting: "Starting", ready: "Ready" };
@@ -122,7 +121,7 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
   const [selected, setSelected] = useState<Feature | null>(null);
   const [runtimeState, setRuntimeState] = useState<RuntimeState>("ready");
   const [replacing, setReplacing] = useState(false);
-  const [routes, setRoutes] = useState({ request: "", response: "", mount: "", arrows: [] as Point[], mountLabel: { x: 0, y: 0 } });
+  const [routes, setRoutes] = useState({ request: "", response: "", mount: "", arrows: [] as Point[], returnLabel: { x: 0, y: 0 }, mountLabel: { x: 0, y: 0 } });
   const active = focused ?? selected ?? hovered;
   const current = active ? details[active] : null;
   inspecting.current = active !== null;
@@ -227,32 +226,33 @@ export function ArchitectureScene({ reduced, paused }: { reduced: boolean; pause
         <p>Hercules connects your agent to a session-owned Kali runtime. Run selected tools and browser checks, get useful results back, and keep evidence in a workspace on your host.</p>
       </div>
       <div className="capability-scene" data-active={active ?? "overview"} data-inspecting={selected || focused ? "true" : undefined}>
-        <div className="map-caption"><span>Follow a request from your agent to Kali—and back.</span><span><Info size={15} aria-hidden="true"/> Select a part to explore</span></div>
+        <div className="map-caption"><span>Follow a request from your agent to Kali—and back.</span><span>Select a part to explore</span></div>
         <p className="map-pan-hint">Follow the connection → <span>Swipe horizontally or focus the diagram and use the arrow keys.</span></p>
         <div className="map-flow-viewport" role="region" aria-label="Horizontal Hercules connection diagram" tabIndex={0}>
         <div className="architecture-map">
           <span className="map-request-label">Request</span><span className="map-tools-label">Run tools</span>
-          <span className="map-response-label">Results return to your agent.</span>
+          <span className="map-response-label" style={{ left: routes.returnLabel.x, top: routes.returnLabel.y }}>Results return to your agent.</span>
           <span className="map-mount-label" style={{ left: routes.mountLabel.x, top: routes.mountLabel.y }}>Workspace mount</span>
           <svg className="map-connections" aria-hidden="true"><defs><marker id="map-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="currentColor" strokeWidth="1.3"/></marker></defs>
             {(["request", "response", "mount"] as const).map(key => <g key={key}>{routes[key].split(/(?=M)/).filter(Boolean).map((segment, index) => <path key={index} className={`map-route map-route-${key}`} d={segment} markerEnd={key === "mount" ? undefined : "url(#map-arrow)"}/>)}{key !== "mount" && <path className={`map-${key}-pulse`} d={routes[key]} pathLength="1"/>}</g>)}
             {routes.arrows.map((point, index) => <path key={index} className="map-flow-arrow" d={`M${point.x + 5},${point.y} H${point.x - 5}`} markerEnd="url(#map-arrow)"/>)}
           </svg>
+          <div className="map-host-boundary" aria-hidden="true"/>
           <div className="map-agent"><div className="map-node-head"><i className="map-port map-agent-port" aria-hidden="true"/><TerminalWindow size={26} aria-hidden="true"/><span><strong>Your agent</strong><small>STDIO MCP client</small></span></div><div className="map-agent-brands">{([["Claude Code", "claude.svg"], ["Cursor", "cursor.svg"], ["Codex", "codex.png"], ["Hermes", "hermes.png"]] as const).map(([name, file]) => <span key={name}><img src={asset(`brands/${file}`)} width="20" height="20" alt=""/>{name}</span>)}</div><p className="map-agent-note">Other STDIO clients supported</p><i className="map-port map-agent-return" aria-hidden="true"/></div>
-          <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><span className="map-node-head"><img src={asset("lion.png")} width="44" height="50" alt=""/><span><strong>Hercules</strong><small>Host MCP server</small></span><Info size={14} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-dispatch" aria-hidden="true"/></span><span className="map-node-copy">Routes calls and manages execution on your computer.</span></button>
+          <button {...interaction("hercules", "map-hub")} aria-label="Explore Hercules routing"><span className="map-node-head"><img src={asset("lion.png")} width="44" height="50" alt=""/><span><strong>Hercules</strong><small>Host MCP server</small></span><CaretRight size={14} aria-hidden="true"/><i className="map-port map-hub-input" aria-hidden="true"/><i className="map-port map-hub-dispatch" aria-hidden="true"/></span><span className="map-node-copy">Routes calls and manages execution on your computer.</span></button>
           <div className="map-runtime-stage"><i className="map-port map-docker-return" aria-hidden="true"/><i className="map-port map-mount-port" aria-hidden="true"/>
             <div className="map-runtime-status" aria-hidden="true"><span>Current session</span><strong>{runtimeLabels[reduced || paused ? "ready" : runtimeState]}</strong></div>
             <div className="map-runtime-backplate" aria-hidden="true"/>
             <div className="map-runtime-unit" inert={replacing} data-stage={reduced || paused ? "ready" : runtimeState}>
-              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><i className="map-port map-docker-port" aria-hidden="true"/><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span><Info size={16} aria-hidden="true"/></button>
+              <button {...interaction("docker", "map-runtime-header")} aria-label="Explore Docker sandboxing"><i className="map-port map-docker-port" aria-hidden="true"/><img src={asset("brands/docker.svg")} width="45" height="37" alt=""/><span><strong>Kali in Docker</strong><small>Started on request · session-owned</small></span></button>
 
-              <div className="map-capabilities">{capabilities.map(({ key, title }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong><Info className="map-capability-info" size={13} aria-hidden="true"/></button>)}</div>
+              <div className="map-capabilities">{capabilities.map(({ key, title }) => <button key={key} {...interaction(key, `map-capability map-capability-${key}`)} aria-label={`Explore ${title}`}><span className="map-tool-symbol" aria-hidden="true"><svg viewBox="0 0 72 60">{illustrations[key]}</svg></span><strong>{title}</strong></button>)}</div>
               <p className="map-tool-preview" aria-live="polite">{capabilities.find(item => item.key === active)?.tools ?? "Select a capability to see its tools."}</p>
 
             </div>
           </div>
-          <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><i className="map-port map-filter-input" aria-hidden="true"/><i className="map-port map-filter-output" aria-hidden="true"/><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Output filtering</strong><Info size={14} aria-hidden="true"/></span><span className="map-filter-direction">Part of Hercules · on the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span><Check size={14} aria-hidden="true"/>Findings kept</span><span><Info size={14} aria-hidden="true"/>Important diagnostics kept</span></span></button>
-          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><span><strong>Managed workspaces</strong><small>Evidence stays on your host</small></span><Info size={14} aria-hidden="true"/></span><span className="map-workspace-pair"><span className="map-previous-workspace"><FolderOpen size={22} aria-hidden="true"/><span>Previous session<small>Retained · available to inspect</small></span></span><span className="map-current-workspace"><i className="map-port map-workspace-port" aria-hidden="true"/><FolderOpen size={22} aria-hidden="true"/><span>Current session<small>Active · mounted in this runtime</small></span></span></span><small>Each connection has its own active workspace; earlier sessions remain inspectable.</small></button>
+          <button {...interaction("filter", "map-filter")} aria-label="Explore token-saving output filters"><i className="map-port map-filter-input" aria-hidden="true"/><i className="map-port map-filter-output" aria-hidden="true"/><span className="map-feature-title"><FunnelSimple size={22} aria-hidden="true"/><strong>Output filtering</strong><CaretRight size={14} aria-hidden="true"/></span><span className="map-filter-direction">Part of Hercules · on the return path</span><span className="map-output-lines"><span className="map-noise">Progress · banners · routine noise</span><span><Check size={14} aria-hidden="true"/>Findings kept</span><span><Check size={14} aria-hidden="true"/>Important diagnostics kept</span></span></button>
+          <button {...interaction("workspaces", "map-workspaces")} aria-label="Explore managed workspaces"><span className="map-feature-title"><FolderOpen size={22} aria-hidden="true"/><span><span className="map-feature-name"><strong>Managed workspaces</strong><CaretRight size={14} aria-hidden="true"/></span><small>Evidence stays on your host</small></span></span><span className="map-workspace-pair"><span className="map-previous-workspace"><FolderOpen size={22} aria-hidden="true"/><span>Previous session<small>Retained · available to inspect</small></span></span><span className="map-current-workspace"><i className="map-port map-workspace-port" aria-hidden="true"/><FolderOpen size={22} aria-hidden="true"/><span>Current session<small>Active · mounted in this runtime</small></span></span></span><small>Each connection has its own active workspace; earlier sessions remain inspectable.</small></button>
         </div>
         </div>
 
