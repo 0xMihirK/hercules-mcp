@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 350" role="img" aria-labelledby="title desc">
+  <title id="title">Hercules setup phases</title>
+  <desc id="desc">Discover the current installation, install and register only the selected agent, optionally prepare the Kali runtime, then verify cold connection and optionally the runtime.</desc>
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#252a2e" opacity=".5"/></pattern>
+    <marker id="tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M1 1L9 5 1 9" fill="none" stroke="#ff6a2b" stroke-width="1.5"/></marker>
+  </defs>
+  <rect width="1200" height="350" fill="#0b0d11"/><rect width="1200" height="350" fill="url(#grid)"/>
+  <path d="M24 22H1176" stroke="#ff6a2b" stroke-width="3"/>
+  <text x="32" y="64" font-family="Arial,sans-serif" font-size="23" font-weight="700" fill="#f3f0e9">INSTALL / UPDATE</text>
+  <text x="1168" y="62" text-anchor="end" font-family="Consolas,monospace" font-size="15" fill="#ffb48a">ONE SELECTED CLIENT</text>
+  <g font-family="Arial,sans-serif">
+    <g transform="translate(32 105)"><rect width="260" height="162" fill="#15191e" stroke="#484d53"/><path d="M0 0H72" stroke="#ff6a2b" stroke-width="4"/><text x="18" y="35" fill="#ffb48a" font-size="15" font-weight="700">01 / DISCOVER</text><text x="18" y="75" fill="#f3f0e9" font-size="23" font-weight="700">Read current state</text><text x="18" y="111" fill="#b5b5b0" font-size="16">Revision · client · config</text><text x="18" y="139" fill="#b5b5b0" font-size="16">No mutation</text></g>
+    <g transform="translate(324 105)"><rect width="260" height="162" fill="#15191e" stroke="#484d53"/><path d="M0 0H72" stroke="#ff6a2b" stroke-width="4"/><text x="18" y="35" fill="#ffb48a" font-size="15" font-weight="700">02 / INSTALL</text><text x="18" y="75" fill="#f3f0e9" font-size="23" font-weight="700">Prepare host</text><text x="18" y="111" fill="#b5b5b0" font-size="16">Versioned environment</text><text x="18" y="139" fill="#b5b5b0" font-size="16">Register this agent</text></g>
+    <g transform="translate(616 105)"><rect width="260" height="162" fill="#15191e" stroke="#484d53"/><path d="M0 0H72" stroke="#ff6a2b" stroke-width="4"/><text x="18" y="35" fill="#ffb48a" font-size="15" font-weight="700">03 / OPTIONAL</text><text x="18" y="75" fill="#f3f0e9" font-size="23" font-weight="700">Prepare runtime</text><text x="18" y="111" fill="#b5b5b0" font-size="16">Reuse or fetch verified</text><text x="18" y="139" fill="#b5b5b0" font-size="16">Kali image and assets</text></g>
+    <g transform="translate(908 105)"><rect width="260" height="162" fill="#15191e" stroke="#ff6a2b"/><path d="M0 0H72" stroke="#ff6a2b" stroke-width="4"/><text x="18" y="35" fill="#ffb48a" font-size="15" font-weight="700">04 / VERIFY</text><text x="18" y="75" fill="#f3f0e9" font-size="23" font-weight="700">Prove each phase</text><text x="18" y="111" fill="#b5b5b0" font-size="16">Cold STDIO first</text><text x="18" y="139" fill="#b5b5b0" font-size="16">Container test by choice</text></g>
+  </g>
+  <path d="M295 186H318M587 186H610M879 186H902" stroke="#ff6a2b" stroke-width="2" marker-end="url(#tip)"/>
+  <text x="32" y="316" font-family="Consolas,monospace" font-size="17" fill="#ffb48a">A cold connection confirms registration; it does not verify the container.</text>
+</svg>
