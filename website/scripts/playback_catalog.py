@@ -29,6 +29,6 @@ def playback_catalog(manifest, recording_root, objectives):
         )},
         "assetDirectory": recording_root.name,
         "clients": {key: {"version": value["version"]} for key, value in manifest["clients"].items()},
-        "cases": {key: {"title": value["title"], "objective": objectives[key]["objective"]} for key, value in manifest["cases"].items()},
+        "cases": {key: {"title": value["title"], "objective": value.get("objective", objectives[key]["objective"])} for key, value in manifest["cases"].items()},
         "recordings": recordings,
     }

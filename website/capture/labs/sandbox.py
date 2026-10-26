@@ -14,18 +14,22 @@ import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-CAPABILITIES = "shell,session,workspace,dns,nmap,curl,ncat,whatweb,fuzz,nuclei,searchsploit,binwalk,steghide,browser"
+def source_root() -> Path:
+    return Path(os.environ.get("HERCULES_CAPTURE_SOURCE", ROOT)).resolve()
 
 
 def fresh_source(destination: Path) -> Path:
+    source = source_root()
+    if not (source / "Dockerfile").is_file() or not (source / "hercules/core/tool_catalog.py").is_file():
+        raise FileNotFoundError("Set HERCULES_CAPTURE_SOURCE to a Hercules source checkout with Dockerfile")
     destination.mkdir(parents=True, exist_ok=True)
     for directory in ("hercules", "docker"):
-        shutil.copytree(ROOT / directory, destination / directory,
+        shutil.copytree(source / directory, destination / directory,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
                         dirs_exist_ok=True)
     for name in ("Dockerfile", ".dockerignore", "pyproject.toml", "install.md"):
-        if (ROOT / name).is_file():
-            shutil.copyfile(ROOT / name, destination / name)
+        if (source / name).is_file():
+            shutil.copyfile(source / name, destination / name)
     assert not (destination / ".env").exists()
     return destination
 
@@ -34,7 +38,7 @@ def host_environment(source: Path, workspace: Path, network: str) -> dict[str, s
     inherited = {key: os.environ[key] for key in
                  ("PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA", "USERPROFILE", "PROCESSOR_ARCHITECTURE", "PROCESSOR_ARCHITEW6432", "COMSPEC")
                  if key in os.environ}
-    return {**inherited, "PYTHONUTF8": "1", "HERCULES_INSTALLED_CAPABILITIES": CAPABILITIES,
+    return {**inherited, "PYTHONUTF8": "1", "HERCULES_INSTALLED_CAPABILITIES": "all",
             "HERCULES_DISABLED_TOOLS": "", "HERCULES_IMAGE_PLATFORM": "linux/amd64", "SKIP_METASPLOIT": "true",
             "MSF_PASSWORD": "capture-local-unused", "USE_PRIVILEGED": "false",
             "HERCULES_WORKSPACE_ROOT": str(workspace.resolve()),

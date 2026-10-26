@@ -102,7 +102,7 @@ export default function App() {
             <span className="brand-beta-tag">BETA</span>
           </a>
           <nav aria-label="Main">
-            <a href="#agents">Live sessions</a>
+            <a href="#agents">Investigations</a>
             <a href="#architecture">How it works</a>
             <a href="#install">Setup</a>
           </nav>
@@ -143,8 +143,8 @@ export default function App() {
             </div>
           </div>
 
-          <div id="agents" className="hero-stage wrap" aria-label="Recorded native agent sessions">
-            {catalogError && <p role="alert">Recordings could not load. <button className="button secondary" onClick={() => { setCatalogError(false); setCatalogAttempt(value => value + 1); }}>Retry recordings</button></p>}
+          <div id="agents" className="hero-stage wrap" aria-label="Hercules investigation examples">
+            {catalogError && <p role="alert">Investigations could not load. <button className="button secondary" onClick={() => { setCatalogError(false); setCatalogAttempt(value => value + 1); }}>Retry</button></p>}
             <NativePlayer
               manifest={manifest}
               base={recordingBase}
@@ -178,7 +178,7 @@ export default function App() {
               Source <ArrowUpRight size={16} />
             </a>
             <a href={`${github}/blob/website/website/CAPTURE.md`}>
-              About the recordings <ArrowUpRight size={16} />
+              Methodology & evidence <ArrowUpRight size={16} />
             </a>
             <a href={`${github}/blob/main/LICENSE`}>
               License <ArrowUpRight size={16} />

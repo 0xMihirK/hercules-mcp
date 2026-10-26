@@ -60,6 +60,9 @@ class Lab(BaseHTTPRequestHandler):
             self.send(403, "Access denied. No credentials or administrative access supplied.")
         elif route == "/health":
             self.send(200, json.dumps({"status": "ok", "remediated": state["remediated"]}), content_type="application/json")
+        elif route == "/api/profile":
+            self.send(200 if "atlas-session=lab-reviewer" in self.headers.get("Cookie", "") else 401,
+                      json.dumps({"role": "reviewer", "source": "fixture"}) if "atlas-session=lab-reviewer" in self.headers.get("Cookie", "") else json.dumps({"error": "login required"}), content_type="application/json")
         elif route == "/dashboard":
             self.send(200 if "atlas-session=lab-reviewer" in self.headers.get("Cookie", "") else 401,
                       "<h1>Dashboard</h1><p>Signed in as the disposable lab reviewer.</p>" if "atlas-session=lab-reviewer" in self.headers.get("Cookie", "") else "Sign in first")
@@ -67,6 +70,8 @@ class Lab(BaseHTTPRequestHandler):
             self.send(200, "<h1>Draft room</h1><p>Look at robots.txt and the browser state before guessing routes.</p><a href='/ctf/bootstrap'>Prepare a draft session</a>")
         elif route == "/ctf/bootstrap":
             self.send(200, "<h1>Draft session ready</h1><p>The draft API expects its route token as a request header, not a query parameter.</p><code>X-Draft-Route: atlas-7</code>", {"Set-Cookie": "ctf-session=atlas-reader; HttpOnly; SameSite=Lax; Path=/"})
+        elif route == "/ctf/decoy":
+            self.send(200, json.dumps({"flag": "HERCULES{unverified_decoy}", "sha256": hashlib.sha256(FLAG.encode()).hexdigest()}), content_type="application/json")
         elif route == "/api/draft":
             cookie = self.headers.get("Cookie", "")
             header = self.headers.get("X-Draft-Route", "")

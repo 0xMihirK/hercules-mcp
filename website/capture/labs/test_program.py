@@ -1,9 +1,23 @@
 """Regression tests for capture validation boundaries, not fabricated demos."""
 import unittest
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from .program import Program, payload
 
 
 class CaptureValidationTests(unittest.TestCase):
+    def test_binary_and_advisory_inputs_are_local_evidence(self):
+        from .inputs import create_inputs
+        with TemporaryDirectory() as directory,patch("website.capture.labs.inputs.subprocess.check_output",return_value=b"fixture ciphertext"):
+            create_inputs(Path(directory))
+            binary=(Path(directory)/"challenge/module.o").read_bytes()
+            advisory=json.loads((Path(directory)/"challenge/advisory.json").read_text())
+            self.assertEqual(binary[:7],b"\x7fELF\x02\x01\x01")
+            self.assertEqual(len(binary[:64]),64)
+            self.assertEqual(advisory["conclusion"],"product mismatch; no CVE established")
+
     def test_unexpected_evidence_does_not_advance(self):
         program = Program("network")
         program.next()
@@ -41,7 +55,7 @@ class CaptureValidationTests(unittest.TestCase):
             with self.subTest(name=name):
                 count = len(Program(name).steps)
                 self.assertGreaterEqual(count,8)
-                self.assertLessEqual(count,16)
+                self.assertLessEqual(count,20)
 
     def test_codex_title_request_cannot_consume_pending_result(self):
         from .provider import LabProvider

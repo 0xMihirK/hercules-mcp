@@ -1,6 +1,7 @@
 """Record unmodified native CLIs in an account-free, offline Docker PTY."""
 import argparse
 import codecs
+import hashlib
 import fcntl
 import json
 import os
@@ -341,7 +342,7 @@ def main():
             if report_calls:
                 chapters["reportWriting"] = report_calls[-1]["requestedAt"]
     target.write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in [header, *events]) + "\n", encoding="utf-8")
-    status = {"client": args.client, "version": VERSIONS[args.client], "scenario": args.scenario, "cols": args.cols, "rows": args.rows, "events": len(events), "duration": duration, "modelRequests": len(ModelFixture.requests), "mcpCalls": calls, "completed": finished_at is not None, "chapters": chapters, "command": command, "accountAccess": False, "externalNetwork": False}
+    status = {"client": args.client, "version": VERSIONS[args.client], "scenario": args.scenario, "caseSha256": hashlib.sha256(Path("/capture/labs/cases.py").read_bytes()).hexdigest(), "cols": args.cols, "rows": args.rows, "events": len(events), "duration": duration, "modelRequests": len(ModelFixture.requests), "mcpCalls": calls, "completed": finished_at is not None, "chapters": chapters, "command": command, "accountAccess": False, "externalNetwork": False}
     Path("/out", name + ".json").write_text(json.dumps(status, indent=2))
     Path("/out", name + ".txt").write_text(plain)
     Path("/out", name + "-screen.txt").write_text("\n".join(diagnostic_rows()))

@@ -540,8 +540,8 @@ svg {
 }
 .player-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.38fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 264px;
+  gap: 16px;
   align-items: stretch;
 }
 .native-stage {
@@ -740,13 +740,15 @@ svg {
   .site-header nav {
     gap: 18px;
   }
-  .player-layout {
-    grid-template-columns: minmax(0, 1.9fr) minmax(275px, 1fr);
-    gap: 16px;
-  }
+}
+
+@media (max-width: 1250px) {
+  .player-layout { grid-template-columns: minmax(0, 1fr); }
+  .scenario-options { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
+  .scenario-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .site-header {
     position: relative;
     backdrop-filter: none;
@@ -782,6 +784,11 @@ svg {
   }
   .hero-lede {
     font-size: 16px;
+  }
+  .hero-side {
+    background: rgba(7, 8, 10, 0.82);
+    border-left: 2px solid var(--ember);
+    padding: 16px;
   }
   .stat-band {
     padding-block: 28px;

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import importlib.util
 from pathlib import Path
+import shutil
 import time
 
 from .cases import CASES
@@ -39,6 +40,7 @@ def main():
     if Path(args.index).name != args.index or not args.index.endswith("matrix.json"):
         parser.error("The index must be a plain filename ending in matrix.json")
     matrix = [(c,s,cols,rows) for c in args.clients for s in args.cases for cols,rows in geometries(c) if cols in args.geometries]
+    RESULTS.mkdir(parents=True, exist_ok=True)
     index = RESULTS / args.index
     records = json.loads(index.read_text(encoding="utf-8")) if index.exists() else []
     from .publish import approved
@@ -81,11 +83,18 @@ def main():
     halted=threading.Event()
     failure_lock=threading.Lock()
     failure_streak=0
+    stop_reason="Three consecutive capture failures"
     def worker(slot, work):
-        nonlocal failure_streak
+        nonlocal failure_streak,stop_reason
         for item in work:
             if halted.is_set() or index.with_suffix(".stop").exists():
-                print(json.dumps({"stopped":str(index),"reason":"Three consecutive capture failures" if halted.is_set() else "Requested stop after transaction cleanup"}),flush=True)
+                print(json.dumps({"stopped":str(index),"reason":stop_reason if halted.is_set() else "Requested stop after transaction cleanup"}),flush=True)
+                return
+            # Docker writable layers can grow before in-flight captures finish cleanup.
+            if shutil.disk_usage(RESULTS).free < (8 + args.workers) * 1024**3:
+                stop_reason=f"Free disk below {8 + args.workers} GiB; capture paused to preserve the 8 GiB reserve"
+                halted.set()
+                print(json.dumps({"stopped":str(index),"reason":stop_reason}),flush=True)
                 return
             try:
                 result = capture(item, args.subnet_base - 80 + slot)

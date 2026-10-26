@@ -8,7 +8,7 @@ The harness runs pinned native clients inside XTerm 379 under Xvfb. It records l
 
 ## Reproduce
 
-Use the repository Python environment and working Docker. Build all three capture dependencies before recording:
+Use the repository Python environment and working Docker. On the standalone `website` branch, set `HERCULES_CAPTURE_SOURCE` to the matching Hercules source checkout; the harness copies only source/build inputs and never personal configuration. The full runtime image must match that checkout's fingerprint. Build the capture dependencies before recording:
 
 ```sh
 docker build -t hercules-showcase-capture:20261008-pixels -f website/capture/Dockerfile website/capture
@@ -17,7 +17,9 @@ python -m website.capture.labs.sandbox --build
 python -m website.capture.labs.batch --cases network --workers 1 --index pixel-fidelity-pilot-matrix.json --subnet-base 95
 ```
 
-Review the twelve pilots before expanding to all ten cases:
+`sandbox --build` builds the full Kali runtime. A matching digest-pinned published image may be reused instead: pull it from the source checkout's `hercules/core/prebuilt_images.json`, verify its fingerprint and platform labels, and tag that immutable image ID with the candidate's `image_identity` tag. Do not use an unverified `latest` tag or change an installed client's registration.
+
+Review the ten scenario pilots before expanding to the full matrix:
 
 ```sh
 python -m website.capture.labs.publish --development --current-only
@@ -34,9 +36,11 @@ python -m website.capture.labs.batch --workers 1 --index pixel-native-matrix.jso
 python -m website.capture.labs.publish
 ```
 
-The public publisher requires 120 complete, current-harness captures, real tool validation, report artifacts, and transaction-owned cleanup. It archives existing public assets recoverably and copies the manifest last. Development bundles remain separate. Failed or unsupported clients are never replaced by authored terminal UI.
+The public publisher requires 120 complete, current-harness captures, real tool validation, report artifacts, transaction-owned cleanup, and one consistent MCP surface observed in every session. It archives existing public assets recoverably and copies the manifest last. Development bundles remain separate. Failed or unsupported clients are never replaced by authored terminal UI.
 
-`repack.py` can regenerate delta atlases and posters from retained native masters without modifying ANSI bytes. It preserves prior bundles and restores them if packing fails. Every profile retains original capture hashes and identifies the postprocessor separately.
+After editing investigation programs, capture all 120 combinations again. Each accepted session records the exact `labs/cases.py` SHA-256; the publisher rejects old sessions even if their tool sequence still happens to match. Keep the existing public bundle active until the full replacement and site-size checks pass.
+
+`repack.py` can regenerate delta atlases and posters from retained native masters without modifying ANSI bytes. It preserves prior bundles and restores them if packing fails. Every profile retains capture hashes and identifies the postprocessor separately. After live capture, the harness losslessly compacts the master inside the container and requires every decoded frame hash and timestamp to match before retaining it; the live capture and raw ANSI are unchanged.
 
 Run capture regressions with `python -m unittest website.capture.test_pixels website.capture.test_readiness website.capture.test_clock_guard website.capture.labs.test_program website.capture.labs.test_publish website.capture.labs.test_batch`. Run website checks with `npm test`, `npx tsc --noEmit`, and `npm run build` after a validated matrix is staged.
 

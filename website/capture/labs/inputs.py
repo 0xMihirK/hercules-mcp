@@ -49,6 +49,10 @@ def create_inputs(destination: Path):
         packet = ethernet + ip + udp + payload
         pcap += struct.pack("<IIII", 1791350000 + index, 0, len(packet), len(packet)) + packet
     (challenge / "route.pcap").write_bytes(pcap)
+    elf = b"\x7fELF\x02\x01\x01" + b"\x00" * 9
+    elf += struct.pack("<HHIQQQIHHHHHH", 1, 62, 1, 0, 0, 0, 0, 64, 56, 0, 64, 0, 0)
+    (challenge / "module.o").write_bytes(elf + b"\x00ATLAS-LAB-MODULE-1.0\x00")
+    (challenge / "advisory.json").write_text(json.dumps({"product": "AtlasLab", "observed_version": "1.0", "candidate_product": "Unrelated HTTP server", "candidate_range": "1.0-1.4", "conclusion": "product mismatch; no CVE established"}, indent=2), encoding="utf-8")
     (destination / "scope.md").write_text("# Capture lab scope\n\nOnly the lab fixture on the internal Docker network is authorized. No public targets. Synthetic inputs; real tools.\n\nStart Hercules explicitly, verify evidence, write a report, and stop your owned runtime.\n", encoding="utf-8")
     (destination / "paths.txt").write_text("robots.txt\ndebug\nadmin\nbackup\nhealth\nctf\napi/draft\n", encoding="utf-8")
     # Files for paging and reconciliation are authored inputs, not tool results.

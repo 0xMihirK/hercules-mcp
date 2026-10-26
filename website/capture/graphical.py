@@ -115,18 +115,30 @@ def main():
         exit_status = json.loads((OUT / "terminal-exit.json").read_text())
         if exit_status.get("code") != 0:
             raise RuntimeError(f"Native recorder failed: {exit_status}")
+        compact = master.with_name(master.stem + "-compact.mkv")
+        try:
+            subprocess.run(["ffmpeg", "-nostdin", "-y", "-loglevel", "error", "-i", str(master), "-map", "0:v:0",
+                "-copyts", "-fps_mode", "passthrough", "-c:v", "libx264rgb", "-crf", "0", "-preset", "slow",
+                "-threads", "2", "-pix_fmt", "rgb24", str(compact)], check=True)
+            def frames(path):
+                return subprocess.check_output(["ffmpeg", "-v", "error", "-i", str(path), "-an", "-f", "framemd5", "-"])
+            if frames(master) != frames(compact):
+                raise ValueError("Lossless master compaction changed native frames or timestamps")
+            os.replace(compact, master)
+        finally:
+            compact.unlink(missing_ok=True)
         font_path = Path("/usr/local/share/fonts/capture/CascadiaMono.ttf")
         profile = {**PROFILES["clients"][client], "font":font, "terminal":palette,
             "emulatorVersion":command("xterm", "-version"), "ffmpegVersion":command("ffmpeg", "-version").splitlines()[0],
             "xvfbPackage":command("dpkg-query", "-W", "-f=${Version}", "xvfb"),
             "measuredCellWidth":width/cols, "measuredCellHeight":height/rows,
             "pixelWidth":width, "pixelHeight":height, "fontSha256":__import__("hashlib").sha256(font_path.read_bytes()).hexdigest(),
-            "masterEncoding":"libx264rgb CRF 0; lossless RGB, no chroma subsampling",
+            "masterEncoding":"libx264rgb CRF 0 slow; lossless RGB, original frame timestamps verified",
             "captureImageId":os.environ["CAPTURE_IMAGE_ID"],
             "graphicalReadiness":{"encodedFramesBeforeRelease":first_frames,"method":"FFmpeg first-frame handshake"},
             "harnessSha256":HARNESS_HASHES,
             "capabilityResponses":"Forwarded unchanged from actual XTerm; retained as input events in raw cast"}
-        # Retain the untouched master even when packing/validation fails.
+        # Retain the verified lossless master even when packing fails.
         (OUT / "capture-profile.json").write_text(json.dumps(profile,indent=2)+"\n")
         __import__("shutil").copyfile(master, OUT / master.name)
         pack(master, OUT / (name+".cast"), profile)

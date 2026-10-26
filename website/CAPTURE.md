@@ -1,5 +1,9 @@
 # Native pixel recording provenance
 
+## Investigation refresh in progress
+
+The source case programs now cover ten deeper local investigations, including version applicability, protocol controls, binary triage, credential controls, decoy rejection, recovery, and remediation. They are **not** represented by the currently published 120-session bundle. That bundle remains the prior validated capture until every replacement combination is recaptured, verified, and published together. The case-script fingerprint prevents a prior capture from being approved as a refreshed one. Model decisions remain scripted; Hercules results are observed from disposable local fixtures.
+
 The player displays pixels captured from real agents inside XTerm and Xvfb in Docker. Canvas2D composes lossless PNG deltas from their original presentation timestamps. The website plays that timeline at 2.5×; raw downloads and capture timing remain at 1×. It does not redraw terminal glyphs, logos, menus, or progress indicators. Untouched ANSI bytes remain directly downloadable; lossless ZIP downloads contain unchanged timestamped PTY recordings with separate archive and original-payload hashes.
 
 | Client | Pinned release | Native renderer | Terminal geometries |

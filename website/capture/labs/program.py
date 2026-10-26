@@ -51,7 +51,7 @@ class Program:
         operations = json.loads(json.dumps([START, SCOPE, *self.case["steps"]]).replace(HOST, address))
         self.steps = operations + [
             step("workspace_write_file", {"path": f"reports/{scenario}.md", "content": "$report"},
-                 "success|bytes_written", "All investigation checks have passed. I will write a report that links the observed evidence and states the limits of this scripted local investigation.", dynamic="report"),
+                 "success|bytes_written", "All investigation checks have passed. I will write a report that links the observed evidence and states this local investigation's limits.", dynamic="report"),
             shell(self.render_command(), "evidence_files", "I will render the verified Markdown as readable HTML and index the real workspace artifacts with SHA-256 hashes."),
             step("workspace_read_file", {"path": f"reports/{scenario}.md"}, "Verified observations",
                  "I will reread the saved report before declaring completion. A completed inline response and a complete evidence collection are separate properties."),
@@ -73,7 +73,7 @@ class Program:
             "print(json.dumps({'report':str(report),'evidence_files':len(items),'verified':True}))", "PY"])
 
     def report(self):
-        lines = ["# " + self.case["title"], "", "Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.",
+        lines = ["# " + self.case["title"], "", "Hercules tool results from a disposable local lab.",
                  "", "## Verified observations", ""]
         for number, record in enumerate(self.verified, 1):
             operation = record["step"]

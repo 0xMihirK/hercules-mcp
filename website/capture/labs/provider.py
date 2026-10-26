@@ -89,7 +89,7 @@ class LabProvider(ScriptedProtocol):
             if "TaskCreate" in names:
                 if completed or updating:
                     return [("TaskUpdate", {"taskId": t["id"], "status": t["status"]}) for t in todos]
-                return [("TaskCreate", {"subject": t["content"], "description": t["content"] + ". Real Hercules tools; scripted model decisions.", "activeForm": t["content"]}) for t in todos] + [("TaskUpdate", {"taskId": "1", "status": "in_progress"})]
+                return [("TaskCreate", {"subject": t["content"], "description": t["content"] + ". Keep the Hercules results and workspace evidence.", "activeForm": t["content"]}) for t in todos] + [("TaskUpdate", {"taskId": "1", "status": "in_progress"})]
             for name in ("todowrite", "TodoWrite", "todo_list"):
                 if name in names:
                     return [(name, {"todos": [{k:v for k,v in t.items() if k != "priority"} for t in todos], "merge": completed or updating} if name == "todo_list" else {"todos": todos})]
@@ -160,7 +160,7 @@ class LabProvider(ScriptedProtocol):
                     name, arguments = cls.native_queue.pop(0)
                     return "The saved report was reread and the owned runtime was stopped. I will mark the verified plan complete.", invoke(name, arguments, True)
             cls.final_sent = True
-            return f"Verified report: reports/{cls.scenario}.md\nHTML report: reports/{cls.scenario}.html\nEvidence index: reports/evidence-index.json\n\n{cls.program.index} real Hercules calls passed their evidence checks. The owned runtime is stopped. Model decisions are scripted; no public target was contacted.", None
+            return f"Verified report: reports/{cls.scenario}.md\nHTML report: reports/{cls.scenario}.html\nEvidence index: reports/evidence-index.json\n\n{cls.program.index} Hercules calls passed their evidence checks. The owned runtime is stopped. Only the disposable local lab was contacted.", None
         except (ValueError, RuntimeError) as error:
             cls.failed = str(error)
             Path("/out/provider-failure.json").write_text(json.dumps({"client": cls.client, "scenario": cls.scenario, "error": cls.failed}, indent=2))

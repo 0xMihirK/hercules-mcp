@@ -16,6 +16,7 @@ import ScenarioPicker from "./ScenarioPicker";
 type Recording=NativeManifest["recordings"][number];
 type Runtime={renderer:PixelRenderer|null;canvas:HTMLCanvasElement;clock:PlaybackClock;end:number;maximum:number;minimum:number;seek:number|null;record:Recording};
 const key=(r:NativeRecording)=>r.client+"/"+r.scenario+"/"+r.columns;
+const formatTime=(seconds:number)=>`${Math.floor(seconds/60)}:${String(Math.floor(seconds%60)).padStart(2,"0")}`;
 export default function NativePlayer({manifest,base,reduced,paused}:{manifest:NativeManifest|null;base:string;reduced:boolean;paused:boolean}){
   const [client,setClient]=useState<Client>("claude"),[scenario,setScenario]=useState(""),[columns,setColumns]=useState<number|null>(null),[replay,setReplay]=useState(0);
   const [explicitPause,setExplicitPause]=useState(false),[allowMotion,setAllowMotion]=useState(false),[expanded,setExpanded]=useState(false);
@@ -104,12 +105,12 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       const bitmap=await createImageBitmap(new Blob([bytes],{type:"image/png"}),{colorSpaceConversion:"none"});
       if(!valid()){bitmap.close();return;}
       canvas=document.createElement("canvas");canvas.className="native-canvas";canvas.width=source.width;canvas.height=source.height;
-      canvas.setAttribute("role","img");canvas.setAttribute("aria-label","Actual captured "+record.client+" terminal");
+      canvas.setAttribute("role","img");canvas.setAttribute("aria-label",record.client+" terminal playback");
       try{const context=canvas.getContext("2d",{alpha:false});if(!context)throw Error("Canvas2D unavailable");context.drawImage(bitmap,0,0);}finally{bitmap.close();}
     }
     async function initialize(){
       try{
-        if(!manifest!.realTools || manifest!.scriptedToolResults)throw Error("A validated native recording is unavailable.");
+        if(!manifest!.realTools || manifest!.scriptedToolResults)throw Error("This investigation is unavailable.");
         const staticView=reduced && !allowMotion;
         const opening=target===minimum;
         if(staticView && record.completedStill && record.completedStillSha256){
@@ -127,7 +128,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
         if(index.schemaVersion!==3 || index.width!==source.width || index.height!==source.height || index.fps!==60)throw Error("Invalid capture profile");
         if(!valid())return;
         renderer=new PixelRenderer(index,new URL(".",new URL(base+source.index,location.href)).href,abort.signal);
-        if(!canvas){canvas=document.createElement("canvas");canvas.className="native-canvas";canvas.setAttribute("role","img");canvas.setAttribute("aria-label","Actual captured "+record.client+" terminal");}
+        if(!canvas){canvas=document.createElement("canvas");canvas.className="native-canvas";canvas.setAttribute("role","img");canvas.setAttribute("aria-label",record.client+" terminal playback");}
         await renderer.paint(target,canvas);if(!valid())return;
         if(!opening || !retained.current || retained.current!==canvas)commit();
         if(runtime.current?.canvas===canvas)runtime.current.renderer=renderer;
@@ -164,7 +165,7 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
       }
       if(!valid())return;
       clock.suspend();setLoading(false);setBuffering(false);if(!retained.current)setFallback(true);
-      setError(cause instanceof Error && cause.message.includes("integrity")?cause.message:"This recording could not load. Select Replay to try again.");
+      setError(cause instanceof Error && cause.message.includes("integrity")?cause.message:"This investigation could not load. Try replaying it.");
     }
     initialize();
     return()=>{abort.abort();cancelAnimationFrame(frame);renderer?.dispose();transition?.cancel();for(const child of host.current?.children || [])if(child!==retained.current)child.remove();document.removeEventListener("visibilitychange",suspend);};
@@ -184,28 +185,28 @@ export default function NativePlayer({manifest,base,reduced,paused}:{manifest:Na
     </div>
     <div className="player-layout">
       <div className="player-recording">
-      <div ref={stage} data-playing={isPlaying} className={"native-stage"+(expanded?" is-expanded":"")} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={expanded?clients.find(c=>c.id===shownClient)?.name+" recording":undefined} onKeyDown={e=>{
+      <div ref={stage} data-playing={isPlaying} className={"native-stage"+(expanded?" is-expanded":"")} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={expanded?clients.find(c=>c.id===shownClient)?.name+" investigation":undefined} onKeyDown={e=>{
         if(expanded && e.key==="Escape")setExpanded(false);
         if(expanded && e.key==="Tab"){const targets=stage.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input,a[href],[tabindex="0"]');if(targets?.length){const first=targets[0],last=targets[targets.length-1];if(e.shiftKey && document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey && document.activeElement===last){e.preventDefault();first.focus();}}}
       }}>
-        <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native recording"}</span><p>{currentCase?.objective || "Preparing a local investigation…"}</p></div>
-        <p id="native-session-help" className="sr-only">Scroll up to review earlier captured screens, or drag the recording timeline to seek anywhere. Play resumes from that point. On touch screens, pause before swiping the screen.</p>
-        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" recorded terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={presentationPixels?{aspectRatio:presentationPixels.width+"/"+presentationPixels.height}:undefined} onKeyDown={e=>{
+        <div className="player-prompt"><span>{clients.find(c=>c.id===shownClient)?.name || "Native agent"}</span><p>{currentCase?.objective || "Preparing a local investigation…"}</p></div>
+        <p id="native-session-help" className="sr-only">Scroll up to review earlier screens, or drag the timeline to seek anywhere. Play resumes from that point. On touch screens, pause before swiping the screen.</p>
+        <div ref={viewport} id="native-session" role="tabpanel" aria-label={clients.find(c=>c.id===shownClient)?.name+" terminal history"} aria-busy={buffering || loading} tabIndex={0} aria-describedby="native-session-help" className={"native-viewport"+(explicitPause?" is-reviewing":"")} style={presentationPixels?{aspectRatio:presentationPixels.width+"/"+presentationPixels.height}:undefined} onKeyDown={e=>{
           const r=runtime.current;if(!r)return;
           const steps:Record<string,number>={ArrowUp:-2,ArrowDown:2,PageUp:-12,PageDown:12};
           if(e.key in steps){e.preventDefault();seek((r.seek ?? r.clock.time)+steps[e.key]);}
           if(e.key==="Home" || e.key==="End"){e.preventDefault();seek(e.key==="Home"?r.minimum:r.end);}
         }}><div ref={host} className="native-host"/>
-          {fallback && !retained.current && requested && <CapturedPoster base={base} opening={requested.still && requested.stillSha256?{file:requested.still,sha256:requested.stillSha256}:undefined} completed={requested.completedStill && requested.completedStillSha256?{file:requested.completedStill,sha256:requested.completedStillSha256}:undefined} preferCompleted={true} label={"Captured native "+requested.client+" interface"} onReady={file=>{if(file!==requested.completedStill && file!==requested.still)return;setCommitted(requested);const at=file===requested.completedStill?requested.completedStillAt ?? requested.duration:requested.displayStart || 0;setTime(at);setReady(true);}}/>}
-          {!retained.current && !fallback && <div className="recording-loading" role="status">Loading the captured interface…</div>}
+          {fallback && !retained.current && requested && <CapturedPoster base={base} opening={requested.still && requested.stillSha256?{file:requested.still,sha256:requested.stillSha256}:undefined} completed={requested.completedStill && requested.completedStillSha256?{file:requested.completedStill,sha256:requested.completedStillSha256}:undefined} preferCompleted={true} label={requested.client+" interface"} onReady={file=>{if(file!==requested.completedStill && file!==requested.still)return;setCommitted(requested);const at=file===requested.completedStill?requested.completedStillAt ?? requested.duration:requested.displayStart || 0;setTime(at);setReady(true);}}/>}
+          {!retained.current && !fallback && <div className="recording-loading" role="status">Loading the agent interface…</div>}
         </div>
-        <div className="recording-history"><span>Recording timeline</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,end)} disabled={end<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(end,time))} aria-label="Recording timeline" aria-valuetext={Math.round(time)+" seconds into the recording"} onChange={e=>seek(Number(e.target.value))}/></div>
-        <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play recording":"Pause recording"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged recording":"Enlarge recording"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">Recorded · {PLAYBACK_RATE}×</span></span><span className="history-hint">Drag timeline to seek</span></div>
-        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/website/website/CAPTURE.md">About these recordings</a>}</p>}
-        <progress aria-label="Recording progress" value={Math.max(0,time-minimum)} max={Math.max(.001,end-minimum)}/>
+        <div className="recording-history"><span>Investigation timeline</span><input className="history-scroll" type="range" min={minimum} max={Math.max(minimum+.001,end)} disabled={end<=minimum || !runtime.current?.renderer} step={1/60} value={Math.max(minimum,Math.min(end,time))} aria-label="Investigation timeline" aria-valuetext={Math.round(time)+" seconds into the investigation"} onChange={e=>seek(Number(e.target.value))}/></div>
+        <div className="player-controls"><div><button disabled={paused || !ready} aria-label={stopped?"Play investigation":"Pause investigation"} onClick={togglePause}>{stopped?<Play size={21}/>:<Pause size={21}/>}</button><button aria-label="Replay this case" onClick={replayCase}><ArrowCounterClockwise size={21}/></button><button ref={openButton} aria-label={expanded?"Close enlarged investigation":"Enlarge investigation"} onClick={()=>setExpanded(v=>!v)}>{expanded?<ArrowsInSimple size={21}/>:<ArrowsOutSimple size={21}/>}</button></div><span>{currentCase?.title || "Local investigation"}<span className="playback-speed">{formatTime(time)} / {formatTime(end)} · {PLAYBACK_RATE}×</span></span><span className="history-hint">Drag timeline to seek</span></div>
+        {(loading || buffering || error) && <p className="player-status" role={error?"alert":"status"}>{error || (loading?"Switching to "+clients.find(c=>c.id===client)?.name+"…":"Loading the next frames…")}{error && <a href="https://github.com/0xMihirK/hercules-mcp/blob/website/website/CAPTURE.md">Methodology & evidence</a>}</p>}
+        <progress aria-label="Investigation progress" value={Math.max(0,time-minimum)} max={Math.max(.001,end-minimum)}/>
       </div>
       </div>
-      <ScenarioPicker cases={manifest?.cases || {}} activeScenario={activeScenario} onSelect={switchScenario}/>
+      <ScenarioPicker cases={manifest?.cases || {}} activeScenario={scenario} onSelect={switchScenario}/>
     </div>
   </div>;
 }

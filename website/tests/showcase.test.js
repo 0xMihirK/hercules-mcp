@@ -158,10 +158,10 @@ test("the right-hand picker exposes each scenario once and selects the requested
   assert.equal(selected,"website");
   assert.doesNotMatch(markup,/Preparing the workspace|story-observations|View report/);
 });
-test("the scenario picker handles recordings that have not loaded",()=>{
+test("the scenario picker handles investigations that have not loaded",()=>{
   const markup=renderToStaticMarkup(createElement(ScenarioPicker,{cases:{},activeScenario:"",onSelect:()=>{}}));
   assert.match(markup,/role="status"/);
-  assert.match(markup,/Scenarios will appear when recordings are ready/);
+  assert.match(markup,/Investigations will appear when ready/);
   assert.doesNotMatch(markup,/<button /);
 });
 test("the old selector row, workflow panel and session-note banner stay removed",async()=>{
@@ -175,11 +175,22 @@ test("the old selector row, workflow panel and session-note banner stay removed"
   assert.doesNotMatch(app,/session-note|Explore the architecture|Tools execute in disposable local Docker labs/);
   assert.doesNotMatch(styles,/\.session-note|\.scenario-tabs|\.scenario-pills|\.session-story|\.story-/);
 });
+test("investigation selection is immediate and controls describe playback clearly",async()=>{
+  const player=await readFile(new URL("../src/components/NativePlayer.tsx",import.meta.url),"utf8");
+  const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");
+  const styles=await readFile(new URL("../src/styles.css",import.meta.url),"utf8");
+  assert.match(player,/activeScenario=\{scenario\}/);
+  assert.match(player,/formatTime\(time\).*formatTime\(end\)/);
+  assert.match(player,/aria-label=\{stopped\?"Play investigation":"Pause investigation"\}/);
+  assert.match(app,/href="#agents">Investigations/);
+  assert.doesNotMatch(app,/Live sessions|About the recordings/);
+  assert.match(styles,/max-width: 1250px/);
+});
 test("the scrubber and progress bar share the full recording timeline",async()=>{
   const player=await readFile(new URL("../src/components/NativePlayer.tsx",import.meta.url),"utf8");
   assert.match(player,/r\.seek=Math\.max\(r\.minimum,Math\.min\(r\.end,next\)\)/);
   assert.match(player,/className="history-scroll"[^>]+max=\{Math\.max\(minimum\+\.001,end\)\}/);
-  assert.match(player,/aria-label="Recording progress" value=\{Math\.max\(0,time-minimum\)\} max=\{Math\.max\(\.001,end-minimum\)\}/);
+  assert.match(player,/aria-label="Investigation progress" value=\{Math\.max\(0,time-minimum\)\} max=\{Math\.max\(\.001,end-minimum\)\}/);
 });
 test("the support link finishes the footer and names its destination",async()=>{
   const app=await readFile(new URL("../src/App.tsx",import.meta.url),"utf8");

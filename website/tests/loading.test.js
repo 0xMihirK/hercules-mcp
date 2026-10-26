@@ -78,6 +78,12 @@ test("compact catalog preserves every session, timing and verified poster withou
   assert.ok(player.indexOf("await nearViewport") < player.indexOf("verifiedFetch(base+source.index"));
 });
 
+test("a replacement manifest supplies its own objective while old captures retain their copy", () => {
+  const code = "from pathlib import Path;import sys;sys.path.insert(0,'scripts');from playback_catalog import playback_catalog;m={'schemaVersion':3,'playbackSpeed':2.5,'realTools':True,'scriptedToolResults':False,'clients':{'claude':{'version':'fixture'}},'cases':{'network':{'title':'New','objective':'New objective'}},'recordings':[]};old={'network':{'objective':'Old objective'}};print(playback_catalog(m,Path('.'),old)['cases']['network']['objective']);del m['cases']['network']['objective'];print(playback_catalog(m,Path('.'),old)['cases']['network']['objective'])";
+  const result=execFileSync("python",["-c",code],{cwd:new URL("../",import.meta.url),encoding:"utf8"});
+  assert.deepEqual(result.trim().split(/\r?\n/),["New objective","Old objective"]);
+});
+
 test("offscreen playback waits, releases observers, and cancels before downloading frames", async t => {
   const previous = globalThis.IntersectionObserver;
   let callback, disconnected = 0, observed;

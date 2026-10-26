@@ -5,12 +5,35 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from PIL import Image
 
-from .publish import call_phase, capture_interval, investigation_transcript, recorder_fingerprint_matches, report_preview, stage_artifact, validate_browser_artifacts
+from .publish import approved, call_phase, capture_interval, capture_surface, investigation_transcript, recorder_fingerprint_matches, report_preview, stage_artifact, validate_browser_artifacts
 from .cases import CASES
 from .program import Program
 
 
 class FindingPhaseTests(unittest.TestCase):
+    def test_publisher_requires_the_same_observed_surface_in_every_capture(self):
+        with TemporaryDirectory() as directory:
+            root=Path(directory)
+            paths=[root/name/"recordings"/"capture.cast" for name in ("first","second")]
+            for path in paths:
+                path.parent.mkdir(parents=True)
+                (path.parent.parent/"surface.json").write_text('{"tools": []}')
+            items=[(None,(None,None,None,None,path)) for path in paths]
+            self.assertEqual(capture_surface(items),root/"first/surface.json")
+            (root/"second/surface.json").write_text('{"tools": ["different"]}')
+            with self.assertRaisesRegex(ValueError,"inconsistent MCP surfaces"):
+                capture_surface(items)
+
+    def test_prior_capture_without_current_case_fingerprint_is_rejected(self):
+        with TemporaryDirectory() as directory:
+            root=Path(directory);source=root/"recordings";source.mkdir()
+            (source/"claude-network-120.json").write_text('{"caseSha256":"old-script"}')
+            (source/"claude-network-validation.json").write_text('{}')
+            (source/"claude-network-120.cast").write_text('{}\n')
+            (root/"transaction.json").write_text('{}')
+            with self.assertRaisesRegex(ValueError,"investigation script changed"):
+                approved(root,"claude","network",120,28)
+
     def test_completion_keeps_investigation_results_separate_from_housekeeping(self):
         for scenario,case in CASES.items():
             with self.subTest(scenario=scenario):

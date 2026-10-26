@@ -18,6 +18,7 @@ from .batch import CLIENTS, geometries, VERSIONS, PROFILES
 from .cases import CASES, catalog
 from .program import Program, payload
 from .run import CAPTURE, IMAGE, RESULTS, ROOT
+from .sandbox import source_root
 
 
 def result_excerpt(data):
@@ -28,6 +29,13 @@ def result_excerpt(data):
     if not values:
         values={key:value for key,value in data.items() if key not in ("command","tool","workspace")}
     return json.dumps(values,ensure_ascii=False,indent=2)[:550]
+
+
+def capture_surface(approved_items):
+    paths=[item[-1].parent.parent/"surface.json" for _,item in approved_items]
+    if not paths or len({sha(path) for path in paths})!=1:
+        raise ValueError("Validated captures have missing or inconsistent MCP surfaces")
+    return paths[0]
 
 
 def call_phase(scenario,position):
@@ -186,6 +194,8 @@ def approved(directory, client, scenario, cols, rows, require_current=True):
     with recording.open(encoding="utf-8", newline="") as stream:
         header = json.loads(stream.readline())
     expected = Program(scenario).steps
+    if status.get("caseSha256") != sha(CAPTURE/"labs/cases.py"):
+        raise ValueError(name+": investigation script changed; recapture required")
     names = [call["name"] for call in status["mcpCalls"]]
     if not status["completed"] or not validation["complete"] or not transaction["cleanupComplete"]:
         raise ValueError(name+": incomplete tool validation or cleanup")
@@ -370,18 +380,22 @@ def main():
             "scriptedModel":True,"scriptedToolResults":False,"realTools":True,"holdSeconds":6})
     case_catalog=catalog()
     write_json(CAPTURE/"lab-cases.json",case_catalog)
-    shutil.copyfile(CAPTURE/"lab-surface.json",stage/"mcp-surface.json")
+    shutil.copyfile(capture_surface(approved_items),stage/"mcp-surface.json")
     manifest={"schemaVersion":3,"format":"lossless-native-pixel-atlases","rawFormat":"asciicast-v2","nativeUI":True,"captureSpeed":1,"playbackSpeed":2.5,"realTools":True,"scriptedModel":True,
         "scriptedToolResults":False,"scriptedUsageCounters":True,"accountAccess":False,"externalNetwork":False,"developmentOnly":args.development,
         "term":"xterm-256color","theme":"native dark","font":"Cascadia Mono 2407.24","recordings":metadata,
         "clients":{c:{"version":v,"renderer":PROFILES["clients"][c]["renderer"]} for c,v in VERSIONS.items()},
-        "cases":{k:{"title":v["title"],"prompt":v["prompt"],"summary":v["summary"]} for k,v in CASES.items()},
+        "cases":{k:{"title":v["title"],"objective":v["objective"],"prompt":v["prompt"],"summary":v["summary"]} for k,v in CASES.items()},
         "caseCatalogSha256":sha(CAPTURE/"lab-cases.json"),"reproductionImage":subprocess.check_output(["docker","image","inspect",IMAGE,"--format","{{.Id}}"],text=True).strip(),
         "mcpSurface":"mcp-surface.json","mcpSurfaceSha256":sha(stage/"mcp-surface.json"),
-        "herculesSourceCommit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=ROOT,text=True).strip(),
+        "herculesSourceCommit":subprocess.check_output(["git","rev-parse","HEAD"],cwd=source_root(),text=True).strip(),
         "captureProfile":"shell,session,workspace,dns,nmap,curl,ncat,whatweb,fuzz,nuclei,searchsploit,binwalk,steghide,browser"}
     write_json(stage/"manifest.json",manifest)
     if not args.development:
+        other_assets=sum(file.stat().st_size for file in (ROOT/"website/assets").rglob("*") if file.is_file() and not file.is_relative_to(ROOT/"website/assets/recordings"))
+        staged_bytes=sum(file.stat().st_size for file in stage.rglob("*") if file.is_file())
+        if staged_bytes+other_assets>950_000_000:
+            raise ValueError(f"Replacement site exceeds 950 MB asset budget ({staged_bytes+other_assets} bytes); published assets untouched")
         # Only validated full matrices reach the public assets. Stage first;
         # the manifest is copied last so readers never reference missing files.
         target=ROOT/"website/assets/recordings"
