@@ -259,7 +259,7 @@ def main():
                 # /mcp verbose is inline. At 48 columns its server heading
                 # scrolls away before the final resource inventory is painted.
                 menu_visible = ("MCP" in recent and "hercules" in recent.lower()) or (
-                    "Resourcetemplates:(none)" in compact and "workspace_write_file" in compact and "get_lolbas" in compact)
+                    "Resourcetemplates:" in compact and "workspace_write_file" in compact and "get_lolbas" in compact)
             elif args.client == "opencode":
                 menu_visible = "MCP" in recent and "hercules" in recent.lower() and "ToggleMCPs" not in compact
                 # A mounted slash-completion menu is observable evidence that

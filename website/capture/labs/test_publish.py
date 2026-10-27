@@ -5,7 +5,7 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from PIL import Image
 
-from .publish import approved, call_phase, capture_interval, capture_surface, investigation_transcript, recorder_fingerprint_matches, report_preview, stage_artifact, validate_browser_artifacts
+from .publish import CAPTURE, approved, call_phase, capture_interval, capture_surface, investigation_transcript, recorder_fingerprint_matches, report_preview, stage_artifact, validate_browser_artifacts
 from .cases import CASES
 from .program import Program
 
@@ -143,6 +143,16 @@ class BrowserEvidenceTests(unittest.TestCase):
 
 
 class RecorderProvenanceTests(unittest.TestCase):
+    def test_prior_verified_recorder_is_accepted_only_with_its_validated_successor(self):
+        prior="6212c970ad03ee0c5631343e376b55a408da38d2e6eb71c127bfa96b041f5153"
+        self.assertTrue(recorder_fingerprint_matches(CAPTURE/"record.py",prior))
+        with TemporaryDirectory() as directory:
+            path=Path(directory)/"record.py";path.write_bytes(b"unrelated recorder")
+            self.assertFalse(recorder_fingerprint_matches(path,prior))
+            current=(CAPTURE/"record.py").read_bytes()
+            path.write_bytes(current.replace(b"\r\n",b"\n"))
+            self.assertTrue(recorder_fingerprint_matches(path,hashlib.sha256(current).hexdigest()))
+
     def test_git_newlines_preserve_verified_source_identity_but_semantic_edits_do_not(self):
         raw=b"def capture():\r\n    return 'native'\n"
         fingerprint=hashlib.sha256(raw).hexdigest();normalized=raw.replace(b"\r\n",b"\n")

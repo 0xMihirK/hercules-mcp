@@ -85,6 +85,12 @@ RECORDER_NEWLINE_EQUIVALENTS={
     # Preserve original Windows byte hashes; only identical source text after
     # Git newline normalization can reuse those captures. Never normalize ANSI.
     "b7ef891ff2afcd9eed639bbd4f0b6a81bd50b4d644cf69b63d710a8579d26366":"aa25f1c0afbf144f064757835014a37f5d4bfdb87abb2bca606f3a6c3de0f9fd",
+    "10ac8d8f3d0ae723c559943b8f06c62da9b60a6244e43350bce628b43172594c":"8f432de9b062674b530480fed5f175d4e37ffe7b883dd9ef827004181cf945cd",
+}
+# The prior recorder produced the already validated sessions. Its narrow Codex
+# inventory check changed; accept only that exact predecessor with this revision.
+RECORDER_VALIDATED_REVISIONS={
+    "6212c970ad03ee0c5631343e376b55a408da38d2e6eb71c127bfa96b041f5153":"8f432de9b062674b530480fed5f175d4e37ffe7b883dd9ef827004181cf945cd",
 }
 # Both encoders hash decoded native RGB and compare all composed deltas to the
 # independent master. Preserve the original encoder fingerprint when only
@@ -117,6 +123,9 @@ def sha(path):
 
 def recorder_fingerprint_matches(path,captured):
     if captured==sha(path):return True
+    revised=RECORDER_VALIDATED_REVISIONS.get(captured)
+    if revised is not None:
+        return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n",b"\n")).hexdigest()==revised
     expected=RECORDER_NEWLINE_EQUIVALENTS.get(captured)
     return expected is not None and hashlib.sha256(Path(path).read_bytes().replace(b"\r\n",b"\n")).hexdigest()==expected
 
