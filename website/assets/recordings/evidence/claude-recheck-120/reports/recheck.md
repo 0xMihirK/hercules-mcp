@@ -1,6 +1,6 @@
-# Remediation recheck
+# Remediation proof
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -10,14 +10,13 @@ I will capture the baseline response before changing the disposable configuratio
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.190.10:8000/debug
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/debug
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.17
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/before.txt http://172.30.190.10:8000/debug
+duration_seconds: 0.21
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/before.txt http://172.30.95.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -32,6 +31,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 4. workspace_read_file
@@ -49,7 +50,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Sun, 11 Oct 2026 13:59:10 GMT
+Date: Tue, 27 Oct 2026 00:06:53 GMT
 Content-Type: application/json
 Content-Length: 91
 X-Hercules-Lab: disposable
@@ -63,14 +64,13 @@ I will apply only the explicitly scoped fixture remediation. This changes no pro
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.190.10:8000/lab-control/remediate
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/lab-control/remediate
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.16
-command: curl -s -X POST --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/change.txt http://172.30.190.10:8000/lab-control/remediate
+duration_seconds: 0.25
+command: curl -s -X POST --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/change.txt http://172.30.95.10:8000/lab-control/remediate
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -85,6 +85,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 6. network_curl
@@ -93,14 +95,13 @@ I will repeat the same debug request after the change, keeping its response sepa
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.190.10:8000/debug
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/debug
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.14
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/after.txt http://172.30.190.10:8000/debug
+duration_seconds: 0.32
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/after.txt http://172.30.95.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -115,6 +116,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 7. workspace_read_file
@@ -132,7 +135,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 404 Not Found
 Server: AtlasLab/1.0 
-Date: Sun, 11 Oct 2026 13:59:35 GMT
+Date: Tue, 27 Oct 2026 00:07:18 GMT
 Content-Type: application/json
 Content-Length: 9
 X-Hercules-Lab: disposable
@@ -148,14 +151,13 @@ I will confirm that the application remains healthy after remediation.
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.190.10:8000/health
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/health
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.17
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/recheck-health.txt http://172.30.190.10:8000/health
+duration_seconds: 0.16
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/recheck-health.txt http://172.30.95.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -170,6 +172,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 9. shell_exec
@@ -187,8 +191,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.23
-command: bash /opt/workspace/tmp/shell_acc86d6dee0a49158b041c9c6b5c93f5.sh
+duration_seconds: 0.26
+command: bash /opt/workspace/tmp/shell_2756fe910e1248e288b7a5f94eec9d30.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -203,6 +207,29 @@ stderr_chars_exact: True
 inline_stdout_chars: 103
 inline_stderr_chars: 0
 estimated_inline_tokens: 26
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
+```
+
+### 10. workspace_read_file
+The comparison artifact is present and readable. I will report the observed fix and the checks that were not performed.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/comparison.json
+encoding: text
+bytes: 102
+total_bytes: 102
+offset: 0
+truncated: False
+next_offset: None
+content: {
+  "baseline_debug": true,
+  "debug_closed": true,
+  "csp_present": true,
+  "nosniff_present": true
+}
 ```
 
 ## Scope and limitations

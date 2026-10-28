@@ -2,17 +2,17 @@
   {
     "path": "artifacts/after.txt",
     "bytes": 276,
-    "sha256": "9a9af62cdd9ebf262be5d55876422a785e2d01b229106ee8fb9fbfbcd6674297"
+    "sha256": "2eafe3bcd78f6a9e7ed2c7b696fea309b73c29afa2f289133b248f25fc641598"
   },
   {
     "path": "artifacts/before.txt",
     "bytes": 250,
-    "sha256": "b3258f4459c4c7aac1f3629b11718e624627b417e94a061a1e5ecea29fbf1415"
+    "sha256": "d5a48e5f9d890dc08a22e7c4cff542a2fffd4e4100e1a032f85319b0db1820f3"
   },
   {
     "path": "artifacts/change.txt",
     "bytes": 281,
-    "sha256": "303bf1ddc94d98733da3b1a59861f533f35cfe8bab90ca6559afd5a5a036a32a"
+    "sha256": "738dcb35e53c56253c06edaa48bf8344a188bdd878c6a4b7e1e77eebeaa77599"
   },
   {
     "path": "artifacts/comparison.json",
@@ -22,12 +22,22 @@
   {
     "path": "artifacts/recheck-health.txt",
     "bytes": 297,
-    "sha256": "239e2ff616d8771c6f4c5455a3e24bc6d2328c9456893decd7a4600f07ce5eeb"
+    "sha256": "58e2f1204756606a36484dbdf61a6993cf1141c64d9da4453ec87e0b3f519758"
+  },
+  {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
   },
   {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "047dad6787f6c450890d356057cc3127387b74950a2c4e3d8b31ee5838f2b99c"
+    "sha256": "fcc73177d14425c630700e624d8c5ecdf81afbf0307a0f1bb3ce6b6219c8ee7d"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -36,7 +46,7 @@
   },
   {
     "path": "reports/recheck.md",
-    "bytes": 5877,
-    "sha256": "7a8840ceb2eb93dfc8c863f070424a33a1c523d20a5da30e8c3e18fa3279b8c7"
+    "bytes": 6266,
+    "sha256": "c15647911dc7ca3683bd3fad49e79247088ff5ec85f6feb13d19e8ea9e339cb0"
   }
 ]

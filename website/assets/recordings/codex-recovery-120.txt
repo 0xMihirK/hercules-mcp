@@ -1,12 +1,12 @@
-codex 0.160.1 — Background-job recovery
+codex 0.160.1 — Timeout and job recovery
 Investigation transcript: recorded tool journal and the scripted model text sent to this client.
 Tools ran in an isolated local lab. No public target was contacted.
 Native menus, task UI and animation remain in the untouched ANSI and timestamped recordings.
 
 User prompt
-Run a bounded background investigation of the local lab, inspect partial output, recover from a slow request, narrow the check and verify the rerun. Save the job log and a report describing the recovery.
+Run a bounded background probe, preserve timeout diagnostics, check the exact managed job ID, and narrow the request before concluding whether the service is available.
 
-[49.931s → 70.056s] system_start_container
+[49.689s → 60.836s] system_start_container
 Scripted model: Connecting MCP has not started Kali. I will explicitly start the runtime before executing tools.
 Actual arguments:
 {}
@@ -14,14 +14,17 @@ Actual Hercules result:
 {
   "tool": "system_start_container",
   "status": "success",
-  "session_id": "f1b2ba54",
-  "workspace": "/opt/workspace (host: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1791733876700954800\\workspace\\f1b2ba54)",
+  "session_id": "70823fd0",
+  "workspace": "/opt/workspace (host: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0)",
   "container_running": true,
   "start_mode": "created",
-  "message": "Session 'f1b2ba54' container is ready."
+  "message": "Session '70823fd0' container is ready.",
+  "host_workspace": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0",
+  "container_workspace": "/opt/workspace",
+  "generation": 1
 }
 
-[73.035s → 79.430s] workspace_read_file
+[62.982s → 69.079s] workspace_read_file
 Scripted model: My owned runtime is ready. I will verify the supplied scope, investigate the internal lab and stop the runtime after reporting.
 Actual arguments:
 {
@@ -40,12 +43,12 @@ Actual Hercules result:
   "content": "# Capture lab scope\n\nOnly the lab fixture on the internal Docker network is authorized. No public targets. Synthetic inputs; real tools.\n\nStart Hercules explicitly, verify evidence, write a report, and stop your owned runtime.\n"
 }
 
-[82.241s → 122.128s] shell_exec_background
+[71.118s → 110.911s] shell_exec_background
 Scripted model: I will start a bounded background request and retain its output. A slow service should not stall the entire investigation.
 Actual arguments:
 {
   "job_id": "lab-recovery",
-  "command": "mkdir -p /opt/workspace/artifacts; echo 'Starting scoped lab probe'; curl -sS --max-time 1 http://172.30.200.10:8000/slow > /opt/workspace/artifacts/slow-partial.txt 2>&1; echo 'Slow endpoint exceeded the bounded request timeout'; sleep 1; echo 'Narrow the next check to /health'"
+  "command": "mkdir -p /opt/workspace/artifacts; echo 'Starting scoped lab probe'; curl -sS --max-time 1 http://172.30.95.10:8000/slow > /opt/workspace/artifacts/slow-partial.txt 2>&1; echo 'Slow endpoint exceeded the bounded request timeout'; sleep 1; echo 'Narrow the next check to /health'"
 }
 Actual Hercules result:
 {
@@ -54,7 +57,7 @@ Actual Hercules result:
   "message": "Process started in background. Use shell_check_job to see live output."
 }
 
-[124.141s → 155.331s] shell_check_job
+[112.880s → 140.795s] shell_check_job
 Scripted model: I will inspect the job using the ID Hercules actually returned, keeping partial output visible.
 Actual arguments:
 {
@@ -65,15 +68,15 @@ Actual Hercules result:
 {
   "tool": "shell_check_job",
   "job_id": "lab-recovery",
-  "pid": "32",
-  "pgid": "32",
+  "pid": "61",
+  "pgid": "61",
   "is_running": false,
   "state": "completed",
   "generation": 1,
   "stale": false,
-  "created_at": "2026-10-11T15:52:57.539747+00:00",
-  "updated_at": "2026-10-11T15:53:45.625236+00:00",
-  "finished_at": "2026-10-11T15:53:05Z",
+  "created_at": "2026-10-27T03:00:09.237963+00:00",
+  "updated_at": "2026-10-27T03:00:54.149889+00:00",
+  "finished_at": "2026-10-27T03:00:17Z",
   "exit_code": 0,
   "total_lines": "3",
   "showing_last": 30,
@@ -81,7 +84,60 @@ Actual Hercules result:
   "log_path": "/opt/workspace/jobs/lab-recovery.log"
 }
 
-[158.880s → 164.953s] workspace_read_file
+[143.096s → 143.402s] system_list_sessions
+Scripted model: I will inspect Hercules's current managed-job inventory; a harness task identifier would not identify this shell job.
+Actual arguments:
+{}
+Actual Hercules result:
+{
+  "tool": "system_list_sessions",
+  "active_session": "70823fd0",
+  "total_sessions": 1,
+  "sessions": [
+    {
+      "session_id": "70823fd0",
+      "is_active": true,
+      "file_count": 16,
+      "total_size_mb": 0.02,
+      "path": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0",
+      "total_bytes": 17122,
+      "created_at": "2026-10-27T02:58:52.791746+00:00",
+      "last_used_at": "2026-10-27T03:01:06.474138+00:00",
+      "state": "active",
+      "generation": 1,
+      "pinned": false,
+      "owned": true,
+      "retention_eligible": false
+    }
+  ],
+  "host_workspace": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0",
+  "container_workspace": "/opt/workspace",
+  "session_id": "70823fd0",
+  "generation": 1,
+  "container_running": true,
+  "runtime_state": "attached",
+  "runtime_state_source": "manager_attachment_not_docker_inspection",
+  "workspace_state_source": "recorded_manifest",
+  "current_owner": {
+    "pid": 22148,
+    "instance_id": "16db64e429d74b069fa84ce66c2616fc"
+  },
+  "job_inventory": {
+    "jobs": [
+      {
+        "job_id": "lab-recovery",
+        "state": "completed",
+        "generation": 1,
+        "stale": false,
+        "log_path": "/opt/workspace/jobs/lab-recovery.log"
+      }
+    ],
+    "truncated": false,
+    "state_source": "recorded_metadata"
+  }
+}
+
+[146.198s → 152.383s] workspace_read_file
 Scripted model: The request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.
 Actual arguments:
 {
@@ -100,24 +156,23 @@ Actual Hercules result:
   "content": "curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received\n"
 }
 
-[167.290s → 175.181s] network_curl
+[155.073s → 161.353s] network_curl
 Scripted model: I will confirm that the discovered HTTP service responds, retaining the response as a file.
 Actual arguments:
 {
-  "url": "http://172.30.200.10:8000/health",
+  "url": "http://172.30.95.10:8000/health",
   "extra_args": "--max-time 5 -o /opt/workspace/artifacts/health.txt"
 }
 Actual Hercules result:
 {
   "tool": "network_curl",
-  "url": "http://172.30.200.10:8000/health",
-  "redirects_followed": false,
-  "redirect_note": "Redirect following is disabled while target scopes are configured.",
+  "url": "http://172.30.95.10:8000/health",
+  "redirects_followed": true,
   "exit_code": 0,
   "stdout": "",
   "stderr": "",
-  "duration_seconds": 1.66,
-  "command": "curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health",
+  "duration_seconds": 0.17,
+  "command": "curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -131,10 +186,12 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 0,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 0
+  "estimated_inline_tokens": 0,
+  "requested_timeout_seconds": 60,
+  "effective_timeout_seconds": 60
 }
 
-[178.122s → 184.297s] workspace_read_file
+[163.314s → 169.371s] workspace_read_file
 Scripted model: The narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.
 Actual arguments:
 {
@@ -150,10 +207,10 @@ Actual Hercules result:
   "offset": 0,
   "truncated": false,
   "next_offset": null,
-  "content": "HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Sun, 11 Oct 2026 15:54:17 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}"
+  "content": "HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Tue, 27 Oct 2026 03:01:27 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}"
 }
 
-[186.235s → 213.446s] shell_check_job
+[171.275s → 193.210s] shell_check_job
 Scripted model: I will verify the background job's final state before cleanup and reporting.
 Actual arguments:
 {
@@ -164,15 +221,15 @@ Actual Hercules result:
 {
   "tool": "shell_check_job",
   "job_id": "lab-recovery",
-  "pid": "32",
-  "pgid": "32",
+  "pid": "61",
+  "pgid": "61",
   "is_running": false,
   "state": "completed",
   "generation": 1,
   "stale": false,
-  "created_at": "2026-10-11T15:52:57.539747+00:00",
-  "updated_at": "2026-10-11T15:54:41.529254+00:00",
-  "finished_at": "2026-10-11T15:53:05Z",
+  "created_at": "2026-10-27T03:00:09.237963+00:00",
+  "updated_at": "2026-10-27T03:01:46.673799+00:00",
+  "finished_at": "2026-10-27T03:00:17Z",
   "exit_code": 0,
   "total_lines": "3",
   "showing_last": 30,
@@ -180,7 +237,7 @@ Actual Hercules result:
   "log_path": "/opt/workspace/jobs/lab-recovery.log"
 }
 
-[215.464s → 231.055s] shell_exec
+[195.588s → 213.924s] shell_exec
 Scripted model: I will record the revised scope and verified recovery alongside the partial output.
 Actual arguments:
 {
@@ -193,8 +250,8 @@ Actual Hercules result:
   "exit_code": 0,
   "stdout": "Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.\n",
   "stderr": "",
-  "duration_seconds": 0.25,
-  "command": "bash /opt/workspace/tmp/shell_c7d8c83bd8d7466e946b190f370a342c.sh",
+  "duration_seconds": 1.54,
+  "command": "bash /opt/workspace/tmp/shell_81c5d8f7c95e4edc8a9573199e0adb2e.sh",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -208,15 +265,17 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 88,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 22
+  "estimated_inline_tokens": 22,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45
 }
 
-[233.277s → 239.358s] workspace_write_file
-Scripted model: All investigation checks have passed. I will write a report that links the observed evidence and states the limits of this scripted local investigation.
+[216.085s → 222.143s] workspace_write_file
+Scripted model: All investigation checks have passed. I will write a report that links the observed evidence and states this local investigation's limits.
 Actual arguments:
 {
   "path": "reports/recovery.md",
-  "content": "# Background-job recovery\n\nReal Hercules tools in a disposable local lab. Model decisions and this report are scripted.\n\n## Verified observations\n\n### 3. shell_exec_background\nI will start a bounded background request and retain its output. A slow service should not stall the entire investigation.\n\nActual response excerpt:\n```text\ntool: shell_exec_background\njob_id: lab-recovery\nmessage: Process started in background. Use shell_check_job to see live output.\n```\n\n### 4. shell_check_job\nI will inspect the job using the ID Hercules actually returned, keeping partial output visible.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 32\npgid: 32\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-11T15:52:57.539747+00:00\nupdated_at: 2026-10-11T15:53:45.625236+00:00\nfinished_at: 2026-10-11T15:53:05Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 5. workspace_read_file\nThe request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/slow-partial.txt\nencoding: text\nbytes: 77\ntotal_bytes: 77\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received\n\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.200.10:8000/health\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 1.66\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 7. workspace_read_file\nThe narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/health.txt\nencoding: text\nbytes: 196\ntotal_bytes: 196\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Sun, 11 Oct 2026 15:54:17 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}\n```\n\n### 8. shell_check_job\nI will verify the background job's final state before cleanup and reporting.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 32\npgid: 32\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-11T15:52:57.539747+00:00\nupdated_at: 2026-10-11T15:54:41.529254+00:00\nfinished_at: 2026-10-11T15:53:05Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 9. shell_exec\nI will record the revised scope and verified recovery alongside the partial output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.\n\nstderr: \nduration_seconds: 0.25\ncommand: bash /opt/workspace/tmp/shell_c7d8c83bd8d7466e946b190f370a342c.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 88\nstderr_chars: 0\nstdout_bytes: 88\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 88\ninline_stderr_chars: 0\nestimated_inline_tokens: 22\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
+  "content": "# Timeout and job recovery\n\nHercules tool results from a disposable local lab.\n\n## Verified observations\n\n### 3. shell_exec_background\nI will start a bounded background request and retain its output. A slow service should not stall the entire investigation.\n\nActual response excerpt:\n```text\ntool: shell_exec_background\njob_id: lab-recovery\nmessage: Process started in background. Use shell_check_job to see live output.\n```\n\n### 4. shell_check_job\nI will inspect the job using the ID Hercules actually returned, keeping partial output visible.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 61\npgid: 61\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-27T03:00:09.237963+00:00\nupdated_at: 2026-10-27T03:00:54.149889+00:00\nfinished_at: 2026-10-27T03:00:17Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 5. system_list_sessions\nI will inspect Hercules's current managed-job inventory; a harness task identifier would not identify this shell job.\n\nActual response excerpt:\n```text\ntool: system_list_sessions\nactive_session: 70823fd0\ntotal_sessions: 1\nsessions: session_id: 70823fd0\nis_active: True\nfile_count: 16\ntotal_size_mb: 0.02\npath: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0\ntotal_bytes: 17122\ncreated_at: 2026-10-27T02:58:52.791746+00:00\nlast_used_at: 2026-10-27T03:01:06.474138+00:00\nstate: active\ngeneration: 1\npinned: False\nowned: True\nretention_eligible: False\nhost_workspace: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0\ncontainer_workspace: /opt/workspace\nsession_id: 70823fd0\ngeneration: 1\ncontainer_running: True\nruntime_state: attached\nruntime_state_source: manager_attachment_not_docker_inspection\nworkspace_state_source: recorded_manifest\ncurrent_owner: pid: 22148\ninstance_id: 16db64e429d74b069fa84ce66c2616fc\njob_inventory: jobs: job_id: lab-recovery\nstate: completed\ngeneration: 1\nstale: False\nlog_path: /opt/workspace/jobs/lab-recovery.log\ntruncated: Fal\n```\n\n### 6. workspace_read_file\nThe request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/slow-partial.txt\nencoding: text\nbytes: 77\ntotal_bytes: 77\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received\n\n```\n\n### 7. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/health\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.17\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 8. workspace_read_file\nThe narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/health.txt\nencoding: text\nbytes: 196\ntotal_bytes: 196\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Tue, 27 Oct 2026 03:01:27 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}\n```\n\n### 9. shell_check_job\nI will verify the background job's final state before cleanup and reporting.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 61\npgid: 61\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-27T03:00:09.237963+00:00\nupdated_at: 2026-10-27T03:01:46.673799+00:00\nfinished_at: 2026-10-27T03:00:17Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 10. shell_exec\nI will record the revised scope and verified recovery alongside the partial output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.\n\nstderr: \nduration_seconds: 1.54\ncommand: bash /opt/workspace/tmp/shell_81c5d8f7c95e4edc8a9573199e0adb2e.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 88\nstderr_chars: 0\nstdout_bytes: 88\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 88\ninline_stderr_chars: 0\nestimated_inline_tokens: 22\nrequested_timeout_seconds: 45\neffective_timeout_seconds: 45\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
 }
 Actual Hercules result:
 {
@@ -224,11 +283,11 @@ Actual Hercules result:
   "path": "/opt/workspace/reports/recovery.md",
   "status": "success",
   "encoding": "text",
-  "bytes": 4695,
+  "bytes": 5979,
   "applied_mode": "0644"
 }
 
-[241.436s → 257.308s] shell_exec
+[224.170s → 240.175s] shell_exec
 Scripted model: I will render the verified Markdown as readable HTML and index the real workspace artifacts with SHA-256 hashes.
 Actual arguments:
 {
@@ -239,10 +298,10 @@ Actual Hercules result:
 {
   "tool": "shell_exec",
   "exit_code": 0,
-  "stdout": "{\"report\": \"/opt/workspace/reports/recovery.md\", \"evidence_files\": 7, \"verified\": true}\n",
+  "stdout": "{\"report\": \"/opt/workspace/reports/recovery.md\", \"evidence_files\": 9, \"verified\": true}\n",
   "stderr": "",
-  "duration_seconds": 0.53,
-  "command": "bash /opt/workspace/tmp/shell_f25ab135e21449e1ad4072ad65b9e171.sh",
+  "duration_seconds": 0.75,
+  "command": "bash /opt/workspace/tmp/shell_f0523e97cf8f473ca63921a12e467c88.sh",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -256,10 +315,12 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 88,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 22
+  "estimated_inline_tokens": 22,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45
 }
 
-[259.493s → 265.585s] workspace_read_file
+[242.328s → 248.406s] workspace_read_file
 Scripted model: I will reread the saved report before declaring completion. A completed inline response and a complete evidence collection are separate properties.
 Actual arguments:
 {
@@ -270,15 +331,15 @@ Actual Hercules result:
   "tool": "workspace_read_file",
   "path": "/opt/workspace/reports/recovery.md",
   "encoding": "text",
-  "bytes": 4695,
-  "total_bytes": 4695,
+  "bytes": 5979,
+  "total_bytes": 5979,
   "offset": 0,
   "truncated": false,
   "next_offset": null,
-  "content": "# Background-job recovery\n\nReal Hercules tools in a disposable local lab. Model decisions and this report are scripted.\n\n## Verified observations\n\n### 3. shell_exec_background\nI will start a bounded background request and retain its output. A slow service should not stall the entire investigation.\n\nActual response excerpt:\n```text\ntool: shell_exec_background\njob_id: lab-recovery\nmessage: Process started in background. Use shell_check_job to see live output.\n```\n\n### 4. shell_check_job\nI will inspect the job using the ID Hercules actually returned, keeping partial output visible.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 32\npgid: 32\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-11T15:52:57.539747+00:00\nupdated_at: 2026-10-11T15:53:45.625236+00:00\nfinished_at: 2026-10-11T15:53:05Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 5. workspace_read_file\nThe request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/slow-partial.txt\nencoding: text\nbytes: 77\ntotal_bytes: 77\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received\n\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.200.10:8000/health\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 1.66\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 7. workspace_read_file\nThe narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/health.txt\nencoding: text\nbytes: 196\ntotal_bytes: 196\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Sun, 11 Oct 2026 15:54:17 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}\n```\n\n### 8. shell_check_job\nI will verify the background job's final state before cleanup and reporting.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 32\npgid: 32\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-11T15:52:57.539747+00:00\nupdated_at: 2026-10-11T15:54:41.529254+00:00\nfinished_at: 2026-10-11T15:53:05Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 9. shell_exec\nI will record the revised scope and verified recovery alongside the partial output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.\n\nstderr: \nduration_seconds: 0.25\ncommand: bash /opt/workspace/tmp/shell_c7d8c83bd8d7466e946b190f370a342c.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 88\nstderr_chars: 0\nstdout_bytes: 88\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 88\ninline_stderr_chars: 0\nestimated_inline_tokens: 22\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
+  "content": "# Timeout and job recovery\n\nHercules tool results from a disposable local lab.\n\n## Verified observations\n\n### 3. shell_exec_background\nI will start a bounded background request and retain its output. A slow service should not stall the entire investigation.\n\nActual response excerpt:\n```text\ntool: shell_exec_background\njob_id: lab-recovery\nmessage: Process started in background. Use shell_check_job to see live output.\n```\n\n### 4. shell_check_job\nI will inspect the job using the ID Hercules actually returned, keeping partial output visible.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 61\npgid: 61\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-27T03:00:09.237963+00:00\nupdated_at: 2026-10-27T03:00:54.149889+00:00\nfinished_at: 2026-10-27T03:00:17Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 5. system_list_sessions\nI will inspect Hercules's current managed-job inventory; a harness task identifier would not identify this shell job.\n\nActual response excerpt:\n```text\ntool: system_list_sessions\nactive_session: 70823fd0\ntotal_sessions: 1\nsessions: session_id: 70823fd0\nis_active: True\nfile_count: 16\ntotal_size_mb: 0.02\npath: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0\ntotal_bytes: 17122\ncreated_at: 2026-10-27T02:58:52.791746+00:00\nlast_used_at: 2026-10-27T03:01:06.474138+00:00\nstate: active\ngeneration: 1\npinned: False\nowned: True\nretention_eligible: False\nhost_workspace: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0\ncontainer_workspace: /opt/workspace\nsession_id: 70823fd0\ngeneration: 1\ncontainer_running: True\nruntime_state: attached\nruntime_state_source: manager_attachment_not_docker_inspection\nworkspace_state_source: recorded_manifest\ncurrent_owner: pid: 22148\ninstance_id: 16db64e429d74b069fa84ce66c2616fc\njob_inventory: jobs: job_id: lab-recovery\nstate: completed\ngeneration: 1\nstale: False\nlog_path: /opt/workspace/jobs/lab-recovery.log\ntruncated: Fal\n```\n\n### 6. workspace_read_file\nThe request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/slow-partial.txt\nencoding: text\nbytes: 77\ntotal_bytes: 77\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received\n\n```\n\n### 7. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/health\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.17\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 8. workspace_read_file\nThe narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/health.txt\nencoding: text\nbytes: 196\ntotal_bytes: 196\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: HTTP/1.0 200 OK\r\nServer: AtlasLab/1.0 \r\nDate: Tue, 27 Oct 2026 03:01:27 GMT\r\nContent-Type: application/json\r\nContent-Length: 37\r\nX-Hercules-Lab: disposable\r\n\r\n{\"status\": \"ok\", \"remediated\": false}\n```\n\n### 9. shell_check_job\nI will verify the background job's final state before cleanup and reporting.\n\nActual response excerpt:\n```text\ntool: shell_check_job\njob_id: lab-recovery\npid: 61\npgid: 61\nis_running: False\nstate: completed\ngeneration: 1\nstale: False\ncreated_at: 2026-10-27T03:00:09.237963+00:00\nupdated_at: 2026-10-27T03:01:46.673799+00:00\nfinished_at: 2026-10-27T03:00:17Z\nexit_code: 0\ntotal_lines: 3\nshowing_last: 30\noutput: Starting scoped lab probe\nSlow endpoint exceeded the bounded request timeout\nNarrow the next check to /health\n\nlog_path: /opt/workspace/jobs/lab-recovery.log\n```\n\n### 10. shell_exec\nI will record the revised scope and verified recovery alongside the partial output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.\n\nstderr: \nduration_seconds: 1.54\ncommand: bash /opt/workspace/tmp/shell_81c5d8f7c95e4edc8a9573199e0adb2e.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 88\nstderr_chars: 0\nstdout_bytes: 88\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 88\ninline_stderr_chars: 0\nestimated_inline_tokens: 22\nrequested_timeout_seconds: 45\neffective_timeout_seconds: 45\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
 }
 
-[267.860s → 268.321s] system_stop_container
+[250.498s → 250.953s] system_stop_container
 Scripted model: The report and evidence index are verified. I will stop only this client's owned runtime; workspace evidence remains available.
 Actual arguments:
 {}
@@ -286,12 +347,22 @@ Actual Hercules result:
 {
   "tool": "system_stop_container",
   "status": "success",
-  "session_id": "f1b2ba54",
-  "message": "Session 'f1b2ba54' container stopped and removed. Workspace files are preserved; call system_start_container to resume."
+  "session_id": "70823fd0",
+  "message": "Session '70823fd0' container stopped and removed. Workspace files are preserved; call system_start_container to resume.",
+  "host_workspace": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\codex-recovery-120-1793069918421431600\\workspace\\70823fd0",
+  "container_workspace": "/opt/workspace",
+  "generation": 1,
+  "container_running": false,
+  "cleanup": {
+    "container_disposition": "removed",
+    "guardian_settled": true,
+    "ports_released": true,
+    "confirmed": true
+  }
 }
 
 Verified completion
 Report: reports/recovery.md
 HTML report: reports/recovery.html
 Evidence index: reports/evidence-index.json
-13 real Hercules calls passed their evidence checks. The owned runtime is stopped.
+14 real Hercules calls passed their evidence checks. The owned runtime is stopped.

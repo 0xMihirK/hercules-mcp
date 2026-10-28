@@ -2,37 +2,47 @@
   {
     "path": "artifacts/admin-denied.html",
     "bytes": 238,
-    "sha256": "cab15c4972633d76013b75728763382080603954f46a7a571656c0d070a71948"
+    "sha256": "e133d72f16c73d0f670197cee5e5b3611be867becf033f7c6589d518c642cde2"
   },
   {
     "path": "artifacts/assessment.gnmap",
-    "bytes": 492,
-    "sha256": "0e7dadaac3335f91cd9d1fbd0f8cc67608577c39829128cf3cc9a1fe7bf7e2bd"
+    "bytes": 489,
+    "sha256": "95efbb7f7a25ca90193ecf8df2dffda92edd6b6460b560704efc62f44dae5a2f"
   },
   {
     "path": "artifacts/assessment.nmap",
-    "bytes": 3520,
-    "sha256": "224f6a8d720e8ea7e9683ae2352a309842d7107b0abef390eefab9564d49fae6"
+    "bytes": 3518,
+    "sha256": "927aa2d0047811c7e83cc07d386603e4e2533dfaabcfb8d4ae75ca048ce41b69"
   },
   {
     "path": "artifacts/assessment.xml",
-    "bytes": 4532,
-    "sha256": "546725297cdc6293a2744f3a004dff231115469b97179ed06688751bd54355d7"
+    "bytes": 4529,
+    "sha256": "5e6a65f5250139dd74febef823e6d1362b211f8e011a3e2af9813b49d42477ba"
   },
   {
     "path": "artifacts/headers.txt",
     "bytes": 168,
-    "sha256": "568de88fc7765331457bb300c37b190dbfc050c115a27aa60aa660a135adeb61"
+    "sha256": "726290d65e547363056736e3044f2954f4539fb9df91c8e21d98b20dd29ac33c"
   },
   {
     "path": "artifacts/home.html",
     "bytes": 733,
-    "sha256": "fb0dedc6ef7d68506b163e864ace7bf722fea730baa2e4cafb040d0bccbda23f"
+    "sha256": "790f1ca09e61412b119666d5d13e802da2d6b6eddfba3ed54444bd32c130ca8e"
+  },
+  {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
   },
   {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "3cb73f95ff55c2fc6e4a6d85eb2eac9019cb4a6add0d7c22cb20bec6f3c76e9c"
+    "sha256": "bb624d2637f900e859ba6e11cdf74e5eaadf0038a309471a2302579e09513da5"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -40,28 +50,28 @@
     "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
   },
   {
-    "path": "logs/exec_30dbbd8667944c7aaeaf45fc735ca52b_stdout.bin",
+    "path": "logs/exec_b2ee734024464f38803d6fbd2df60ad0_stdout.bin",
     "bytes": 13227834,
     "sha256": "84f5d8d19fa3b38cb03821479ee8590a4ee4805b6e1ba314dc9316f31c298e24"
   },
   {
-    "path": "logs/exec_raw_20261011_125037_214748.txt",
-    "bytes": 1703,
-    "sha256": "093573a8f88d07ddf4fd6a44a4f12d8d9407eee8e123c9515fb8876653740137"
+    "path": "logs/exec_raw_20261026_175850_729477.txt",
+    "bytes": 1700,
+    "sha256": "c516eaade3c118870c08d2f11810bbd7d6d554d344ffd286b3ec6374cd138994"
   },
   {
-    "path": "logs/exec_raw_20261011_125131_180002.txt",
+    "path": "logs/exec_raw_20261026_175945_207186.txt",
     "bytes": 876242,
     "sha256": "ca64e57fb2e27787212d9a4e22d70511a6041cbf72a0416a4693c40d4bd8b778"
   },
   {
-    "path": "logs/exec_stdout_20261011_125134_236534.txt",
+    "path": "logs/exec_stdout_20261026_175948_278672.txt",
     "bytes": 876185,
     "sha256": "44a723b77eb426b1dedfda5f47e945c56323be4ca3d826a067f047332a6e7705"
   },
   {
     "path": "reports/services.md",
-    "bytes": 7121,
-    "sha256": "3057e9d8f89b3b4a072fe7b71051eaa7a67e6e80aafec3acf64108c1c66da45f"
+    "bytes": 8183,
+    "sha256": "f1964c7d2b97505a33fd90ba3527854d05d4d19d9202d7323c7ad150d486a1ee"
   }
 ]

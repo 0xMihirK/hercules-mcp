@@ -1,10 +1,10 @@
 # Native pixel recording provenance
 
-## Investigation refresh in progress
+## Investigation matrix — 2026-10-28
 
-The source case programs now cover ten deeper local investigations, including version applicability, protocol controls, binary triage, credential controls, decoy rejection, recovery, and remediation. They are **not** represented by the currently published 120-session bundle. That bundle remains the prior validated capture until every replacement combination is recaptured, verified, and published together. The case-script fingerprint prevents a prior capture from being approved as a refreshed one. Model decisions remain scripted; Hercules results are observed from disposable local fixtures.
+The 120-session replacement matrix covers ten deeper local investigations, including version applicability, protocol controls, binary triage, credential controls, decoy rejection, recovery, and remediation. All four agents ran each case at three terminal sizes. The publisher accepted only current case-script fingerprints and verified results, reports, evidence, and cleanup. Model decisions remain scripted; Hercules results are observed from disposable local fixtures.
 
-The player displays pixels captured from real agents inside XTerm and Xvfb in Docker. Canvas2D composes lossless PNG deltas from their original presentation timestamps. The website plays that timeline at 2.5×; raw downloads and capture timing remain at 1×. It does not redraw terminal glyphs, logos, menus, or progress indicators. Untouched ANSI bytes remain directly downloadable; lossless ZIP downloads contain unchanged timestamped PTY recordings with separate archive and original-payload hashes.
+The player displays pixels captured from real agents inside XTerm and Xvfb in Docker. Canvas2D composes lossless WebP deltas from their original presentation timestamps. The publisher checks every decoded RGB pixel against its captured PNG source. The website plays that timeline at 2.5×; raw downloads and capture timing remain at 1×. It does not redraw terminal glyphs, logos, menus, or progress indicators. Untouched ANSI bytes remain directly downloadable; lossless ZIP downloads contain unchanged timestamped PTY recordings with separate archive and original-payload hashes.
 
 | Client | Pinned release | Native renderer | Terminal geometries |
 | --- | --- | --- | --- |
@@ -19,9 +19,9 @@ Model observations, hypotheses, plan changes, response delays, and usage counter
 
 Each agent has a fresh allowlisted environment and a STDIO bridge to a separate host-side Hercules process through a private relay. Agents receive no host Docker socket. Hercules starts actual client-owned Kali runtimes on transaction-owned internal lab networks. Scanners, browser operations, files, and reports execute against local fixtures. No public target is contacted. Docker containment still depends on the operator's networking and privileges.
 
-Ten investigations cover inventory, service assessment, website assessment, TLS and redirects, browser login behavior, layered forensic CTF, web CTF, evidence reconciliation, background-job recovery, and remediation rechecks. Each requires 8-16 meaningful MCP calls and verified Markdown/HTML reports. CTF steps follow discovered clues, reject decoys, and verify checksums. Missing or unexpected evidence stops validation.
+Ten investigations cover service boundaries, version and exploit triage, web/API exposure, TLS and protocol controls, authentication, binary/layered forensics, chained web CTF, credential evidence, background-job recovery, and remediation proof. Each uses 14–19 MCP calls and produces verified Markdown/HTML reports. CTF steps follow discovered clues, reject decoys, and verify checksums. Missing or unexpected evidence stops validation.
 
-Schema 3 records atlas assets and hashes, exact presentation timestamps, independent master checkpoints, pixel dimensions, profiles, native versions, raw output hashes, transcripts, milestones, artifacts, and cleanup provenance. Lossless graphical masters stay with local capture results; visitors receive static PNGs and evidence files.
+Schema 3 records atlas assets and hashes, exact presentation timestamps, independent master checkpoints, pixel dimensions, profiles, native versions, raw output hashes, transcripts, milestones, artifacts, and cleanup provenance. Lossless graphical masters stay with local capture results; visitors receive static lossless WebP atlases, PNG checkpoints, and evidence files.
 
 Capture timing records the measured largest sampling gap and an independent UTC/monotonic clock check. Original graphical timestamps retain OS clock slewing. A clock discontinuity larger than one 60 fps frame rejects capture; cumulative UTC/PTY drift is disclosed separately. Requested 60 fps sampling is not a claim that the machine never stalls.
 
@@ -39,7 +39,7 @@ Readable transcripts pair each actual tool call, arguments and observed result w
 
 ## Verification status
 
-The existing 120-session matrix passed capture/tool/evidence/report/cleanup validation on 2026-10-12. Current playback regressions again compare seven independent native RGB checkpoints per session: 840 comparisons. See [verification status](capture/VERIFICATION.md) for current checks, measured behavior, sampling gaps, and unavailable checks, and [reproduction instructions](capture/README.md). Earlier schema-2 comparisons do not establish native graphical fidelity.
+The replacement 120-session matrix passed capture/tool/evidence/report/cleanup validation on 2026-10-28. Website regressions compare seven independent native RGB checkpoints per session: 840 comparisons. The older [verification status](capture/VERIFICATION.md) records historical checks and limitations; see [reproduction instructions](capture/README.md) for the current workflow. Earlier schema-2 comparisons do not establish native graphical fidelity.
 
 Claude uses its documented full-screen renderer, selected to match the reference’s docked composer. The real emulator palette is black/white, with line-height configured through XTerm and cell dimensions measured after mapping. No terminal labels, artwork, colors, or positions are replaced in playback. Lossless live capture writes to the container filesystem before retaining the master, so Windows/OneDrive asset writes do not stall sampling. Each capture records the actual immutable Docker image ID.
 

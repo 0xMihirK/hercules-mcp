@@ -1,40 +1,76 @@
-# Layered forensic CTF
+# Binary and layered forensics
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
 ### 3. shell_exec
+I will identify the supplied binary and inspect its header and strings before inferring what it does. It has no executable program to decompile.
+
+Actual response excerpt:
+```text
+tool: shell_exec
+exit_code: 0
+stdout: ELF Header:
+  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 
+  Class:                             ELF64
+  Data:                              2's complement, little endian
+  Version:                           1 (current)
+  OS/ABI:                            UNIX - System V
+  ABI Version:                       0
+  Type:                              REL (Relocatable file)
+  Machine:                           Advanced Micro Devices X86-64
+  Version:                           0x1
+  Entry point address:               0x0
+  Start of program headers:          0 (bytes into file)
+  Start of section headers:          0 (bytes into file)
+  Flags:                             0x0
+  Size of this header:               64 (bytes)
+  Size of program headers:           56 (bytes)
+  Number of program headers:         0
+  Size of section headers:           64 (bytes)
+  Number of section headers:         0
+  Section header string table index: 0
+ATLAS-LAB-MODULE-1.0
+
+stderr: /opt/workspace/tmp/shell_13d0930a88c84c26a1e946126b79d1cc.sh: line 1: file: command 
+```
+
+### 4. shell_exec
 I will establish file types and hashes before modifying or extracting any challenge input.
 
 Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: 1ce14ad2563fb9f0157244e4c1ffc7c20362d7b217d24800f20f95d04fc89c6f  /opt/workspace/challenge/carrier.png
+stdout: 594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110  /opt/workspace/challenge/advisory.json
+d48bc31bdfb7502bcc7196fb6986fbc36e568097a54a8f8c350c04cc4a7e732a  /opt/workspace/challenge/carrier.png
+ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c  /opt/workspace/challenge/module.o
 f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7  /opt/workspace/challenge/route.pcap
 
-stderr: /opt/workspace/tmp/shell_b679b63a7e05454aac950697c8690f03.sh: line 1: file: command not found
+stderr: /opt/workspace/tmp/shell_9534e1abecfd4daeab0ebcbdd7f1154b.sh: line 1: file: command not found
 
-duration_seconds: 0.25
-command: bash /opt/workspace/tmp/shell_b679b63a7e05454aac950697c8690f03.sh
+duration_seconds: 0.22
+command: bash /opt/workspace/tmp/shell_9534e1abecfd4daeab0ebcbdd7f1154b.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 205
+stdout_chars: 410
 stderr_chars: 94
-stdout_bytes: 205
+stdout_bytes: 410
 stderr_bytes: 94
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 205
+inline_stdout_chars: 410
 inline_stderr_chars: 94
-estimated_inline_tokens: 75
+estimated_inline_tokens: 126
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 4. shell_exec
+### 5. shell_exec
 I will inspect the real packet payloads in sequence and retain their route fragments as clues, without assuming they are the final answer.
 
 Actual response excerpt:
@@ -63,8 +99,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.28
-command: bash /opt/workspace/tmp/shell_893f08ab7b7b4284a77c1c8007f3b7aa.sh
+duration_seconds: 0.18
+command: bash /opt/workspace/tmp/shell_09f8fd0be180483a9fd4ef7f5d4314ec.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -79,9 +115,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 399
 inline_stderr_chars: 0
 estimated_inline_tokens: 100
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 5. ctf_binwalk
+### 6. ctf_binwalk
 The packets name the carrier. I will check its embedded signatures before choosing an extraction method.
 
 Actual response excerpt:
@@ -101,7 +139,7 @@ DECIMAL       HEXADECIMAL     DESCRIPTION
 
 
 stderr: 
-duration_seconds: 1.16
+duration_seconds: 1.05
 command: binwalk /opt/workspace/challenge/carrier.png
 output_filtered: False
 output_complete: True
@@ -114,7 +152,7 @@ stdout_bytes: 757
 s
 ```
 
-### 6. shell_exec
+### 7. shell_exec
 The carrier contains a clue about multiple endings. I will inspect the archive as a separate layer, rather than treat the image's first signature as complete.
 
 Actual response excerpt:
@@ -126,7 +164,7 @@ TtEXtComment
 A valid image can have more than one ending. The route lives in the packets.zP
 *IDATx
 IEND
-K]mk
+[]mk
 manifest.json%
 NB-Y
 \H!u
@@ -134,33 +172,34 @@ F!F);
 Apk"
 payload.enc
 Salted__
-q6Df[6
 decoy.txt
-K]mk
+[]mk
 manifest.jsonPK
 payload.encPK
 decoy.txtPK
 
 stderr: 
-duration_seconds: 0.23
-command: bash /opt/workspace/tmp/shell_29b52a7c5fae4ebc8baa6662d21996cd.sh
+duration_seconds: 0.2
+command: bash /opt/workspace/tmp/shell_29d5889a38d841e7862983ffd020c350.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 235
+stdout_chars: 228
 stderr_chars: 0
-stdout_bytes: 235
+stdout_bytes: 228
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 235
+inline_stdout_chars: 228
 inline_stderr_chars: 0
-estimated_inline_tokens: 59
+estimated_inline_tokens: 57
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 7. shell_exec
+### 8. shell_exec
 The appended ZIP is confirmed. I will extract the locally authored entries into a separate evidence directory and inspect the manifest.
 
 Actual response excerpt:
@@ -170,8 +209,8 @@ exit_code: 0
 stdout: ['manifest.json', 'payload.enc', 'decoy.txt']
 
 stderr: 
-duration_seconds: 0.33
-command: bash /opt/workspace/tmp/shell_98759a344bc0495fa9b29629639740dd.sh
+duration_seconds: 0.3
+command: bash /opt/workspace/tmp/shell_03274cae5e40444e95fe85533ac92efa.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -186,9 +225,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 46
 inline_stderr_chars: 0
 estimated_inline_tokens: 12
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 8. workspace_read_file
+### 9. workspace_read_file
 The manifest specifies AES-256-CBC, PBKDF2 and zlib, and says to join packet fragments with hyphens. I will test the key construction against those clues.
 
 Actual response excerpt:
@@ -211,7 +252,7 @@ content: {
 }
 ```
 
-### 9. shell_exec
+### 10. shell_exec
 I will reject the tempting unseparated-route hypothesis. A failed decryption is evidence to revise the key construction.
 
 Actual response excerpt:
@@ -220,10 +261,10 @@ tool: shell_exec
 exit_code: 1
 stdout: 
 stderr: bad decrypt
-406705EA807A0000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
+40C7A2B44F720000:error:1C800064:Provider routines:ossl_cipher_unpadblock:bad decrypt:../providers/implementations/ciphers/ciphercommon_block.c:107:
 
-duration_seconds: 0.22
-command: bash /opt/workspace/tmp/shell_187d078051b54df48c459a1d32238f7c.sh
+duration_seconds: 0.46
+command: bash /opt/workspace/tmp/shell_ac9358a414634146a6ce745a30d2f6d0.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -238,9 +279,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 160
 estimated_inline_tokens: 40
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 10. shell_exec
+### 11. shell_exec
 The manifest's separators matter. I will derive the key from the observed packet sequence and decrypt the actual payload.
 
 Actual response excerpt:
@@ -249,8 +292,8 @@ tool: shell_exec
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.3
-command: bash /opt/workspace/tmp/shell_e64037020f244e8ea02d3209d5a87383.sh
+duration_seconds: 0.23
+command: bash /opt/workspace/tmp/shell_c7d446d1fb7b47da8176d286e6265b12.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -265,9 +308,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 11. shell_exec
+### 12. shell_exec
 I will apply the discovered compression layer, compare the recovered flag's SHA-256 with the manifest, and reject the decoy by its mismatching digest.
 
 Actual response excerpt:
@@ -282,8 +327,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.33
-command: bash /opt/workspace/tmp/shell_af1ab353259246e683cb6ade1387231c.sh
+duration_seconds: 0.22
+command: bash /opt/workspace/tmp/shell_8aa9450045234ba2a98e7665e5361310.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -298,9 +343,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 195
 inline_stderr_chars: 0
 estimated_inline_tokens: 49
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
-### 12. workspace_read_file
+### 13. workspace_read_file
 The checksum and decoy checks passed. I will reread the verification artifact before publishing the reproducible write-up.
 
 Actual response excerpt:

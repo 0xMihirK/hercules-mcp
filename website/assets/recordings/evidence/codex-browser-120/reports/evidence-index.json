@@ -1,13 +1,38 @@
 [
   {
+    "path": "artifacts/login-headers.txt",
+    "bytes": 441,
+    "sha256": "b6a564ee85ef3f952a82c2b0dd228b1f774f4582bd5f76514fdd6fd6a15ed08a"
+  },
+  {
+    "path": "artifacts/login-ok.txt",
+    "bytes": 450,
+    "sha256": "e9a6d2d28934b20dea0c2e883f37eca9c051d63032845937303fb0bc0e627df1"
+  },
+  {
     "path": "artifacts/login-rejected.txt",
     "bytes": 197,
-    "sha256": "c37c3049914298fd6474fd489f9883f19cb471c7fd1eb510fbbd5a20e4012122"
+    "sha256": "24b2f1a64d2ca1e966939ad01fa5eed3dfcaa459654893e7088d7df40baa35b1"
+  },
+  {
+    "path": "artifacts/profile-authorized.json",
+    "bytes": 200,
+    "sha256": "aef45cde20c00f8a84b37c040b640cc5b350ee4e8c256a07d591eca925ff81a2"
+  },
+  {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
   },
   {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "138d339e0761320dea7b6c0e2172bbf17623be4f5c926c4be5fa64617d4cf1f0"
+    "sha256": "abee282d69457b2dbe9846f7afc2b2e9964670e62b4f1bbadbff43e05198705f"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -15,18 +40,18 @@
     "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
   },
   {
-    "path": "logs/agent-browser_raw_20261011_151411_963385.txt",
-    "bytes": 107410,
-    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+    "path": "logs/agent-browser_raw_20261027_013736_760892.txt",
+    "bytes": 146872,
+    "sha256": "4087f52ea810fe242294600c6301943783010db12f884a00979be6634dbfbe00"
   },
   {
-    "path": "logs/agent-browser_stdout_20261011_151415_338098.txt",
-    "bytes": 107350,
-    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+    "path": "logs/agent-browser_stdout_20261027_013739_821431.txt",
+    "bytes": 146513,
+    "sha256": "dbb4281828a15c0e72c71f44112943fa873af03097d10d12a5dfc4af3f7f9a85"
   },
   {
     "path": "reports/browser.md",
-    "bytes": 9497,
-    "sha256": "a95d1a41a377a03999c76f79035fd732a87de898a114aec36c9b53fb240c1857"
+    "bytes": 14517,
+    "sha256": "deb12948028e74893ee41b2f680d6b84ee7143110e614f54701468f3d0e29a6c"
   }
 ]

@@ -1,6 +1,6 @@
-# Background-job recovery
+# Timeout and job recovery
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -21,15 +21,15 @@ Actual response excerpt:
 ```text
 tool: shell_check_job
 job_id: lab-recovery
-pid: 32
-pgid: 30
+pid: 63
+pgid: 63
 is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-11T17:54:15.865950+00:00
-updated_at: 2026-10-11T17:55:17.242825+00:00
-finished_at: 2026-10-11T17:54:35Z
+created_at: 2026-10-27T06:08:54.525780+00:00
+updated_at: 2026-10-27T06:09:40.081056+00:00
+finished_at: 2026-10-27T06:09:03Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -40,7 +40,46 @@ Narrow the next check to /health
 log_path: /opt/workspace/jobs/lab-recovery.log
 ```
 
-### 5. workspace_read_file
+### 5. system_list_sessions
+I will inspect Hercules's current managed-job inventory; a harness task identifier would not identify this shell job.
+
+Actual response excerpt:
+```text
+tool: system_list_sessions
+active_session: 23f2e4c1
+total_sessions: 1
+sessions: session_id: 23f2e4c1
+is_active: True
+file_count: 16
+total_size_mb: 0.02
+path: C:\Users\Mihir Katoch\OneDrive\Documents\ChatGPT\hercules-mcp\website\test-results\labs\opencode-recovery-80-1793081231527292000\workspace\23f2e4c1
+total_bytes: 17122
+created_at: 2026-10-27T06:07:28.534355+00:00
+last_used_at: 2026-10-27T06:09:52.370608+00:00
+state: active
+generation: 1
+pinned: False
+owned: True
+retention_eligible: False
+host_workspace: C:\Users\Mihir Katoch\OneDrive\Documents\ChatGPT\hercules-mcp\website\test-results\labs\opencode-recovery-80-1793081231527292000\workspace\23f2e4c1
+container_workspace: /opt/workspace
+session_id: 23f2e4c1
+generation: 1
+container_running: True
+runtime_state: attached
+runtime_state_source: manager_attachment_not_docker_inspection
+workspace_state_source: recorded_manifest
+current_owner: pid: 19064
+instance_id: e21eee5f9ff848c6b99558b3f57a0204
+job_inventory: jobs: job_id: lab-recovery
+state: completed
+generation: 1
+stale: False
+log_path: /opt/workspace/jobs/lab-recovery.log
+truncated:
+```
+
+### 6. workspace_read_file
 The request exceeded its one-second budget. I will preserve that diagnostic and narrow the investigation rather than report the service as absent.
 
 Actual response excerpt:
@@ -53,24 +92,23 @@ total_bytes: 77
 offset: 0
 truncated: False
 next_offset: None
-content: curl: (28) Operation timed out after 1001 milliseconds with 0 bytes received
+content: curl: (28) Operation timed out after 1002 milliseconds with 0 bytes received
 
 ```
 
-### 6. network_curl
+### 7. network_curl
 I will confirm that the discovered HTTP service responds, retaining the response as a file.
 
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.201.10:8000/health
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.96.10:8000/health
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.41
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.201.10:8000/health
+duration_seconds: 0.19
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.96.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -85,9 +123,11 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
-### 7. workspace_read_file
+### 8. workspace_read_file
 The narrow health request succeeded. This confirms a slow endpoint rather than a complete service outage.
 
 Actual response excerpt:
@@ -102,7 +142,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Sun, 11 Oct 2026 17:55:53 GMT
+Date: Tue, 27 Oct 2026 06:10:11 GMT
 Content-Type: application/json
 Content-Length: 37
 X-Hercules-Lab: disposable
@@ -110,22 +150,22 @@ X-Hercules-Lab: disposable
 {"status": "ok", "remediated": false}
 ```
 
-### 8. shell_check_job
+### 9. shell_check_job
 I will verify the background job's final state before cleanup and reporting.
 
 Actual response excerpt:
 ```text
 tool: shell_check_job
 job_id: lab-recovery
-pid: 32
-pgid: 30
+pid: 63
+pgid: 63
 is_running: False
 state: completed
 generation: 1
 stale: False
-created_at: 2026-10-11T17:54:15.865950+00:00
-updated_at: 2026-10-11T17:56:25.043428+00:00
-finished_at: 2026-10-11T17:54:35Z
+created_at: 2026-10-27T06:08:54.525780+00:00
+updated_at: 2026-10-27T06:10:32.361264+00:00
+finished_at: 2026-10-27T06:09:03Z
 exit_code: 0
 total_lines: 3
 showing_last: 30
@@ -136,7 +176,7 @@ Narrow the next check to /health
 log_path: /opt/workspace/jobs/lab-recovery.log
 ```
 
-### 9. shell_exec
+### 10. shell_exec
 I will record the revised scope and verified recovery alongside the partial output.
 
 Actual response excerpt:
@@ -146,8 +186,8 @@ exit_code: 0
 stdout: Recovery: slow request timed out at its explicit budget; fresh /health probe succeeded.
 
 stderr: 
-duration_seconds: 0.44
-command: bash /opt/workspace/tmp/shell_bcceabe579304997bf5a1722ac5794ec.sh
+duration_seconds: 2.96
+command: bash /opt/workspace/tmp/shell_bdd0e96c87a3419284a90437fcb527f7.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -162,6 +202,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 88
 inline_stderr_chars: 0
 estimated_inline_tokens: 22
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
 ## Scope and limitations

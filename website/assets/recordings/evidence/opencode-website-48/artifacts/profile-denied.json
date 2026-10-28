@@ -1,0 +1,8 @@
+HTTP/1.0 401 Unauthorized
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 04:38:58 GMT
+Content-Type: application/json
+Content-Length: 27
+X-Hercules-Lab: disposable
+
+{"error": "login required"}

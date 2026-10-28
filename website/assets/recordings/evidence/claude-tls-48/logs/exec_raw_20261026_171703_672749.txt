@@ -1,0 +1,13 @@
+$ bash /opt/workspace/tmp/shell_8f9b04e4382446129cad99ff118cb862.sh
+
+[stdout]
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Mon, 26 Oct 2026 17:17:03 GMT
+Content-Type: application/json
+Content-Length: 37
+X-Hercules-Lab: disposable
+
+{"status": "ok", "remediated": false}
+
+[stderr]

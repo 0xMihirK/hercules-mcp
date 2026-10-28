@@ -1,6 +1,6 @@
-# Browser workflow review
+# Authentication workflow
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -31,9 +31,9 @@ I will check the live local page in the native browser backend rather than infer
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.200.10:8000/login
+url: http://172.30.95.10:8000/login
 session: review
-stealth: cloak stealth Chromium
+stealth: Obscura TLS/fingerprint profile; tracker blocking disabled
 proxy_enabled: False
 proxy_host: 
 timezone: 
@@ -42,37 +42,36 @@ session_relaunched: False
 next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
-duration_seconds: 1.17
-command: agent-browser --json --session review open http://172.30.200.10:8000/login
+duration_seconds: 1.06
+command: agent-browser --json --session review open http://172.30.95.10:8000/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 365
+stdout_chars: 385
 stderr_chars: 0
-stdout_bytes: 367
+stdout_bytes: 387
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 92
+estimated_inline_tokens: 97
+requested_timeout_seconds: 120
+effective_timeout_seconds: 120
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
-engine: chrome
-launchHash: 15884220051995745035
+engine: obscura
+launchHash: 15879720535023231675
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
 restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
+targetId: page-1
 title: Atlas lab — sign in
-url: http://172.30.200.10:8000/login
-error: None
-structured_output: True
-stdout_replaced_by: browser_result
 ```
 
 ### 5. browser_snapshot
@@ -89,7 +88,7 @@ stdout: - heading "Atlas operations" [level=1, ref=e1]
 - button "Sign in" [ref=e4]
 
 stderr: 
-duration_seconds: 0.23
+duration_seconds: 0.2
 command: agent-browser --session review snapshot -i -c
 output_filtered: False
 output_complete: True
@@ -105,7 +104,13 @@ stderr_chars_exact: True
 inline_stdout_chars: 152
 inline_stderr_chars: 0
 estimated_inline_tokens: 38
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 iframes_auto_inlined: True
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsupported. The browser has NO SSRF boundary on host networking: it can reach host-local, LAN, and cloud-metadata (169.254.169.254) services, so only browse authorized targets.
 ```
 
 ### 6. browser_act
@@ -117,27 +122,29 @@ tool: browser_act
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.27
+duration_seconds: 0.17
 command: agent-browser --json --session review find label Email fill ***
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 342
+stdout_chars: 343
 stderr_chars: 0
-stdout_bytes: 342
+stdout_bytes: 343
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 86
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 browser_result: success: True
 data: filled: [data-agent-browser-located='true']
 lifecycle: effectiveLaunch: browserLaunched: True
-engine: chrome
-launchHash: 15884220051995745035
+engine: obscura
+launchHash: 15879720535023231675
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -147,6 +154,10 @@ saveStatus: not_attempted
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser down
 ```
 
 ### 7. browser_act
@@ -158,27 +169,29 @@ tool: browser_act
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.22
+duration_seconds: 0.19
 command: agent-browser --json --session review find label Password fill ***
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 342
+stdout_chars: 343
 stderr_chars: 0
-stdout_bytes: 342
+stdout_bytes: 343
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 86
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 browser_result: success: True
 data: filled: [data-agent-browser-located='true']
 lifecycle: effectiveLaunch: browserLaunched: True
-engine: chrome
-launchHash: 15884220051995745035
+engine: obscura
+launchHash: 15879720535023231675
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -188,6 +201,10 @@ saveStatus: not_attempted
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser d
 ```
 
 ### 8. browser_act
@@ -199,27 +216,29 @@ tool: browser_act
 session: review
 exit_code: 0
 stderr: 
-duration_seconds: 0.3
+duration_seconds: 0.17
 command: agent-browser --json --session review find role button click --name 'Sign in'
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 311
+stdout_chars: 312
 stderr_chars: 0
-stdout_bytes: 311
+stdout_bytes: 312
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 78
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 browser_result: success: True
 data: clicked: @e5
 lifecycle: effectiveLaunch: browserLaunched: True
-engine: chrome
-launchHash: 15884220051995745035
+engine: obscura
+launchHash: 15879720535023231675
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
@@ -229,6 +248,10 @@ saveStatus: not_attempted
 error: None
 structured_output: True
 stdout_replaced_by: browser_result
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsuppo
 ```
 
 ### 9. browser_snapshot
@@ -239,26 +262,33 @@ Actual response excerpt:
 tool: browser_snapshot
 session: review
 exit_code: 0
-stdout: - heading "Dashboard" [level=1, ref=e1]
+stdout: - generic
+  - heading "Dashboard" [level=1, ref=e6]
 
 stderr: 
-duration_seconds: 0.22
+duration_seconds: 0.15
 command: agent-browser --session review snapshot -c
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 40
+stdout_chars: 52
 stderr_chars: 0
-stdout_bytes: 40
+stdout_bytes: 52
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 40
+inline_stdout_chars: 52
 inline_stderr_chars: 0
-estimated_inline_tokens: 10
+estimated_inline_tokens: 13
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 iframes_auto_inlined: True
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsupported. The browser has NO SSRF boundary on host networking: it can reach host-local, LAN, and cloud-metadata (169.254.169.254) services, so only browse authorized targets.
 ```
 
 ### 10. network_curl
@@ -267,14 +297,13 @@ I will independently confirm that an incorrect fixture password is rejected; the
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/login
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/login
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.27
-command: curl -s -X POST --proto =http,https -i -d 'email=reviewer%40lab.test&password=*** --max-time 5 -o /opt/workspace/artifacts/login-rejected.txt http://172.30.200.10:8000/login
+duration_seconds: 0.2
+command: curl -s -X POST --proto =http,https -i -L -d 'email=reviewer%40lab.test&password=*** --max-time 5 -o /opt/workspace/artifacts/login-rejected.txt http://172.30.95.10:8000/login
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -289,6 +318,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 11. browser_screenshot
@@ -305,7 +336,7 @@ exit_code: 0
 stdout: ✓ Screenshot saved to /opt/workspace/browser/review/artifacts/dashboard.png
 
 stderr: 
-duration_seconds: 0.41
+duration_seconds: 0.2
 command: agent-browser --session review screenshot /opt/workspace/browser/review/artifacts/dashboard.png
 output_filtered: False
 output_complete: True
@@ -321,9 +352,132 @@ stderr_chars_exact: True
 inline_stdout_chars: 76
 inline_stderr_chars: 0
 estimated_inline_tokens: 19
-bytes: 10179
+requested_timeout_seconds: 90
+effective_timeout_seconds: 90
+bytes: 12724
 width: 1280
-height: 599
+height: 720
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsupported. The browser has NO SSRF boundary on host networking: it can reach host-local, LAN, and cloud-metadata (169.
+```
+
+### 12. network_curl
+I will verify the server's session response independently of the browser UI.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.95.10:8000/login
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.2
+command: curl -s -X POST --proto =http,https -i -L -d 'email=reviewer%40lab.test&password=*** --max-time 5 -D /opt/workspace/artifacts/login-headers.txt -o /opt/workspace/artifacts/login-ok.txt http://172.30.95.10:8000/login
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 13. workspace_read_file
+I will cite the observed cookie attributes, not assume them from a successful sign-in.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/login-headers.txt
+encoding: text
+bytes: 441
+total_bytes: 441
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 303 See Other
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 09:21:34 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 30
+X-Hercules-Lab: disposable
+Location: /dashboard
+Set-Cookie: atlas-session=lab-reviewer; HttpOnly; SameSite=Lax; Path=/
+
+HTTP/1.0 404 Not Found
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 09:21:34 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 9
+X-Hercules-Lab: disposable
+
+
+```
+
+### 14. network_curl
+The fixture session can now request the protected profile. I will save the response without extending the claim to untested accounts.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.95.10:8000/api/profile
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.16
+command: curl -s -X GET --proto =http,https -i -L -b *** --max-time 5 -o /opt/workspace/artifacts/profile-authorized.json http://172.30.95.10:8000/api/profile
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 15. workspace_read_file
+The protected response matches the scoped account. The wrong-password control remains rejected.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/profile-authorized.json
+encoding: text
+bytes: 200
+total_bytes: 200
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 09:21:50 GMT
+Content-Type: application/json
+Content-Length: 41
+X-Hercules-Lab: disposable
+
+{"role": "reviewer", "source": "fixture"}
 ```
 
 ## Scope and limitations

@@ -1,0 +1,7 @@
+$ rm -f -- /opt/workspace/jobs/lab-recovery.exit /opt/workspace/jobs/lab-recovery.finished /opt/workspace/jobs/lab-recovery.pid /opt/workspace/jobs/lab-recovery.pgid /opt/workspace/jobs/lab-recovery.start_ticks /opt/workspace/jobs/lab-recovery.ready; nohup setsid bash /opt/workspace/jobs/lab-recovery.wrapper.sh > /opt/workspace/jobs/lab-recovery.log 2>&1 < /dev/null & for _ in $(seq 1 100); do test -f /opt/workspace/jobs/lab-recovery.ready && break; sleep 0.05; done; test -f /opt/workspace/jobs/lab-recovery.ready || exit 125; cat /opt/workspace/jobs/lab-recovery.pid
+
+[stdout]
+61
+
+
+[stderr]

@@ -1,0 +1,13 @@
+$ ffuf -u http://172.30.95.10:8000/FUZZ -w /opt/workspace/paths.txt -t 2 -ic -s -json -mc all -fc 404 -rate 15
+
+[stdout]
+{"input":{"FFUFHASH":"ODY0NGUx","FUZZ":"cm9ib3RzLnR4dA=="},"position":1,"status":200,"length":52,"words":4,"lines":4,"content-type":"text/plain","redirectlocation":"","url":"http://172.30.95.10:8000/robots.txt","duration":7792298,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+{"input":{"FFUFHASH":"ODY0NGUy","FUZZ":"ZGVidWc="},"position":2,"status":200,"length":91,"words":8,"lines":1,"content-type":"application/json","redirectlocation":"","url":"http://172.30.95.10:8000/debug","duration":6727098,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+{"input":{"FFUFHASH":"ODY0NGUz","FUZZ":"YWRtaW4="},"position":3,"status":403,"length":64,"words":8,"lines":1,"content-type":"text/html; charset=utf-8","redirectlocation":"","url":"http://172.30.95.10:8000/admin","duration":8445332,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+{"input":{"FFUFHASH":"ODY0NGU1","FUZZ":"aGVhbHRo"},"position":5,"status":200,"length":37,"words":4,"lines":1,"content-type":"application/json","redirectlocation":"","url":"http://172.30.95.10:8000/health","duration":2782954,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+{"input":{"FFUFHASH":"ODY0NGU2","FUZZ":"Y3Rm"},"position":6,"status":200,"length":142,"words":15,"lines":1,"content-type":"text/html; charset=utf-8","redirectlocation":"","url":"http://172.30.95.10:8000/ctf","duration":5470205,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+{"input":{"FFUFHASH":"ODY0NGU3","FUZZ":"YXBpL2RyYWZ0"},"position":7,"status":401,"length":34,"words":4,"lines":1,"content-type":"application/json","redirectlocation":"","url":"http://172.30.95.10:8000/api/draft","duration":2237588,"scraper":{},"resultfile":"","host":"172.30.95.10:8000"}
+
+
+[stderr]
+[2K[2K[2K[2K[2K[2K

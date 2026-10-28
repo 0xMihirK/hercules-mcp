@@ -1,6 +1,6 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hercules local lab report</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:24px;background:#171b1e;color:#e9e5de}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}</style><h1>Hercules local lab report</h1><pre># Web CTF
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Hercules local lab report</title><style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:24px;background:#171b1e;color:#e9e5de}pre{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}</style><h1>Hercules local lab report</h1><pre># Chained web CTF
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -10,14 +10,13 @@ I will inspect declared routes before guessing endpoints.
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/robots.txt
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/robots.txt
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.26
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.200.10:8000/robots.txt
+duration_seconds: 0.25
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.95.10:8000/robots.txt
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -32,6 +31,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 4. workspace_read_file
@@ -49,7 +50,7 @@ truncated: False
 next_offset: None
 content: HTTP/1.0 200 OK
 Server: AtlasLab/1.0 
-Date: Sun, 11 Oct 2026 15:34:19 GMT
+Date: Tue, 27 Oct 2026 02:21:14 GMT
 Content-Type: text/plain
 Content-Length: 52
 X-Hercules-Lab: disposable
@@ -66,14 +67,13 @@ I will preserve the rejected request. It should tell us which prerequisite is mi
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/api/draft
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/api/draft
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.27
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/draft-denied.txt http://172.30.200.10:8000/api/draft
+duration_seconds: 0.4
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/draft-denied.txt http://172.30.95.10:8000/api/draft
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -88,6 +88,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 6. browser_skill
@@ -117,9 +119,9 @@ The challenge offers a draft-session bootstrap. I will follow that local clue in
 Actual response excerpt:
 ```text
 tool: browser_open
-url: http://172.30.200.10:8000/ctf/bootstrap
+url: http://172.30.95.10:8000/ctf/bootstrap
 session: review
-stealth: cloak stealth Chromium
+stealth: Obscura TLS/fingerprint profile; tracker blocking disabled
 proxy_enabled: False
 proxy_host: 
 timezone: 
@@ -128,37 +130,37 @@ session_relaunched: False
 next_step: Call browser_snapshot to see the page and obtain @refs.
 exit_code: 0
 stderr: 
-duration_seconds: 1.22
-command: agent-browser --json --session review open http://172.30.200.10:8000/ctf/bootstrap
+duration_seconds: 2.11
+command: agent-browser --json --session review open http://172.30.95.10:8000/ctf/bootstrap
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 354
+stdout_chars: 374
 stderr_chars: 0
-stdout_bytes: 354
+stdout_bytes: 374
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 89
+estimated_inline_tokens: 94
+requested_timeout_seconds: 120
+effective_timeout_seconds: 120
 browser_result: success: True
 data: lifecycle: effectiveLaunch: browserLaunched: True
-engine: chrome
-launchHash: 15884220051995745035
+engine: obscura
+launchHash: 15879720535023231675
 launched: False
 relaunchedBrowser: False
 restartedBackground: False
 restoreStatus: not_configured
 reused: True
 saveStatus: not_attempted
+targetId: page-1
 title: 
-url: http://172.30.200.10:8000/ctf/bootstrap
-error: None
-structured_output: True
-stdout_replaced_by: browser_result
+ur
 ```
 
 ### 8. browser_snapshot
@@ -169,44 +171,49 @@ Actual response excerpt:
 tool: browser_snapshot
 session: review
 exit_code: 0
-stdout: - heading &quot;Draft session ready&quot; [level=1, ref=e1]
-- code
+stdout: - generic
+  - heading &quot;Draft session ready&quot; [level=1, ref=e1]
   - StaticText &quot;X-Draft-Route: atlas-7&quot;
 
 stderr: 
-duration_seconds: 1.88
+duration_seconds: 0.21
 command: agent-browser --session review snapshot -c
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 97
+stdout_chars: 102
 stderr_chars: 0
-stdout_bytes: 97
+stdout_bytes: 102
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 97
+inline_stdout_chars: 102
 inline_stderr_chars: 0
-estimated_inline_tokens: 25
+estimated_inline_tokens: 26
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 iframes_auto_inlined: True
+browser_backend: obscura
+csp_enforced: False
+native_browser_downloads: False
+warnings: Obscura does NOT enforce CSP. Script execution is not proof of a Chromium CSP bypass. Native browser downloads are unsupported. The browser has NO SSRF boundary on host networking: it can reach host-local, LAN, and cloud-metadata (169.254.169.254) services, so only browse authorized targets.
 ```
 
 ### 9. network_curl
-Both prerequisites are now observed. I will send the scoped request and save the actual response.
+The cookie alone may be insufficient. I will retain that negative control before sending the discovered header.
 
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/api/draft
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/api/draft
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 1.47
-command: curl -s -X GET --proto =http,https -i -H &#x27;***&#x27; -b *** --max-time 5 -o /opt/workspace/artifacts/draft-flag.txt http://172.30.200.10:8000/api/draft
+duration_seconds: 1.19
+command: curl -s -X GET --proto =http,https -i -L -b *** --max-time 5 -o /opt/workspace/artifacts/draft-no-header.json http://172.30.95.10:8000/api/draft
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -221,9 +228,126 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
-### 10. shell_exec
+### 10. workspace_read_file
+The rejection names the missing prerequisite; I will not count this branch as a solved challenge.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/draft-no-header.json
+encoding: text
+bytes: 201
+total_bytes: 201
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 400 Bad Request
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 02:22:35 GMT
+Content-Type: application/json
+Content-Length: 33
+X-Hercules-Lab: disposable
+
+{&quot;error&quot;: &quot;route header missing&quot;}
+```
+
+### 11. network_curl
+A separate candidate is available. I will check its digest before accepting the first flag-like string.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.95.10:8000/ctf/decoy
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.16
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/decoy.json http://172.30.95.10:8000/ctf/decoy
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 12. shell_exec
+The decoy&#x27;s digest does not match. I will keep it as a rejected candidate.
+
+Actual response excerpt:
+```text
+tool: shell_exec
+exit_code: 0
+stdout: decoy checksum mismatch; rejected
+
+stderr: 
+duration_seconds: 0.27
+command: bash /opt/workspace/tmp/shell_77a9ca5bf55b4b9b91237a3416805d32.sh
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 34
+stderr_chars: 0
+stdout_bytes: 34
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 34
+inline_stderr_chars: 0
+estimated_inline_tokens: 9
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
+```
+
+### 13. network_curl
+Both prerequisites are now observed. I will send the scoped request and save the actual response.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.95.10:8000/api/draft
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.17
+command: curl -s -X GET --proto =http,https -i -L -H &#x27;***&#x27; -b *** --max-time 5 -o /opt/workspace/artifacts/draft-flag.txt http://172.30.95.10:8000/api/draft
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 14. shell_exec
 I will verify the returned flag against its digest. The report will document the rejected request and the two required state elements.
 
 Actual response excerpt:
@@ -233,8 +357,8 @@ exit_code: 0
 stdout: {&quot;flag&quot;: &quot;HERCULES{state_and_requests_tell_the_story}&quot;, &quot;checksum_match&quot;: true, &quot;sha256&quot;: &quot;1599e7f57f275f7e8ec73c7da7defc6109710466e158b4ef5bea0bdb7ffe9f4d&quot;}
 
 stderr: 
-duration_seconds: 0.23
-command: bash /opt/workspace/tmp/shell_de9ab7508e7d41bbb643ec5fde0256e1.sh
+duration_seconds: 0.26
+command: bash /opt/workspace/tmp/shell_6df889bf859a447a964e8fa3481de3b5.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -249,6 +373,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 158
 inline_stderr_chars: 0
 estimated_inline_tokens: 40
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
 ## Scope and limitations

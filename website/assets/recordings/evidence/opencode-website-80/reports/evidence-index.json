@@ -2,12 +2,27 @@
   {
     "path": "artifacts/backup-404.html",
     "bytes": 233,
-    "sha256": "bd037b77fe4e087fa843fcdb47215065a0f324232e50d9f45fd2fd71672fa5eb"
+    "sha256": "a5ea2c3a573e02e389ed0209b30c83e71e07a20aad92aa2e9e53e446092bff4a"
+  },
+  {
+    "path": "artifacts/profile-denied.json",
+    "bytes": 196,
+    "sha256": "fd03556a7243e543838c51ec888e8b49654bd2a0e7331a1cd7e247b902c2b54c"
+  },
+  {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
   },
   {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "3b2f6e2db8d0e2cb3cbc7655db58657345645b87f407a3b316d462d7a0287710"
+    "sha256": "df5435a94ed1379895a0b0ff18394149d271f8c1cbaf58f2e85eb0ce3b5f2b86"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -15,28 +30,28 @@
     "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
   },
   {
-    "path": "logs/agent-browser_raw_20261011_162858_014528.txt",
-    "bytes": 107410,
-    "sha256": "76cd8e3b530550c02b83679abb772fb83f32c0477d8f1ec2467c6b058b77bca9"
+    "path": "logs/agent-browser_raw_20261027_040304_468803.txt",
+    "bytes": 146872,
+    "sha256": "4087f52ea810fe242294600c6301943783010db12f884a00979be6634dbfbe00"
   },
   {
-    "path": "logs/agent-browser_stdout_20261011_162901_073243.txt",
-    "bytes": 107350,
-    "sha256": "c6c3d8f07dc33dd2aeb8c6e786f8cb932d0be6c3210b5e3b5a0db33f6c4f1042"
+    "path": "logs/agent-browser_stdout_20261027_040307_525365.txt",
+    "bytes": 146513,
+    "sha256": "dbb4281828a15c0e72c71f44112943fa873af03097d10d12a5dfc4af3f7f9a85"
   },
   {
-    "path": "logs/exec_raw_20261011_162803_861009.txt",
-    "bytes": 1881,
-    "sha256": "f658d3106d272df22b573ea333196c039b66513532ef7df66516cb605ccb072d"
+    "path": "logs/exec_raw_20261027_040205_473833.txt",
+    "bytes": 1865,
+    "sha256": "40b9dfd0cc02f754fcf460dcee4465d66113236d77ab3b071385f24382a01e35"
   },
   {
-    "path": "logs/nuclei_raw_20261011_162837_654071.txt",
-    "bytes": 823,
-    "sha256": "ff5b060c74b88681c1cb78d00807c1f0640f2396055433f98a8c6f3b0c4c4034"
+    "path": "logs/nuclei_raw_20261027_040244_386719.txt",
+    "bytes": 841,
+    "sha256": "51261d21338b47e726931636ed7ba0871c4140c227d6c65bded95687689712d9"
   },
   {
     "path": "reports/website.md",
-    "bytes": 9697,
-    "sha256": "2db494d96ced283906e0918ba9d2f8d886f79509021e646ed88913f1d1c71cb0"
+    "bytes": 11675,
+    "sha256": "d2964dabc44b4c012d04ddd6612752326316ec1dd385972fe26f9aaff89e8e45"
   }
 ]

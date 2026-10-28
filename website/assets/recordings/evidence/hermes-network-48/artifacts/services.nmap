@@ -1,6 +1,6 @@
-# Nmap 7.99 scan initiated Sun Oct 11 12:22:07 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV --version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.110.10
-Nmap scan report for hercules-capture-68afd1e840bc-fixture.hercules-capture-68afd1e840bc-net (172.30.110.10)
-Host is up (0.00066s latency).
+# Nmap 7.99 scan initiated Tue Oct 27 07:30:53 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV --version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10
+Nmap scan report for hercules-capture-9d9bd4e9990a-fixture.hercules-capture-9d9bd4e9990a-net (172.30.95.10)
+Host is up (0.00011s latency).
 
 PORT     STATE SERVICE        VERSION
 8000/tcp open  http-alt?
@@ -8,9 +8,9 @@ PORT     STATE SERVICE        VERSION
 8443/tcp open  ssl/https-alt?
 2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :
 ==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============
-SF-Port8000-TCP:V=7.99%I=2%D=10/11%Time=6ACB7F75%P=x86_64-pc-linux-gnu%r(G
+SF-Port8000-TCP:V=7.99%I=2%D=10/27%Time=6AE05333%P=x86_64-pc-linux-gnu%r(G
 SF:etRequest,2DD,"HTTP/1\.0\x20200\x20OK\r\nServer:\x20AtlasLab/1\.0\x20\r
-SF:\nDate:\x20Sun,\x2011\x20Oct\x202026\x2012:22:13\x20GMT\r\nContent-Type
+SF:\nDate:\x20Tue,\x2027\x20Oct\x202026\x2007:30:59\x20GMT\r\nContent-Type
 SF::\x20text/html;\x20charset=utf-8\r\nContent-Length:\x20565\r\nX-Hercule
 SF:s-Lab:\x20disposable\r\n\r\n<!doctype\x20html><html\x20lang=\"en\"><tit
 SF:le>Atlas\x20lab\x20\xe2\x80\x94\x20sign\x20in</title>\n<style>body{font
@@ -23,13 +23,13 @@ SF:l\"\x20name=\"email\"\x20type=\"email\"\x20required><label\x20for=\"pas
 SF:sword\">Password</label><input\x20id=\"password\"\x20name=\"password\"\
 SF:x20type=\"password\"\x20required><button>Sign\x20in</button></form>")%r
 SF:(FourOhFourRequest,E9,"HTTP/1\.0\x20404\x20Not\x20Found\r\nServer:\x20A
-SF:tlasLab/1\.0\x20\r\nDate:\x20Sun,\x2011\x20Oct\x202026\x2012:22:18\x20G
+SF:tlasLab/1\.0\x20\r\nDate:\x20Tue,\x2027\x20Oct\x202026\x2007:31:04\x20G
 SF:MT\r\nContent-Type:\x20text/html;\x20charset=utf-8\r\nContent-Length:\x
 SF:2059\r\nX-Hercules-Lab:\x20disposable\r\n\r\n<h1>Not\x20found</h1><p>Th
 SF:is\x20route\x20is\x20absent\x20from\x20the\x20lab\.</p>")%r(Socks5,2E3,
 SF:"HTTP/1\.0\x20400\x20Bad\x20request\x20syntax\x20\('\\x05\\x04\\x00\\x0
 SF:1\\x02\\x80\\x05\\x01\\x00\\x03'\)\r\nServer:\x20AtlasLab/1\.0\x20\r\nD
-SF:ate:\x20Sun,\x2011\x20Oct\x202026\x2012:22:18\x20GMT\r\nConnection:\x20
+SF:ate:\x20Tue,\x2027\x20Oct\x202026\x2007:31:04\x20GMT\r\nConnection:\x20
 SF:close\r\nContent-Type:\x20text/html;charset=utf-8\r\nContent-Length:\x2
 SF:0520\r\n\r\n<!DOCTYPE\x20HTML>\n<html\x20lang=\"en\">\n\x20\x20\x20\x20
 SF:<head>\n\x20\x20\x20\x20\x20\x20\x20\x20<meta\x20charset=\"utf-8\">\n\x
@@ -47,47 +47,47 @@ SF:\x20\x20<p>Error\x20code\x20explanation:\x20400\x20-\x20Bad\x20request\
 SF:x20syntax\x20or\x20unsupported\x20method\.</p>\n\x20\x20\x20\x20</body>
 SF:\n</html>\n");
 ==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============
-SF-Port8080-TCP:V=7.99%I=2%D=10/11%Time=6ACB7F75%P=x86_64-pc-linux-gnu%r(G
-SF:etRequest,F7,"HTTP/1\.0\x20302\x20Found\r\nServer:\x20AtlasLab/1\.0\x20
-SF:\r\nDate:\x20Sun,\x2011\x20Oct\x202026\x2012:22:13\x20GMT\r\nContent-Ty
+SF-Port8080-TCP:V=7.99%I=2%D=10/27%Time=6AE05333%P=x86_64-pc-linux-gnu%r(G
+SF:etRequest,F6,"HTTP/1\.0\x20302\x20Found\r\nServer:\x20AtlasLab/1\.0\x20
+SF:\r\nDate:\x20Tue,\x2027\x20Oct\x202026\x2007:30:59\x20GMT\r\nContent-Ty
 SF:pe:\x20text/html;\x20charset=utf-8\r\nContent-Length:\x2033\r\nX-Hercul
-SF:es-Lab:\x20disposable\r\nLocation:\x20https://172\.30\.110\.10:8443/log
-SF:in\r\n\r\nRedirect\x20to\x20the\x20lab\x20TLS\x20endpoint\.")%r(HTTPOpt
-SF:ions,29F,"HTTP/1\.0\x20501\x20Unsupported\x20method\x20\('OPTIONS'\)\r\
-SF:nServer:\x20AtlasLab/1\.0\x20\r\nDate:\x20Sun,\x2011\x20Oct\x202026\x20
-SF:12:22:13\x20GMT\r\nConnection:\x20close\r\nContent-Type:\x20text/html;c
-SF:harset=utf-8\r\nContent-Length:\x20485\r\n\r\n<!DOCTYPE\x20HTML>\n<html
-SF:\x20lang=\"en\">\n\x20\x20\x20\x20<head>\n\x20\x20\x20\x20\x20\x20\x20\
-SF:x20<meta\x20charset=\"utf-8\">\n\x20\x20\x20\x20\x20\x20\x20\x20<style\
-SF:x20type=\"text/css\">\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20
-SF::root\x20{\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x2
-SF:0\x20color-scheme:\x20light\x20dark;\n\x20\x20\x20\x20\x20\x20\x20\x20\
-SF:x20\x20\x20\x20}\n\x20\x20\x20\x20\x20\x20\x20\x20</style>\n\x20\x20\x2
-SF:0\x20\x20\x20\x20\x20<title>Error\x20response</title>\n\x20\x20\x20\x20
-SF:</head>\n\x20\x20\x20\x20<body>\n\x20\x20\x20\x20\x20\x20\x20\x20<h1>Er
-SF:ror\x20response</h1>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Error\x20code:
-SF:\x20501</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Message:\x20Unsupported
-SF:\x20method\x20\('OPTIONS'\)\.</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>E
-SF:rror\x20code\x20explanation:\x20501\x20-\x20Server\x20does\x20not\x20su
-SF:pport\x20this\x20operation\.</p>\n\x20\x20\x20\x20</body>\n</html>\n")%
-SF:r(RTSPRequest,2A5,"HTTP/1\.0\x20400\x20Bad\x20request\x20version\x20\('
-SF:RTSP/1\.0'\)\r\nServer:\x20AtlasLab/1\.0\x20\r\nDate:\x20Sun,\x2011\x20
-SF:Oct\x202026\x2012:22:13\x20GMT\r\nConnection:\x20close\r\nContent-Type:
-SF:\x20text/html;charset=utf-8\r\nContent-Length:\x20489\r\n\r\n<!DOCTYPE\
-SF:x20HTML>\n<html\x20lang=\"en\">\n\x20\x20\x20\x20<head>\n\x20\x20\x20\x
-SF:20\x20\x20\x20\x20<meta\x20charset=\"utf-8\">\n\x20\x20\x20\x20\x20\x20
-SF:\x20\x20<style\x20type=\"text/css\">\n\x20\x20\x20\x20\x20\x20\x20\x20\
-SF:x20\x20\x20\x20:root\x20{\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20
-SF:\x20\x20\x20\x20\x20color-scheme:\x20light\x20dark;\n\x20\x20\x20\x20\x
-SF:20\x20\x20\x20\x20\x20\x20\x20}\n\x20\x20\x20\x20\x20\x20\x20\x20</styl
-SF:e>\n\x20\x20\x20\x20\x20\x20\x20\x20<title>Error\x20response</title>\n\
-SF:x20\x20\x20\x20</head>\n\x20\x20\x20\x20<body>\n\x20\x20\x20\x20\x20\x2
-SF:0\x20\x20<h1>Error\x20response</h1>\n\x20\x20\x20\x20\x20\x20\x20\x20<p
-SF:>Error\x20code:\x20400</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Message:
-SF:\x20Bad\x20request\x20version\x20\('RTSP/1\.0'\)\.</p>\n\x20\x20\x20\x2
-SF:0\x20\x20\x20\x20<p>Error\x20code\x20explanation:\x20400\x20-\x20Bad\x2
-SF:0request\x20syntax\x20or\x20unsupported\x20method\.</p>\n\x20\x20\x20\x
-SF:20</body>\n</html>\n");
+SF:es-Lab:\x20disposable\r\nLocation:\x20https://172\.30\.95\.10:8443/logi
+SF:n\r\n\r\nRedirect\x20to\x20the\x20lab\x20TLS\x20endpoint\.")%r(HTTPOpti
+SF:ons,29F,"HTTP/1\.0\x20501\x20Unsupported\x20method\x20\('OPTIONS'\)\r\n
+SF:Server:\x20AtlasLab/1\.0\x20\r\nDate:\x20Tue,\x2027\x20Oct\x202026\x200
+SF:7:30:59\x20GMT\r\nConnection:\x20close\r\nContent-Type:\x20text/html;ch
+SF:arset=utf-8\r\nContent-Length:\x20485\r\n\r\n<!DOCTYPE\x20HTML>\n<html\
+SF:x20lang=\"en\">\n\x20\x20\x20\x20<head>\n\x20\x20\x20\x20\x20\x20\x20\x
+SF:20<meta\x20charset=\"utf-8\">\n\x20\x20\x20\x20\x20\x20\x20\x20<style\x
+SF:20type=\"text/css\">\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20:
+SF:root\x20{\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20
+SF:\x20color-scheme:\x20light\x20dark;\n\x20\x20\x20\x20\x20\x20\x20\x20\x
+SF:20\x20\x20\x20}\n\x20\x20\x20\x20\x20\x20\x20\x20</style>\n\x20\x20\x20
+SF:\x20\x20\x20\x20\x20<title>Error\x20response</title>\n\x20\x20\x20\x20<
+SF:/head>\n\x20\x20\x20\x20<body>\n\x20\x20\x20\x20\x20\x20\x20\x20<h1>Err
+SF:or\x20response</h1>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Error\x20code:\
+SF:x20501</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Message:\x20Unsupported\
+SF:x20method\x20\('OPTIONS'\)\.</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Er
+SF:ror\x20code\x20explanation:\x20501\x20-\x20Server\x20does\x20not\x20sup
+SF:port\x20this\x20operation\.</p>\n\x20\x20\x20\x20</body>\n</html>\n")%r
+SF:(RTSPRequest,2A5,"HTTP/1\.0\x20400\x20Bad\x20request\x20version\x20\('R
+SF:TSP/1\.0'\)\r\nServer:\x20AtlasLab/1\.0\x20\r\nDate:\x20Tue,\x2027\x20O
+SF:ct\x202026\x2007:30:59\x20GMT\r\nConnection:\x20close\r\nContent-Type:\
+SF:x20text/html;charset=utf-8\r\nContent-Length:\x20489\r\n\r\n<!DOCTYPE\x
+SF:20HTML>\n<html\x20lang=\"en\">\n\x20\x20\x20\x20<head>\n\x20\x20\x20\x2
+SF:0\x20\x20\x20\x20<meta\x20charset=\"utf-8\">\n\x20\x20\x20\x20\x20\x20\
+SF:x20\x20<style\x20type=\"text/css\">\n\x20\x20\x20\x20\x20\x20\x20\x20\x
+SF:20\x20\x20\x20:root\x20{\n\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\
+SF:x20\x20\x20\x20\x20color-scheme:\x20light\x20dark;\n\x20\x20\x20\x20\x2
+SF:0\x20\x20\x20\x20\x20\x20\x20}\n\x20\x20\x20\x20\x20\x20\x20\x20</style
+SF:>\n\x20\x20\x20\x20\x20\x20\x20\x20<title>Error\x20response</title>\n\x
+SF:20\x20\x20\x20</head>\n\x20\x20\x20\x20<body>\n\x20\x20\x20\x20\x20\x20
+SF:\x20\x20<h1>Error\x20response</h1>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>
+SF:Error\x20code:\x20400</p>\n\x20\x20\x20\x20\x20\x20\x20\x20<p>Message:\
+SF:x20Bad\x20request\x20version\x20\('RTSP/1\.0'\)\.</p>\n\x20\x20\x20\x20
+SF:\x20\x20\x20\x20<p>Error\x20code\x20explanation:\x20400\x20-\x20Bad\x20
+SF:request\x20syntax\x20or\x20unsupported\x20method\.</p>\n\x20\x20\x20\x2
+SF:0</body>\n</html>\n");
 
 Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
-# Nmap done at Sun Oct 11 12:22:23 2026 -- 1 IP address (1 host up) scanned in 16.41 seconds
+# Nmap done at Tue Oct 27 07:31:09 2026 -- 1 IP address (1 host up) scanned in 16.30 seconds

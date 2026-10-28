@@ -1,13 +1,26 @@
-import unittest
 import hashlib
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+
 from PIL import Image
 
-from .publish import CAPTURE, approved, call_phase, capture_interval, capture_surface, investigation_transcript, recorder_fingerprint_matches, report_preview, stage_artifact, validate_browser_artifacts
 from .cases import CASES
 from .program import Program
+from .publish import (
+    CAPTURE,
+    approved,
+    call_phase,
+    capture_interval,
+    capture_surface,
+    investigation_transcript,
+    recorder_fingerprint_matches,
+    report_preview,
+    stage_artifact,
+    stage_pixel_atlas,
+    validate_browser_artifacts,
+)
 
 
 class FindingPhaseTests(unittest.TestCase):
@@ -23,6 +36,35 @@ class FindingPhaseTests(unittest.TestCase):
             (root/"second/surface.json").write_text('{"tools": ["different"]}')
             with self.assertRaisesRegex(ValueError,"inconsistent MCP surfaces"):
                 capture_surface(items)
+
+    def test_native_capture_without_surface_uses_fresh_cold_probe(self):
+        with TemporaryDirectory() as directory:
+            root=Path(directory)
+            recording=root/"capture"/"recordings"/"test.cast"
+            recording.parent.mkdir(parents=True)
+            fresh=root/"fresh.json"
+            fresh.write_text('{"tools": [], "resources": []}')
+            items=[(None,(None,None,None,None,recording))]
+            self.assertEqual(capture_surface(items,fresh),fresh)
+            (recording.parent.parent/"surface.json").write_text('{"tools": ["unexpected"]}')
+            with self.assertRaisesRegex(ValueError,"differs"):
+                capture_surface(items,fresh)
+
+    def test_staged_atlas_preserves_every_rgb_pixel(self):
+        with TemporaryDirectory() as directory:
+            root=Path(directory);source=root/"source";source.mkdir()
+            original=Image.new("RGB",(64,40),(10,20,30))
+            for x in range(5,35): original.putpixel((x,7),(x,100,180))
+            original.save(source/"atlas-0000.png")
+            digest=hashlib.sha256((source/"atlas-0000.png").read_bytes()).hexdigest()
+            (source/"index.json").write_text('{"sheets": [{"file": "atlas-0000.png", "sha256": "'+digest+'"}]}')
+            index=stage_pixel_atlas(source,root/"staged")
+            sheet=index["sheets"][0]
+            self.assertEqual((sheet["width"],sheet["height"]),(64,40))
+            self.assertFalse((root/"staged"/"atlas-0000.png").exists())
+            with Image.open(root/"staged"/sheet["file"]) as decoded:
+                self.assertEqual(decoded.convert("RGB").tobytes(),original.tobytes())
+            self.assertEqual(hashlib.sha256((root/"staged"/sheet["file"]).read_bytes()).hexdigest(),sheet["sha256"])
 
     def test_prior_capture_without_current_case_fingerprint_is_rejected(self):
         with TemporaryDirectory() as directory:
@@ -168,8 +210,9 @@ class RecorderProvenanceTests(unittest.TestCase):
 
 class RecordingArchiveTests(unittest.TestCase):
     def test_native_bytes_and_timestamps_round_trip_without_newline_conversion(self):
-        from .publish import archive_recording
         import zipfile
+
+        from .publish import archive_recording
         data=b'{"version":2,"timestamp":1791750799}\n[0.065,"o","\\u001b[31m"]\n'+b'\r\n\x1b[0m'+"café".encode()
         with TemporaryDirectory() as directory:
             root=Path(directory);source=root/"native.cast";source.write_bytes(data)

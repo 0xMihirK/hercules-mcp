@@ -17,12 +17,12 @@
   {
     "path": "artifacts/forensics/payload.enc",
     "bytes": 80,
-    "sha256": "5a6eec08c847f65b89e7645f8525c4389ea24fd24f652609a38dcaf44ff75a19"
+    "sha256": "7bcd6dae922440bc7f3c2450c4edbd3ec16e8f05f1ecc44c1ece0caffcf93cd3"
   },
   {
     "path": "artifacts/forensics/rejected.bin",
     "bytes": 48,
-    "sha256": "0c5acafd8d341502355b9b31d3442745b4488e2e1cfb7f3d37041e664e48c4b6"
+    "sha256": "8ef7a397c16ac92198a717f6a46483d7d77b5b44dc904a3bbd5c2b2130251ef6"
   },
   {
     "path": "artifacts/forensics/verification.json",
@@ -30,9 +30,19 @@
     "sha256": "80cd5829f8d403b1c7ffb3c0293eacb5e7b0f517733b56f00b8e6e5b1ae1f18e"
   },
   {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
+  },
+  {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "f66450807564c9d9c5daabda00d000c345f13297f570a0bf383f4e01e4b5651e"
+    "sha256": "0864ec57dbe3ab4cc40b77d510b19f72ca5927ea180167487e65c346788b4879"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -41,7 +51,7 @@
   },
   {
     "path": "reports/forensics.md",
-    "bytes": 9049,
-    "sha256": "9de4317e3a54f696a04af84f97de17f004a768665e8c2665143158d0e04f9b3c"
+    "bytes": 10933,
+    "sha256": "2ca086063a21c57ff80a562896809b0e2eb240464fb73678c28982584872c5bd"
   }
 ]

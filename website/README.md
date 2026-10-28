@@ -112,7 +112,9 @@ The production build checks static preview metadata and font preload paths,
 and enforces **160 KiB gzip for all shipped JavaScript**, including deferred
 chunks and the background worker. Recording images and JSON are measured
 separately; moving data out of JavaScript is not reported as eliminating its
-transfer cost. Native pixel assets retain their original bytes.
+transfer cost. The capture masters, raw terminal streams, and evidence retain
+their original bytes. Public pixel atlases are repacked as lossless WebP; the
+publisher verifies that every decoded RGB pixel matches the captured PNG.
 
 For a repeatable local baseline, serve `dist` with Python on port 4183 and run
 three serial Lighthouse measurements for each profile, using fresh browser

@@ -1,0 +1,13 @@
+$ bash /opt/workspace/tmp/shell_ce49820288f74c529b511a1e1f908bb8.sh
+
+[stdout]
+HTTP/1.0 404 Not Found
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 04:38:13 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 59
+X-Hercules-Lab: disposable
+
+<h1>Not found</h1><p>This route is absent from the lab.</p>
+
+[stderr]

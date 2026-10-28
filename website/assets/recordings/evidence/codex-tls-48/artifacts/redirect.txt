@@ -1,9 +1,9 @@
 HTTP/1.0 302 Found
 Server: AtlasLab/1.0 
-Date: Sun, 11 Oct 2026 14:38:59 GMT
+Date: Tue, 27 Oct 2026 08:46:24 GMT
 Content-Type: text/html; charset=utf-8
 Content-Length: 33
 X-Hercules-Lab: disposable
-Location: https://172.30.197.10:8443/login
+Location: https://172.30.96.10:8443/login
 
 Redirect to the lab TLS endpoint.

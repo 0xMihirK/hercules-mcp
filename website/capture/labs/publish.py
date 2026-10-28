@@ -1,24 +1,28 @@
 """Verify and stage native recordings and real artifacts for static playback."""
 import argparse
-from bisect import bisect_right
 import hashlib
 import json
 import math
-from pathlib import Path
+import os
+import queue
 import re
 import shutil
 import subprocess
+import tempfile
+import threading
 import time
 import zipfile
+from bisect import bisect_right
+from pathlib import Path
 
 from PIL import Image
-from ..pixels import validate_capture_times
 
-from .batch import CLIENTS, geometries, VERSIONS, PROFILES
+from ..pixels import validate_capture_times
+from .batch import CLIENTS, PROFILES, VERSIONS, geometries
 from .cases import CASES, catalog
-from .program import Program, payload
+from .program import Program
 from .run import CAPTURE, IMAGE, RESULTS, ROOT
-from .sandbox import source_root
+from .sandbox import host_environment, server_command, source_root
 
 
 def result_excerpt(data):
@@ -31,11 +35,80 @@ def result_excerpt(data):
     return json.dumps(values,ensure_ascii=False,indent=2)[:550]
 
 
-def capture_surface(approved_items):
+def capture_surface(approved_items, fresh=None):
     paths=[item[-1].parent.parent/"surface.json" for _,item in approved_items]
-    if not paths or len({sha(path) for path in paths})!=1:
+    present=[path for path in paths if path.is_file()]
+    if not paths or (present and len(present)!=len(paths)) or (present and len({sha(path) for path in present})!=1):
         raise ValueError("Validated captures have missing or inconsistent MCP surfaces")
-    return paths[0]
+    if not present and fresh is None:
+        raise ValueError("Validated captures have missing or inconsistent MCP surfaces")
+    chosen=present[0] if present else Path(fresh)
+    if fresh is not None and json.loads(chosen.read_text(encoding="utf-8"))!=json.loads(Path(fresh).read_text(encoding="utf-8")):
+        raise ValueError("Current MCP surface differs from the validated captures")
+    return chosen
+
+
+def probe_surface():
+    """Observe the capture profile over cold STDIO; no Docker tool is called."""
+    with tempfile.TemporaryDirectory(prefix="surface-",dir=RESULTS) as temporary:
+        source=source_root()
+        environment=host_environment(source,Path(temporary)/"workspace","bridge")
+        process=subprocess.Popen(server_command(source),cwd=source,env=environment,
+                                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,
+                                 text=True,encoding="utf-8",
+                                 creationflags=subprocess.CREATE_NO_WINDOW if os.name=="nt" else 0)
+        responses=queue.Queue()
+        def read():
+            for line in process.stdout:
+                try: responses.put(json.loads(line))
+                except json.JSONDecodeError: continue
+            responses.put(None)
+        threading.Thread(target=read,daemon=True).start()
+        def request(number,method,params=None):
+            process.stdin.write(json.dumps({"jsonrpc":"2.0","id":number,"method":method,"params":params or {}})+"\n")
+            process.stdin.flush()
+            while True:
+                try: response=responses.get(timeout=30)
+                except queue.Empty as error: raise TimeoutError("Cold MCP surface probe timed out") from error
+                if response is None: raise RuntimeError("Cold MCP surface probe exited early")
+                if response.get("id")==number:
+                    if "error" in response: raise RuntimeError("Cold MCP surface probe failed")
+                    return response["result"]
+        try:
+            request(1,"initialize",{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"capture-publisher","version":"1"}})
+            process.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
+            process.stdin.flush()
+            surface={"tools":request(2,"tools/list"),"resources":request(3,"resources/list")}
+        finally:
+            process.stdin.close()
+            try: process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.terminate();process.wait(timeout=10)
+    path=RESULTS/"publish-surface.json"
+    path.write_bytes((json.dumps(surface,indent=2)+"\n").encode("utf-8"))
+    return path
+
+
+def stage_pixel_atlas(source,destination):
+    """Repack only derived atlases; verify every decoded RGB pixel is unchanged."""
+    shutil.copytree(source,destination)
+    index_path=destination/"index.json"
+    index=json.loads(index_path.read_text(encoding="utf-8"))
+    for sheet in index["sheets"]:
+        original=destination/sheet["file"]
+        if sha(original)!=sheet["sha256"]: raise ValueError("Capture atlas checksum changed before staging")
+        replacement=original.with_suffix(".webp")
+        with Image.open(original) as image:
+            rgb=image.convert("RGB")
+            digest=hashlib.sha256(rgb.tobytes()).digest()
+            rgb.save(replacement,format="WEBP",lossless=True,method=6)
+            with Image.open(replacement) as decoded:
+                if decoded.size!=rgb.size or hashlib.sha256(decoded.convert("RGB").tobytes()).digest()!=digest:
+                    raise ValueError("Lossless atlas conversion changed native pixels")
+            sheet.update({"file":replacement.name,"sha256":sha(replacement),"width":rgb.width,"height":rgb.height})
+        original.unlink()
+    index_path.write_bytes((json.dumps(index,ensure_ascii=False,indent=2)+"\n").encode("utf-8"))
+    return index
 
 
 def call_phase(scenario,position):
@@ -338,8 +411,7 @@ def main():
         recording_archive=archive_recording(recording,stage)
         shutil.copyfile(recording.with_suffix(".ansi"),stage/recording.with_suffix(".ansi").name)
         pixel_source=recording.parent/status["pixels"]["directory"]
-        shutil.copytree(pixel_source,stage/pixel_source.name)
-        pixel_index=json.loads((pixel_source/"index.json").read_text())
+        pixel_index=stage_pixel_atlas(pixel_source,stage/pixel_source.name)
         # Concatenated VT diffs are unreadable in full-screen clients. Export
         # the observed journal and text actually sent by the scripted provider.
         # The unmodified VT stream remains separately downloadable.
@@ -377,7 +449,7 @@ def main():
         metadata.append({"file":recording.name,"client":c,"version":status["version"],"scenario":s,"columns":cols,"rows":rows,
             "recordingArchive":recording_archive,
             "rawAnsi":recording.with_suffix(".ansi").name,"rawAnsiSha256":sha(recording.with_suffix(".ansi")),
-            "pixels":{"index":pixel_source.name+"/index.json","indexSha256":sha(pixel_source/"index.json"),"width":pixel_index["width"],"height":pixel_index["height"],"fps":60,"profile":pixel_index["profile"],"pixelExact":True,"captureTiming":{"capturedFrames":pixel_index["verification"]["capturedFrames"],"maximumCaptureGapSeconds":pixel_index["verification"]["largestCaptureGapSeconds"],"clockValidation":json.loads((recording.parent/"clock-validation.json").read_text()) if (recording.parent/"clock-validation.json").exists() else None}},
+            "pixels":{"index":pixel_source.name+"/index.json","indexSha256":sha(stage/pixel_source.name/"index.json"),"width":pixel_index["width"],"height":pixel_index["height"],"fps":60,"profile":pixel_index["profile"],"pixelExact":True,"captureTiming":{"capturedFrames":pixel_index["verification"]["capturedFrames"],"maximumCaptureGapSeconds":pixel_index["verification"]["largestCaptureGapSeconds"],"clockValidation":json.loads((recording.parent/"clock-validation.json").read_text()) if (recording.parent/"clock-validation.json").exists() else None}},
             "displayStart":pixel_index["displayStart"],"still":pixel_source.name+"/opening.png","stillAt":pixel_index["openingAt"],"stillSha256":sha(pixel_source/"opening.png"),
             "stillRenderer":"Independent XTerm/Xvfb native graphical capture; original lossless pixels",
             "completedStill":pixel_source.name+"/completed.png","completedStillAt":pixel_index.get("completedAt",pixel_index["reviewFrames"]["completed"]["at"]),"completedStillSha256":sha(pixel_source/"completed.png"),
@@ -389,7 +461,7 @@ def main():
             "scriptedModel":True,"scriptedToolResults":False,"realTools":True,"holdSeconds":6})
     case_catalog=catalog()
     write_json(CAPTURE/"lab-cases.json",case_catalog)
-    shutil.copyfile(capture_surface(approved_items),stage/"mcp-surface.json")
+    shutil.copyfile(capture_surface(approved_items,probe_surface()),stage/"mcp-surface.json")
     manifest={"schemaVersion":3,"format":"lossless-native-pixel-atlases","rawFormat":"asciicast-v2","nativeUI":True,"captureSpeed":1,"playbackSpeed":2.5,"realTools":True,"scriptedModel":True,
         "scriptedToolResults":False,"scriptedUsageCounters":True,"accountAccess":False,"externalNetwork":False,"developmentOnly":args.development,
         "term":"xterm-256color","theme":"native dark","font":"Cascadia Mono 2407.24","recordings":metadata,

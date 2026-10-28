@@ -1,0 +1,7 @@
+{
+  "product": "AtlasLab",
+  "observed_version": "1.0",
+  "candidate_product": "Unrelated HTTP server",
+  "candidate_range": "1.0-1.4",
+  "conclusion": "product mismatch; no CVE established"
+}

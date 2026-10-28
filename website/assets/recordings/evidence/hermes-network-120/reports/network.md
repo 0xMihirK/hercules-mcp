@@ -1,6 +1,6 @@
-# Network inventory
+# Service boundary map
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -11,45 +11,47 @@ Actual response excerpt:
 ```text
 tool: recon_dns
 selected_tool: dig
-target: 172.30.200.10
-command: dig @172.30.200.10 172.30.200.10 A
+target: 172.30.95.10
+command: dig @172.30.95.10 172.30.95.10 A
 exit_code: 0
 stdout: 
-; <<>> DiG 9.20.27-2-Debian <<>> @172.30.200.10 172.30.200.10 A
+; <<>> DiG 9.20.27-2-Debian <<>> @172.30.95.10 172.30.95.10 A
 ; (1 server found)
 ;; global options: +cmd
 ;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 4731
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 25600
 ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
 
 ;; QUESTION SECTION:
-;172.30.200.10.			IN	A
+;172.30.95.10.			IN	A
 
 ;; ANSWER SECTION:
-172.30.200.10.		60	IN	A	172.30.200.10
+172.30.95.10.		60	IN	A	172.30.95.10
 
 ;; Query time: 0 msec
-;; SERVER: 172.30.200.10#53(172.30.200.10) (UDP)
-;; WHEN: Sun Oct 11 18:19:51 UTC 2026
-;; MSG SIZE  rcvd: 47
+;; SERVER: 172.30.95.10#53(172.30.95.10) (UDP)
+;; WHEN: Tue Oct 27 07:11:17 UTC 2026
+;; MSG SIZE  rcvd: 46
 
 
 stderr: 
-duration_seconds: 0.31
+duration_seconds: 0.17
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 485
+stdout_chars: 479
 stderr_chars: 0
-stdout_bytes: 485
+stdout_bytes: 479
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
-inline_stdout_chars: 485
+inline_stdout_chars: 479
 inline_stderr_chars: 0
-estimated_inline_tokens: 122
+estimated_inline_tokens: 120
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 4. nmap_scan
@@ -59,34 +61,36 @@ Actual response excerpt:
 ```text
 tool: nmap_scan
 mode: port
-target: 172.30.200.10
+target: 172.30.95.10
 ports: 8000,8080,8443
 exit_code: 0
 stderr: 
-duration_seconds: 0.34
-command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.200.10
+duration_seconds: 0.2
+command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.95.10
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 1629
+stdout_chars: 1626
 stderr_chars: 0
-stdout_bytes: 1629
+stdout_bytes: 1626
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 408
-raw_artifact: /opt/workspace/logs/exec_raw_20261011_182000_142058.txt
-raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261011_182000_142058.txt
+estimated_inline_tokens: 407
+requested_timeout_seconds: 300
+effective_timeout_seconds: 300
+raw_artifact: /opt/workspace/logs/exec_raw_20261027_071126_224838.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261027_071126_224838.txt
 filter_notes: raw output preserved in artifact
 parsed: scanner: nmap
-start_time: 1791742799
+start_time: 1793085086
 host_count: 1
 hosts: status: up
-addresses: addr: 172.30.200.10
+addresses: addr: 172.30.95.10
 addrtype: ipv4
 ports: portid: 8000
 protocol: tcp
@@ -103,10 +107,7 @@ version: None
 portid: 8443
 protocol: tcp
 state: open
-service: name: https-alt
-product: None
-version: None
-structur
+ser
 ```
 
 ### 5. shell_exec
@@ -116,9 +117,9 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-11 18:20 +0000
-Nmap scan report for hercules-capture-0ffe187ad9f3-fixture.hercules-capture-0ffe187ad9f3-net (172.30.200.10)
-Host is up (0.00031s latency).
+stdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-27 07:11 +0000
+Nmap scan report for hercules-capture-217161927cd8-fixture.hercules-capture-217161927cd8-net (172.30.95.10)
+Host is up (0.00042s latency).
 
 PORT     STATE SERVICE        VERSION
 8000/tcp open  http-alt?
@@ -126,13 +127,13 @@ PORT     STATE SERVICE        VERSION
 8443/tcp open  ssl/https-alt?
 2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :
 ==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============
-SF-Port8000-TCP:V=7.99%I=2%D=10/11%Time=6ACBD368%P=x86_64-pc-linux-gnu%r(G
+SF-Port8000-TCP:V=7.99%I=2%D=10/27%Time=6AE04EB5%P=x86_64-pc-linux-gnu%r(G
 SF:etRequest,2DD,"HTTP/1\.0\x20200\x20OK\r\nServer:\x20AtlasLab/1\.0\x20\r
-SF:\nDate:\x20Sun,\x2011\x20Oct\x202026\x2018:20:24\x20GMT\r\nContent-Type
+SF:\nDate:\x20Tue,\x2027\x20Oct\x202026\x2007:11:49\x20GMT\r\nContent-Type
 SF::\x20text/html;\x20charset=utf-8\r\nContent-Length:\x20565\r\nX-Hercule
 SF:s-Lab:\x20disposable\r\n\r\n<!doctype\x20html><html\x20lang=\"en\"><tit
 SF:le>Atlas\x20lab\x20\xe2\x80\x94\x20sign\x20in</title>\n<style>body{font
-SF::18px\x20system-ui;max-width:540
+SF::18px\x20system-ui;max-width:540p
 ```
 
 ### 6. network_curl
@@ -141,14 +142,13 @@ I will confirm that the discovered HTTP service responds, retaining the response
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/health
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/health
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.2
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.200.10:8000/health
+duration_seconds: 0.21
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -163,6 +163,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 7. network_curl
@@ -171,14 +173,13 @@ The HTTP service is healthy. I will inspect its declared routes before interpret
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.200.10:8000/robots.txt
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.95.10:8000/robots.txt
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.3
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.200.10:8000/robots.txt
+duration_seconds: 0.18
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.95.10:8000/robots.txt
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -193,6 +194,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 8. shell_exec
@@ -202,7 +205,7 @@ Actual response excerpt:
 ```text
 tool: shell_exec
 exit_code: 0
-stdout: Connecting to 172.30.200.10
+stdout: Connecting to 172.30.95.10
 Can't use SSL_get_servername
 depth=0 CN=lab
 verify return:1
@@ -212,22 +215,22 @@ Certificate chain
  0 s:CN=lab
    i:CN=lab
    a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption
-   v:NotBefore: Oct 11 18:17:39 2026 GMT; NotAfter: Nov 10 18:17:39 2026 GMT
+   v:NotBefore: Oct 27 07:09:07 2026 GMT; NotAfter: Nov 26 07:09:07 2026 GMT
 ---
 Server certificate
 -----BEGIN CERTIFICATE-----
-MIIDEzCCAfugAwIBAgIUae4Qvnez1ujyOZ3nPNxTDAFb3h0wDQYJKoZIhvcNAQEL
-BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAxMTE4MTczOVoXDTI2MTExMDE4MTcz
-OVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
-AQEAvNcLUC2OSuZ+M+FXu/Dm44p818Pf/YldM0sBbCnbE/1q/7z0NPpP1vKEO1JS
-iAk1VBOg0W4qEmDO9TUT4zKpmZ0g6LTC/iRHmje8/BG4zUdts+Kcx+KKCI+4cjr8
-cHmt8AwagoX8Y88ZRWsFqF4dGP2d88eo0vczCH9XiUOZfU9d6WboFHboCjjOzElc
-Vvnjl2JeWa4j/MSwsZLPfOL/qk5/mea9XY6YxJl4v1CekAowivrS33sRLrUvUBTr
-3DJasbgNU99MMocl8yOhdcC7RmjtH325Pp9+a3U8L8YnsHLAVGGCOOSG+XuX4ldX
-mcRpJ75cMxGHKSp4P5tKM7+lLQIDAQABo2kwZzAdBgNVHQ4EFgQU0WTqvU747UoM
-PwEHb9RXD+0bLsQwHwYDVR0jBBgwFoAU0WTqvU747UoMPwEHb9RXD+0bLsQwDwYD
-VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweyAowDQYJKoZIhvcNAQEL
-BQADg
+MIIDEzCCAfugAwIBAgIUN2EeONSkY767zf6kEehas8Z/iN0wDQYJKoZIhvcNAQEL
+BQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAyNzA3MDkwN1oXDTI2MTEyNjA3MDkw
+N1owDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC
+AQEAzzG+3ADHLDzoI9NA5XsHsjIuTGOLec6z5dQibAUFhqc1DxSyNxvclSXWrwdt
+KbNE0FmOCZzbgyU2IIf0oZUtzX+gvlP6x+MYmq6Yam25i4c96BSSW64UXRKzB0+4
+fR07bepWluPxe1My+ZcVlcihK1EpaumGdDhFyZ4l45CbVOQVkTndGCP7tsRvtjpd
+18VRUa1+aa2UcoeHagso3wRX4OuyfFkDQd4V8FzUPqbCfaEK8Kt470kt1odT3/t6
+KIU5ieWJy+OeYDl8sxtHGG/34+URDRe2SThx/quvjkwTNcH6zOCrj1VFfH8BUXSN
+/xY2pYDoC6w6pZ2jBg6SVGkacQIDAQABo2kwZzAdBgNVHQ4EFgQUtDuvqpN6wqgK
+qAJs5zyf7/uAFDkwHwYDVR0jBBgwFoAUtDuvqpN6wqgKqAJs5zyf7/uAFDkwDwYD
+VR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweXwowDQYJKoZIhvcNAQEL
+BQADgg
 ```
 
 ### 9. workspace_read_file
@@ -239,22 +242,85 @@ tool: workspace_read_file
 path: /opt/workspace/artifacts/services.xml
 encoding: text
 bytes: 4096
-total_bytes: 8116
+total_bytes: 8112
 offset: 0
 truncated: True
 next_offset: 4096
 content: <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE nmaprun>
 <?xml-stylesheet href="file:///usr/share/nmap/nmap.xsl" type="text/xsl"?>
-<!-- Nmap 7.99 scan initiated Sun Oct 11 18:20:17 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.200.10 -->
-<nmaprun scanner="nmap" args="/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.200.10" start="1791742817" startstr="Sun Oct 11 18:20:17 2026" version="7.99" xmloutputversion="1.05">
+<!-- Nmap 7.99 scan initiated Tue Oct 27 07:11:43 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10 -->
+<nmaprun scanner="nmap" args="/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10" start="1793085103" startstr="Tue Oct 27 07:11:43 2026" version="7.99" xmloutputversion="1.05">
 <scaninfo type="connect" protocol="tcp" numservices="3" services="8000,8080,8443"/>
 <verbose level="0"/>
 <debugging level="0"/>
-<host starttime="1791742817" endtime="1791742834"><status state="up" reason="user-set" reason_ttl="0"/>
-<address addr="172.30.200.10" addrtype="ipv4"/>
+<host starttime="1793085103" endtime="1793085119"><status state="up" reason="user-set" reason_ttl="0"/>
+<address addr="172.30.95.10" addrtype="ipv4"/>
 <hostnames>
-<hostname name="hercules-capture-0ffe187ad9f3-fixture.hercules-capture-0ffe18
+<hostname name="hercules-capture-217161927cd8-fixture.hercules-capture-217161927
+```
+
+### 10. shell_exec
+The negative-control port should not look like an exposed service. I will save its actual result before drawing a network boundary.
+
+Actual response excerpt:
+```text
+tool: shell_exec
+exit_code: 0
+stdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-27 07:13 +0000
+Nmap scan report for hercules-capture-217161927cd8-fixture.hercules-capture-217161927cd8-net (172.30.95.10)
+Host is up (0.0000090s latency).
+
+PORT     STATE  SERVICE
+9999/tcp closed abyss
+
+Nmap done: 1 IP address (1 host up) scanned in 0.04 seconds
+# Nmap 7.99 scan initiated Tue Oct 27 07:13:05 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10
+Nmap scan report for hercules-capture-217161927cd8-fixture.hercules-capture-217161927cd8-net (172.30.95.10)
+Host is up (0.0000090s latency).
+
+PORT     STATE  SERVICE
+9999/tcp closed abyss
+
+# Nmap done at Tue Oct 27 07:13:05 2026 -- 1 IP address (1 host up) scanned in 0.04 seconds
+
+stderr: 
+duration_seconds: 0.29
+command: bash /opt/workspace/tmp/shell_2447e3cd01da4642a6556876d20459e8.sh
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 745
+stderr_chars: 0
+stdout_bytes: 745
+stderr_bytes: 0
+stdout_chars_exact: True
+```
+
+### 11. workspace_read_file
+I will include the negative control in the report so coverage is explicit.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/closed-port.txt
+encoding: text
+bytes: 430
+total_bytes: 430
+offset: 0
+truncated: False
+next_offset: None
+content: # Nmap 7.99 scan initiated Tue Oct 27 07:13:05 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10
+Nmap scan report for hercules-capture-217161927cd8-fixture.hercules-capture-217161927cd8-net (172.30.95.10)
+Host is up (0.0000090s latency).
+
+PORT     STATE  SERVICE
+9999/tcp closed abyss
+
+# Nmap done at Tue Oct 27 07:13:05 2026 -- 1 IP address (1 host up) scanned in 0.04 seconds
+
 ```
 
 ## Scope and limitations

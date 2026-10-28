@@ -1,0 +1,8 @@
+# Nmap 7.99 scan initiated Tue Oct 27 03:22:55 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.96.10
+Nmap scan report for hercules-capture-805d74e03572-fixture.hercules-capture-805d74e03572-net (172.30.96.10)
+Host is up (0.00015s latency).
+
+PORT     STATE  SERVICE
+9999/tcp closed abyss
+
+# Nmap done at Tue Oct 27 03:22:55 2026 -- 1 IP address (1 host up) scanned in 0.36 seconds

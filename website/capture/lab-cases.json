@@ -1,8 +1,9 @@
 {
   "network": {
-    "title": "Network inventory",
-    "prompt": "Inventory the disposable lab network: resolve its address, discover services, verify HTTP and TLS, and write an evidence-linked report. Stay inside the internal lab.",
-    "summary": "DNS and service probes are correlated with HTTP and TLS evidence. Open services are reported without treating exposure as an exploit.",
+    "title": "Service boundary map",
+    "objective": "Map the scoped services and compare a closed-port control.",
+    "prompt": "Map the scoped fixture, compare open and closed ports, verify HTTP and TLS, and report only observed service behavior.",
+    "summary": "The investigation checks a negative port control before correlating DNS, services, HTTP, and certificate evidence.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -75,13 +76,31 @@
         },
         "expect": "nmaprun",
         "observation": "I will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior."
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "nmap -Pn -sT -p 9999 172.30.42.10 -oN /opt/workspace/artifacts/closed-port.txt; cat /opt/workspace/artifacts/closed-port.txt",
+          "timeout": 45
+        },
+        "expect": "closed|filtered",
+        "observation": "The negative-control port should not look like an exposed service. I will save its actual result before drawing a network boundary."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/closed-port.txt"
+        },
+        "expect": "9999",
+        "observation": "I will include the negative control in the report so coverage is explicit."
       }
     ]
   },
   "services": {
-    "title": "Service assessment",
-    "prompt": "Assess the local lab's exposed services. Correlate Nmap and HTTP evidence with SearchSploit references, verify applicability, reject unsupported matches and create a report.",
-    "summary": "A catalog reference is inspected as a lead. Product/version prerequisites are compared with the observed lab service; a search match is not presented as a verified vulnerability.",
+    "title": "Version and exploit triage",
+    "objective": "Check whether a version and exploit lead matches the observed product.",
+    "prompt": "Compare the local service identity and build with a supplied synthetic advisory and SearchSploit leads. Reject a product mismatch and report remaining uncertainty.",
+    "summary": "A broad exploit hit is read, then rejected against the fixture's observed product and local advisory. No CVE is invented for the synthetic app.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -152,13 +171,30 @@
         },
         "expect": "exit_code",
         "observation": "I will verify the administrative route's actual response. A 403 is an access-control observation, not evidence of compromise."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "challenge/advisory.json"
+        },
+        "expect": "product mismatch",
+        "observation": "The supplied advisory concerns another product. Version-like text alone cannot establish applicability, so I will reject this lead."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/admin-denied.html"
+        },
+        "expect": "Access denied",
+        "observation": "The route still denies access. I will report exposure and uncertainty separately from exploitability."
       }
     ]
   },
   "website": {
-    "title": "Website assessment",
-    "prompt": "Assess the disposable Atlas website using directory discovery, web fingerprinting, a narrowly authored Nuclei check and browser confirmation. Reject false positives and report verified findings.",
-    "summary": "A debug endpoint is confirmed by independent requests, a local Nuclei matcher and a browser observation. An absent backup route is rejected as a finding.",
+    "title": "Web and API exposure",
+    "objective": "Verify a web exposure and reject unauthenticated API guesses.",
+    "prompt": "Discover the local application's routes, compare unauthenticated API and debug behavior, reject a missing backup route, and verify one exposure independently.",
+    "summary": "A bounded fuzz, a local Nuclei matcher, HTTP controls, and browser confirmation establish the debug exposure while the profile API and backup guesses are rejected.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -249,13 +285,31 @@
         },
         "expect": "image|screenshot|path",
         "observation": "I will save visual evidence alongside the raw HTTP and scanner artifacts."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/api/profile",
+          "extra_args": "--max-time 5 -o /opt/workspace/artifacts/profile-denied.json"
+        },
+        "expect": "exit_code",
+        "observation": "The profile endpoint is a separate hypothesis. I will test it without a session rather than assume the debug exposure grants account access."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/profile-denied.json"
+        },
+        "expect": "login required",
+        "observation": "The API rejects unauthenticated access. I will keep this negative control out of the findings list."
       }
     ]
   },
   "tls": {
-    "title": "TLS and redirect review",
-    "prompt": "Trace the lab's HTTP-to-TLS redirect, validate its certificate using the supplied lab CA, compare headers across hops, check the browser behavior and save the evidence-linked review.",
-    "summary": "Each redirect hop is reviewed separately. The certificate is verified with the supplied local CA and the browser's certificate behavior is recorded honestly.",
+    "title": "TLS and protocol review",
+    "objective": "Trace the redirect, verify TLS, and test the protocol directly.",
+    "prompt": "Trace the scoped redirect, verify the certificate with the supplied CA, send a manual HTTP request through Ncat, and compare browser behavior with transport evidence.",
+    "summary": "Independent TLS and Ncat checks separate protocol reachability from browser trust; a missing route supplies a negative control.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -342,13 +396,32 @@
         },
         "expect": "image|path|screenshot",
         "observation": "I will retain the reachable HTTP page for comparison and report any browser trust limitation separately from TLS chain validation."
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "printf 'GET /health HTTP/1.0\\r\\nHost: lab\\r\\n\\r\\n' | ncat -w 3 172.30.42.10 8000 > /opt/workspace/artifacts/ncat-health.txt; cat /opt/workspace/artifacts/ncat-health.txt",
+          "timeout": 45
+        },
+        "expect": "status.*ok",
+        "observation": "I will send a minimal raw request with Ncat and compare its response with the structured HTTP checks."
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "printf 'GET /missing HTTP/1.0\\r\\nHost: lab\\r\\n\\r\\n' | ncat -w 3 172.30.42.10 8000 > /opt/workspace/artifacts/ncat-missing.txt; cat /opt/workspace/artifacts/ncat-missing.txt",
+          "timeout": 45
+        },
+        "expect": "404",
+        "observation": "The same protocol path should reject an absent route; this checks that the manual request did not merely hit a catch-all page."
       }
     ]
   },
   "browser": {
-    "title": "Browser workflow review",
-    "prompt": "Review the local Atlas login flow with its disposable reviewer account. Inspect labels and error recovery, sign in, verify the destination and cookie attributes, and save screenshots and a report.",
-    "summary": "The native browser backend exercises a real local form. A failed login and successful recovery are verified before recording the dashboard and session-cookie behavior.",
+    "title": "Authentication workflow",
+    "objective": "Exercise login and verify its negative and session controls.",
+    "prompt": "Exercise the local login with a disposable account, then verify a rejected password, session-cookie attributes, and the protected API using independent HTTP requests.",
+    "summary": "Browser success is cross-checked against a rejected password, an unauthenticated profile request, and the actual Set-Cookie attributes.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -442,19 +515,66 @@
         },
         "expect": "image|path|screenshot",
         "observation": "I will save the verified final page. The report will distinguish tested authentication behavior from untested security properties."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/login",
+          "method": "POST",
+          "data": "email=reviewer%40lab.test&password=lab-only-password",
+          "extra_args": "--max-time 5 -D /opt/workspace/artifacts/login-headers.txt -o /opt/workspace/artifacts/login-ok.txt"
+        },
+        "expect": "exit_code",
+        "observation": "I will verify the server's session response independently of the browser UI."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/login-headers.txt"
+        },
+        "expect": "HttpOnly.*SameSite=Lax",
+        "observation": "I will cite the observed cookie attributes, not assume them from a successful sign-in."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/api/profile",
+          "cookie": "atlas-session=lab-reviewer",
+          "extra_args": "--max-time 5 -o /opt/workspace/artifacts/profile-authorized.json"
+        },
+        "expect": "exit_code",
+        "observation": "The fixture session can now request the protected profile. I will save the response without extending the claim to untested accounts."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/profile-authorized.json"
+        },
+        "expect": "reviewer",
+        "observation": "The protected response matches the scoped account. The wrong-password control remains rejected."
       }
     ]
   },
   "forensics": {
-    "title": "Layered forensic CTF",
-    "prompt": "Solve the supplied layered forensic challenge. Follow clues from the PCAP to the carrier and archive, recover the encrypted payload, reject the decoy, verify the flag checksum and write a reproducible report. Do not use a prewritten solver.",
-    "summary": "PCAP route fragments lead to an appended archive. The manifest guides AES/PBKDF2 decryption and zlib decoding; a failed key and decoy are rejected, then the recovered flag is checked against its manifest digest.",
+    "title": "Binary and layered forensics",
+    "objective": "Triage a binary, follow file clues, and reject a decoy.",
+    "prompt": "Triage a supplied ELF header, then follow PCAP, image, archive and encryption clues. Reject the wrong key and decoy before accepting a checksum-verified result.",
+    "summary": "Binutils establish the binary's limits; packet fragments lead to an appended archive, a failed decryption hypothesis, and a digest-checked result.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
       "Report and clean up the owned runtime"
     ],
     "operations": [
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "file /opt/workspace/challenge/module.o; readelf -h /opt/workspace/challenge/module.o; strings -a /opt/workspace/challenge/module.o",
+          "timeout": 45
+        },
+        "expect": "ELF.*x86-64|ATLAS-LAB-MODULE",
+        "observation": "I will identify the supplied binary and inspect its header and strings before inferring what it does. It has no executable program to decompile."
+      },
       {
         "tool": "shell_exec",
         "arguments": {
@@ -549,9 +669,10 @@
     ]
   },
   "web-ctf": {
-    "title": "Web CTF",
-    "prompt": "Solve the local Draft Room web challenge. Combine endpoint discovery, browser session state and request analysis, reject an incomplete request, verify the recovered flag and write an evidence-linked report.",
-    "summary": "A discovered route requires both browser-established session state and a request header. An incomplete request is rejected, and the successful response is verified by its flag digest.",
+    "title": "Chained web CTF",
+    "objective": "Combine browser state and an API header, then verify the result.",
+    "prompt": "Follow local route clues through browser state and an API header. Reject a plausible decoy and a request missing one prerequisite, then verify the actual result by digest.",
+    "summary": "A route needs both session state and a header. A cookie-only request and an inconsistent decoy are rejected before the final digest passes.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -611,6 +732,42 @@
         "tool": "network_curl",
         "arguments": {
           "url": "http://172.30.42.10:8000/api/draft",
+          "cookie": "ctf-session=atlas-reader",
+          "extra_args": "--max-time 5 -o /opt/workspace/artifacts/draft-no-header.json"
+        },
+        "expect": "exit_code",
+        "observation": "The cookie alone may be insufficient. I will retain that negative control before sending the discovered header."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/draft-no-header.json"
+        },
+        "expect": "route header missing",
+        "observation": "The rejection names the missing prerequisite; I will not count this branch as a solved challenge."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/ctf/decoy",
+          "extra_args": "--max-time 5 -o /opt/workspace/artifacts/decoy.json"
+        },
+        "expect": "exit_code",
+        "observation": "A separate candidate is available. I will check its digest before accepting the first flag-like string."
+      },
+      {
+        "tool": "shell_exec",
+        "arguments": {
+          "command": "python3 - <<'PY'\nimport hashlib,json\nfrom pathlib import Path\np=Path('/opt/workspace/artifacts/decoy.json'); d=json.loads(p.read_text()[p.read_text().index('{'):]); assert hashlib.sha256(d['flag'].encode()).hexdigest()!=d['sha256']; print('decoy checksum mismatch; rejected')\nPY",
+          "timeout": 45
+        },
+        "expect": "decoy checksum mismatch",
+        "observation": "The decoy's digest does not match. I will keep it as a rejected candidate."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/api/draft",
           "headers": "X-Draft-Route: atlas-7",
           "cookie": "ctf-session=atlas-reader",
           "extra_args": "--max-time 5 -o /opt/workspace/artifacts/draft-flag.txt"
@@ -630,9 +787,10 @@
     ]
   },
   "reporting": {
-    "title": "Evidence to report",
-    "prompt": "Reconcile the supplied large review log with fresh local HTTP and scan evidence. Page the large artifact, note limitations and conflicting observations, and produce readable Markdown/HTML reports with an evidence index.",
-    "summary": "Authored review-log inputs are paged and reconciled with fresh tool evidence. The report separates historical inputs from current observations and preserves explicit limitations.",
+    "title": "Credential controls and evidence",
+    "objective": "Validate one disposable credential and reconcile evidence.",
+    "prompt": "Check one authorized fixture account with positive and negative controls, then reconcile the result with paged historical input and fresh service evidence.",
+    "summary": "A wrong password fails and a known disposable account succeeds. The report separates those live checks from a supplied log and notes untested identities.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -703,13 +861,52 @@
         },
         "expect": "authored lab input",
         "observation": "I will verify the reconciliation artifact and explicitly state what these inputs cannot establish."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/login",
+          "method": "POST",
+          "data": "email=reviewer%40lab.test&password=incorrect",
+          "extra_args": "--max-time 5 -o /opt/workspace/artifacts/credential-rejected.txt"
+        },
+        "expect": "exit_code",
+        "observation": "A wrong fixture password is the negative control. A generic HTTP response or noisy scanner output must not be read as credential success."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/credential-rejected.txt"
+        },
+        "expect": "Credentials rejected",
+        "observation": "I will verify the rejected response before testing the one supplied disposable account."
+      },
+      {
+        "tool": "network_curl",
+        "arguments": {
+          "url": "http://172.30.42.10:8000/login",
+          "method": "POST",
+          "data": "email=reviewer%40lab.test&password=lab-only-password",
+          "extra_args": "--max-time 5 -D /opt/workspace/artifacts/credential-headers.txt -o /opt/workspace/artifacts/credential-accepted.txt"
+        },
+        "expect": "exit_code",
+        "observation": "I will test only the fixture credential supplied for this lab; this is not password spraying or a general credential audit."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/credential-headers.txt"
+        },
+        "expect": "303.*Set-Cookie|Set-Cookie.*atlas-session",
+        "observation": "I will require the actual redirect and session header before marking the fixture account accepted."
       }
     ]
   },
   "recovery": {
-    "title": "Background-job recovery",
-    "prompt": "Run a bounded background investigation of the local lab, inspect partial output, recover from a slow request, narrow the check and verify the rerun. Save the job log and a report describing the recovery.",
-    "summary": "A background job is monitored using its returned ID. A deliberately bounded slow request yields partial diagnostics, then a narrower health check verifies recovery.",
+    "title": "Timeout and job recovery",
+    "objective": "Preserve timeout output, check the job, and narrow the probe.",
+    "prompt": "Run a bounded background probe, preserve timeout diagnostics, check the exact managed job ID, and narrow the request before concluding whether the service is available.",
+    "summary": "The first request times out; a scoped health probe succeeds. The job inventory and partial output prevent a false outage claim.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -734,6 +931,12 @@
         "expect": "status|running|completed",
         "observation": "I will inspect the job using the ID Hercules actually returned, keeping partial output visible.",
         "dynamic": "job"
+      },
+      {
+        "tool": "system_list_sessions",
+        "arguments": {},
+        "expect": "job_inventory",
+        "observation": "I will inspect Hercules's current managed-job inventory; a harness task identifier would not identify this shell job."
       },
       {
         "tool": "workspace_read_file",
@@ -782,9 +985,10 @@
     ]
   },
   "recheck": {
-    "title": "Remediation recheck",
-    "prompt": "Record the local lab's debug endpoint and header configuration, apply the fixture-only remediation, repeat the same checks, compare before/after evidence and update the report. Do not change any external service.",
-    "summary": "The disposable lab configuration is changed through its local control endpoint. Identical before/after requests verify that debug access closes and the declared response policies appear.",
+    "title": "Remediation proof",
+    "objective": "Compare before and after evidence for a local remediation.",
+    "prompt": "Capture a vulnerable local baseline, apply the disposable fixture change, repeat identical requests, and prove that the debug route closes while the application stays healthy.",
+    "summary": "Independent before/after artifacts prove the debug route closes, security headers appear, and the health endpoint remains available.",
     "phases": [
       "Establish scope and start the runtime",
       "Investigate and verify the evidence",
@@ -852,6 +1056,14 @@
         },
         "expect": "debug_closed.*true",
         "observation": "I will require the expected before/after statuses and policy headers in the actual saved evidence before declaring remediation verified."
+      },
+      {
+        "tool": "workspace_read_file",
+        "arguments": {
+          "path": "artifacts/comparison.json"
+        },
+        "expect": "debug_closed.*true",
+        "observation": "The comparison artifact is present and readable. I will report the observed fix and the checks that were not performed."
       }
     ]
   }

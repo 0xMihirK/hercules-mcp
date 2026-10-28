@@ -2,7 +2,7 @@ import { frameAt } from "./pixel-timeline.js";
 
 export type PixelIndex = {
   schemaVersion: 3; width:number; height:number; fps:number; duration:number;
-  sheets:{file:string;sha256:string}[];
+  sheets:{file:string;sha256:string;width?:number;height?:number}[];
   frames:{at:number;patches:[number,number,number,number,number,number,number][];keyframe:boolean;sha256:string}[];
   reviewFrames?:Record<string,{at:number;file:string;sha256:string}>;
 };
@@ -72,12 +72,13 @@ export class PixelRenderer {
   private async sheet(number:number){
     const hit=this.images.get(number);
     if(hit){this.images.delete(number);this.images.set(number,hit);return hit.image;}
-    const bytes=await this.bytes(number),header=new DataView(bytes);
-    const estimate=header.byteLength>=24?header.getUint32(16)*header.getUint32(20)*4:DECODED_LIMIT;
+    const bytes=await this.bytes(number),header=new DataView(bytes),asset=this.index.sheets[number];
+    const estimate=asset.width && asset.height?asset.width*asset.height*4:header.byteLength>=24?header.getUint32(16)*header.getUint32(20)*4:DECODED_LIMIT;
     if(estimate>DECODED_LIMIT)throw Error("Native atlas exceeds the decoding budget");
     while(this.imageBytes+estimate>DECODED_LIMIT && this.images.size){const key=this.images.keys().next().value!,old=this.images.get(key)!;old.image.close();this.imageBytes-=old.bytes;this.images.delete(key);}
-    const image=await createImageBitmap(new Blob([bytes],{type:"image/png"}),{colorSpaceConversion:"none"});
+    const image=await createImageBitmap(new Blob([bytes],{type:asset.file.endsWith(".webp")?"image/webp":"image/png"}),{colorSpaceConversion:"none"});
     if(!this.alive || this.signal.aborted){image.close();this.check();}
+    if(asset.width && asset.height && (image.width!==asset.width || image.height!==asset.height)){image.close();throw Error("Native atlas dimensions changed");}
     const size=image.width*image.height*4;
     this.images.set(number,{image,bytes:size});this.imageBytes+=size;return image;
   }

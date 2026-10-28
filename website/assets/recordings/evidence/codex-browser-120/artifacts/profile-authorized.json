@@ -1,0 +1,8 @@
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 01:40:10 GMT
+Content-Type: application/json
+Content-Length: 41
+X-Hercules-Lab: disposable
+
+{"role": "reviewer", "source": "fixture"}

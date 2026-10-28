@@ -1,0 +1,8 @@
+HTTP/1.0 400 Bad Request
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 17:22:24 GMT
+Content-Type: application/json
+Content-Length: 33
+X-Hercules-Lab: disposable
+
+{"error": "route header missing"}

@@ -1,13 +1,28 @@
 [
   {
+    "path": "artifacts/credential-accepted.txt",
+    "bytes": 450,
+    "sha256": "bb141f24dbedc3418c80c686ec5904459955377354a616a8c3aafbc83d901e63"
+  },
+  {
+    "path": "artifacts/credential-headers.txt",
+    "bytes": 441,
+    "sha256": "06272132ff709792bc2512996249a2277e6ffa4b69866c110f5f9b4c535daf04"
+  },
+  {
+    "path": "artifacts/credential-rejected.txt",
+    "bytes": 197,
+    "sha256": "a8952c51f17c454202d58f5d3d866aa2397e5a6ca21c49007e4607e8933b33b2"
+  },
+  {
     "path": "artifacts/current-debug.txt",
     "bytes": 250,
-    "sha256": "4029e0978430ecc01e78ad13867a0f9875be3aff9213fc5029e7cfcd20b853cf"
+    "sha256": "28f6f95869b3bf0d3c7aec368de657e8b0e9dfc735ff6550f5a3684f570c8cbb"
   },
   {
     "path": "artifacts/health.txt",
     "bytes": 196,
-    "sha256": "a1bd8580727971dfadade88afa697cae4a53aa0df46b8bc7e77c834666051198"
+    "sha256": "b6aa99e0d0c25f328b6c68a0e40daa959d0a318181b182ed689acbe4d6da98c7"
   },
   {
     "path": "artifacts/reconciled.json",
@@ -15,9 +30,19 @@
     "sha256": "df4fe545efb914371fe7b466cb3114ed98b803906d501fa40659d5fc06deebad"
   },
   {
+    "path": "challenge/advisory.json",
+    "bytes": 192,
+    "sha256": "594deb6fd0ef2a3091a754e44747a2bebdd91e0bb47266b3b114614ac7677110"
+  },
+  {
     "path": "challenge/carrier.png",
     "bytes": 855,
-    "sha256": "c034194c7d93854a1bba43e185cc7ef510d7ff6aff242051e1da707053990319"
+    "sha256": "0d53af5cc2d11a6f90e1f9ab7bce0d8538443e014d4f20b71dcb606bb5492b37"
+  },
+  {
+    "path": "challenge/module.o",
+    "bytes": 86,
+    "sha256": "ac73762deb7cf852fa8492d5e4d31a574569c591cca430435cee984d50b83e7c"
   },
   {
     "path": "challenge/route.pcap",
@@ -25,13 +50,13 @@
     "sha256": "f75d3f5a470d08914e988d5d204eb9888570fc5027336c6c2965bbd60fd68fd7"
   },
   {
-    "path": "logs/exec_raw_20261011_193551_834116.txt",
-    "bytes": 1703,
-    "sha256": "8a478463126d3a9886e435fb4193ee7e41b7713087f36e6121a6a0d85ac2babf"
+    "path": "logs/exec_raw_20261027_182404_100446.txt",
+    "bytes": 1699,
+    "sha256": "99305ef6bdb2a9d94791ff825323168773125dd1eabb4c689dd64d8410d637bb"
   },
   {
     "path": "reports/reporting.md",
-    "bytes": 7382,
-    "sha256": "9f149a8b202fce5814bc2e7f6acd375d93cd7093e2aa245006a0aebdfdd01790"
+    "bytes": 10494,
+    "sha256": "6817fd38058942c8cf45abab2e96b150f487254bd5f361fd3e9f20e94b38b5c4"
   }
 ]

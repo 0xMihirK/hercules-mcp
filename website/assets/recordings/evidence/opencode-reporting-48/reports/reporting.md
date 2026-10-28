@@ -1,6 +1,6 @@
-# Evidence to report
+# Credential controls and evidence
 
-Real Hercules tools in a disposable local lab. Model decisions and this report are scripted.
+Hercules tool results from a disposable local lab.
 
 ## Verified observations
 
@@ -11,34 +11,36 @@ Actual response excerpt:
 ```text
 tool: nmap_scan
 mode: port
-target: 172.30.201.10
+target: 172.30.96.10
 ports: 8000,8080,8443
 exit_code: 0
 stderr: 
-duration_seconds: 0.58
-command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.201.10
+duration_seconds: 1.69
+command: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.96.10
 output_filtered: False
 output_complete: True
 evidence_complete: True
 stdout_truncated: False
 stderr_truncated: False
-stdout_chars: 1629
+stdout_chars: 1627
 stderr_chars: 0
-stdout_bytes: 1629
+stdout_bytes: 1627
 stderr_bytes: 0
 stdout_chars_exact: True
 stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
-estimated_inline_tokens: 408
-raw_artifact: /opt/workspace/logs/exec_raw_20261011_174711_171390.txt
-raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261011_174711_171390.txt
+estimated_inline_tokens: 407
+requested_timeout_seconds: 300
+effective_timeout_seconds: 300
+raw_artifact: /opt/workspace/logs/exec_raw_20261027_060021_976931.txt
+raw_artifacts: combined: /opt/workspace/logs/exec_raw_20261027_060021_976931.txt
 filter_notes: raw output preserved in artifact
 parsed: scanner: nmap
-start_time: 1791740830
+start_time: 1793080821
 host_count: 1
 hosts: status: up
-addresses: addr: 172.30.201.10
+addresses: addr: 172.30.96.10
 addrtype: ipv4
 ports: portid: 8000
 protocol: tcp
@@ -55,10 +57,7 @@ version: None
 portid: 8443
 protocol: tcp
 state: open
-service: name: https-alt
-product: None
-version: None
-structur
+se
 ```
 
 ### 4. network_curl
@@ -67,14 +66,13 @@ I will confirm that the discovered HTTP service responds, retaining the response
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.201.10:8000/health
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.96.10:8000/health
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.31
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.201.10:8000/health
+duration_seconds: 0.18
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.96.10:8000/health
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -89,6 +87,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 5. workspace_read_file
@@ -163,8 +163,8 @@ stdout: {
 }
 
 stderr: 
-duration_seconds: 0.78
-command: bash /opt/workspace/tmp/shell_5d4cc63bd3384945b704a69bdaf19806.sh
+duration_seconds: 0.25
+command: bash /opt/workspace/tmp/shell_7a2231c2f8b14a0090a1ab72edc82a6c.sh
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -179,6 +179,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 121
 inline_stderr_chars: 0
 estimated_inline_tokens: 31
+requested_timeout_seconds: 45
+effective_timeout_seconds: 45
 ```
 
 ### 8. network_curl
@@ -187,14 +189,13 @@ I will check the debug route now. The report must distinguish current evidence f
 Actual response excerpt:
 ```text
 tool: network_curl
-url: http://172.30.201.10:8000/debug
-redirects_followed: False
-redirect_note: Redirect following is disabled while target scopes are configured.
+url: http://172.30.96.10:8000/debug
+redirects_followed: True
 exit_code: 0
 stdout: 
 stderr: 
-duration_seconds: 0.61
-command: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/current-debug.txt http://172.30.201.10:8000/debug
+duration_seconds: 0.2
+command: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/current-debug.txt http://172.30.96.10:8000/debug
 output_filtered: False
 output_complete: True
 evidence_complete: True
@@ -209,6 +210,8 @@ stderr_chars_exact: True
 inline_stdout_chars: 0
 inline_stderr_chars: 0
 estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
 ```
 
 ### 9. workspace_read_file
@@ -230,6 +233,123 @@ content: {
   "source": "authored lab input",
   "fresh_evidence": "artifacts/health.txt"
 }
+```
+
+### 10. network_curl
+A wrong fixture password is the negative control. A generic HTTP response or noisy scanner output must not be read as credential success.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.96.10:8000/login
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.22
+command: curl -s -X POST --proto =http,https -i -L -d 'email=reviewer%40lab.test&password=*** --max-time 5 -o /opt/workspace/artifacts/credential-rejected.txt http://172.30.96.10:8000/login
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 11. workspace_read_file
+I will verify the rejected response before testing the one supplied disposable account.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/credential-rejected.txt
+encoding: text
+bytes: 197
+total_bytes: 197
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 401 Unauthorized
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 06:01:31 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 20
+X-Hercules-Lab: disposable
+
+Credentials rejected
+```
+
+### 12. network_curl
+I will test only the fixture credential supplied for this lab; this is not password spraying or a general credential audit.
+
+Actual response excerpt:
+```text
+tool: network_curl
+url: http://172.30.96.10:8000/login
+redirects_followed: True
+exit_code: 0
+stdout: 
+stderr: 
+duration_seconds: 0.57
+command: curl -s -X POST --proto =http,https -i -L -d 'email=reviewer%40lab.test&password=*** --max-time 5 -D /opt/workspace/artifacts/credential-headers.txt -o /opt/workspace/artifacts/credential-accepted.txt http://172.30.96.10:8000/login
+output_filtered: False
+output_complete: True
+evidence_complete: True
+stdout_truncated: False
+stderr_truncated: False
+stdout_chars: 0
+stderr_chars: 0
+stdout_bytes: 0
+stderr_bytes: 0
+stdout_chars_exact: True
+stderr_chars_exact: True
+inline_stdout_chars: 0
+inline_stderr_chars: 0
+estimated_inline_tokens: 0
+requested_timeout_seconds: 60
+effective_timeout_seconds: 60
+```
+
+### 13. workspace_read_file
+I will require the actual redirect and session header before marking the fixture account accepted.
+
+Actual response excerpt:
+```text
+tool: workspace_read_file
+path: /opt/workspace/artifacts/credential-headers.txt
+encoding: text
+bytes: 441
+total_bytes: 441
+offset: 0
+truncated: False
+next_offset: None
+content: HTTP/1.0 303 See Other
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 06:01:48 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 30
+X-Hercules-Lab: disposable
+Location: /dashboard
+Set-Cookie: atlas-session=lab-reviewer; HttpOnly; SameSite=Lax; Path=/
+
+HTTP/1.0 404 Not Found
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 06:01:48 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 9
+X-Hercules-Lab: disposable
+
+
 ```
 
 ## Scope and limitations

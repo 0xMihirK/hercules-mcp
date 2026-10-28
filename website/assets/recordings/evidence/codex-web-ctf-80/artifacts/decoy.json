@@ -1,0 +1,8 @@
+HTTP/1.0 200 OK
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 02:06:33 GMT
+Content-Type: application/json
+Content-Length: 116
+X-Hercules-Lab: disposable
+
+{"flag": "HERCULES{unverified_decoy}", "sha256": "1599e7f57f275f7e8ec73c7da7defc6109710466e158b4ef5bea0bdb7ffe9f4d"}

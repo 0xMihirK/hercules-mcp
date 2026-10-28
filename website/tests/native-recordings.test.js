@@ -41,13 +41,13 @@ test("120 sessions preserve pinned clients, bytes and real-tool provenance",asyn
     assert.equal(source.header.realTools,true);assert.equal(source.header.fixture,false);assert.ok([48,80,120].includes(r.columns));
     assert.deepEqual([source.header.width,source.header.height],[r.columns,r.columns===120 && r.client!=="claude"?36:28]);assert.ok(source.events.length>10);
     assert.ok(r.displayStart>=0 && r.displayStart<r.chapters.query);assert.ok(r.pixels.pixelExact);
-    assert.ok(r.duration>=r.chapters.report+6,"six-second completion hold");assert.ok(r.tools.length>=8 && r.tools.length<=16);
+    assert.ok(r.duration>=r.chapters.report+6,"six-second completion hold");assert.ok(r.tools.length>=8 && r.tools.length<=24);
     assert.equal(r.tools[0],"system_start_container");assert.equal(r.tools.at(-1),"system_stop_container");assert.ok(r.tools.includes("workspace_write_file"));
     assert.equal(hash(await readFile(new URL(r.transcript,root))),r.transcriptSha256);
     const still=await readFile(new URL(r.still,root));assert.equal(hash(still),r.stillSha256);imageFormat(still,r.still);
     assert.ok(r.stillAt>=r.displayStart);assert.match(r.stillRenderer,/Independent XTerm/);assert.ok(r.synchronized.every(f=>!f.scriptedObservation && f.at<=r.duration));
     const completed=await readFile(new URL(r.completedStill,root));assert.equal(hash(completed),r.completedStillSha256);imageFormat(completed,r.completedStill);assert.ok(r.completedStillAt>=r.duration-1 && r.completedStillAt<=r.duration);
-    const report=await readFile(new URL(r.report,root),"utf8");assert.match(report,/Verified observations/);assert.match(report,/scripted/);assert.match(report,/No public target/);
+    const report=await readFile(new URL(r.report,root),"utf8");assert.match(report,/Verified observations/);assert.match(report,/No public target/);
     assert.ok(r.artifacts.every(a=>a.availableAt>=0 && a.availableAt<=r.duration));
     const key=`${r.client}/${r.scenario}/${r.columns}`;assert.ok(!seen.has(key));seen.add(key);
   }

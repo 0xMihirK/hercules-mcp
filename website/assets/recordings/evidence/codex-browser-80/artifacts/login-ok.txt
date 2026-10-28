@@ -1,0 +1,17 @@
+HTTP/1.0 303 See Other
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 01:23:10 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 30
+X-Hercules-Lab: disposable
+Location: /dashboard
+Set-Cookie: atlas-session=lab-reviewer; HttpOnly; SameSite=Lax; Path=/
+
+HTTP/1.0 404 Not Found
+Server: AtlasLab/1.0 
+Date: Tue, 27 Oct 2026 01:23:11 GMT
+Content-Type: text/html; charset=utf-8
+Content-Length: 9
+X-Hercules-Lab: disposable
+
+Not found

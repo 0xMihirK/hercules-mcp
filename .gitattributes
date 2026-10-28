@@ -1,2 +1,3 @@
 # Recording checksums cover exact bytes, including line endings.
-website/assets/recordings/** -text
+website/assets/recordings/** -text -whitespace
+website/capture/lab-cases.json text eol=lf

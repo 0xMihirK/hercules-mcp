@@ -1,12 +1,12 @@
-claude 2.1.289 — Network inventory
+claude 2.1.289 — Service boundary map
 Investigation transcript: recorded tool journal and the scripted model text sent to this client.
 Tools ran in an isolated local lab. No public target was contacted.
 Native menus, task UI and animation remain in the untouched ANSI and timestamped recordings.
 
 User prompt
-Inventory the disposable lab network: resolve its address, discover services, verify HTTP and TLS, and write an evidence-linked report. Stay inside the internal lab.
+Map the scoped fixture, compare open and closed ports, verify HTTP and TLS, and report only observed service behavior.
 
-[37.140s → 100.139s] system_start_container
+[28.800s → 39.888s] system_start_container
 Scripted model: Connecting MCP has not started Kali. I will explicitly start the runtime before executing tools.
 Actual arguments:
 {}
@@ -14,14 +14,17 @@ Actual Hercules result:
 {
   "tool": "system_start_container",
   "status": "success",
-  "session_id": "b48608d2",
-  "workspace": "/opt/workspace (host: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\claude-network-48-1791623856874793600\\workspace\\b48608d2)",
+  "session_id": "1b48a3cf",
+  "workspace": "/opt/workspace (host: C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\claude-network-48-1793034117336393600\\workspace\\1b48a3cf)",
   "container_running": true,
   "start_mode": "created",
-  "message": "Session 'b48608d2' container is ready."
+  "message": "Session '1b48a3cf' container is ready.",
+  "host_workspace": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\claude-network-48-1793034117336393600\\workspace\\1b48a3cf",
+  "container_workspace": "/opt/workspace",
+  "generation": 1
 }
 
-[102.272s → 108.358s] workspace_read_file
+[41.918s → 47.971s] workspace_read_file
 Scripted model: My owned runtime is ready. I will verify the supplied scope, investigate the internal lab and stop the runtime after reporting.
 Actual arguments:
 {
@@ -40,12 +43,12 @@ Actual Hercules result:
   "content": "# Capture lab scope\n\nOnly the lab fixture on the internal Docker network is authorized. No public targets. Synthetic inputs; real tools.\n\nStart Hercules explicitly, verify evidence, write a report, and stop your owned runtime.\n"
 }
 
-[110.370s → 116.634s] recon_dns
+[49.940s → 56.131s] recon_dns
 Scripted model: I will query the lab DNS server directly. The result will establish the local address before service discovery.
 Actual arguments:
 {
-  "target": "172.30.104.10",
-  "server": "172.30.104.10",
+  "target": "172.30.95.10",
+  "server": "172.30.95.10",
   "record_type": "A",
   "tool": "dig"
 }
@@ -53,34 +56,36 @@ Actual Hercules result:
 {
   "tool": "recon_dns",
   "selected_tool": "dig",
-  "target": "172.30.104.10",
-  "command": "dig @172.30.104.10 172.30.104.10 A",
+  "target": "172.30.95.10",
+  "command": "dig @172.30.95.10 172.30.95.10 A",
   "exit_code": 0,
-  "stdout": "\n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.104.10 172.30.104.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 48342\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.104.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.104.10.\t\t60\tIN\tA\t172.30.104.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.104.10#53(172.30.104.10) (UDP)\n;; WHEN: Sat Oct 10 09:19:41 UTC 2026\n;; MSG SIZE  rcvd: 47\n\n",
+  "stdout": "\n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.95.10 172.30.95.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 24012\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.95.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.95.10.\t\t60\tIN\tA\t172.30.95.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.95.10#53(172.30.95.10) (UDP)\n;; WHEN: Mon Oct 26 17:02:59 UTC 2026\n;; MSG SIZE  rcvd: 46\n\n",
   "stderr": "",
-  "duration_seconds": 0.22,
+  "duration_seconds": 0.17,
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
   "stdout_truncated": false,
   "stderr_truncated": false,
-  "stdout_chars": 486,
+  "stdout_chars": 479,
   "stderr_chars": 0,
-  "stdout_bytes": 486,
+  "stdout_bytes": 479,
   "stderr_bytes": 0,
   "stdout_chars_exact": true,
   "stderr_chars_exact": true,
-  "inline_stdout_chars": 486,
+  "inline_stdout_chars": 479,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 122
+  "estimated_inline_tokens": 120,
+  "requested_timeout_seconds": 60,
+  "effective_timeout_seconds": 60
 }
 
-[118.634s → 128.178s] nmap_scan
+[58.106s → 67.409s] nmap_scan
 Scripted model: DNS is confirmed. I will map only the three scoped service ports; an open port alone will not establish a vulnerability.
 Actual arguments:
 {
   "mode": "port",
-  "target": "172.30.104.10",
+  "target": "172.30.95.10",
   "ports": "8000,8080,8443",
   "extra_args": "-Pn -sT"
 }
@@ -88,43 +93,45 @@ Actual Hercules result:
 {
   "tool": "nmap_scan",
   "mode": "port",
-  "target": "172.30.104.10",
+  "target": "172.30.95.10",
   "ports": "8000,8080,8443",
   "exit_code": 0,
   "stderr": "",
-  "duration_seconds": 0.41,
-  "command": "nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.104.10",
+  "duration_seconds": 0.23,
+  "command": "nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.95.10",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
   "stdout_truncated": false,
   "stderr_truncated": false,
-  "stdout_chars": 1629,
+  "stdout_chars": 1626,
   "stderr_chars": 0,
-  "stdout_bytes": 1629,
+  "stdout_bytes": 1626,
   "stderr_bytes": 0,
   "stdout_chars_exact": true,
   "stderr_chars_exact": true,
   "inline_stdout_chars": 0,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 408,
-  "raw_artifact": "/opt/workspace/logs/exec_raw_20261010_091950_257618.txt",
+  "estimated_inline_tokens": 407,
+  "requested_timeout_seconds": 300,
+  "effective_timeout_seconds": 300,
+  "raw_artifact": "/opt/workspace/logs/exec_raw_20261026_170307_712334.txt",
   "raw_artifacts": {
-    "combined": "/opt/workspace/logs/exec_raw_20261010_091950_257618.txt"
+    "combined": "/opt/workspace/logs/exec_raw_20261026_170307_712334.txt"
   },
   "filter_notes": [
     "raw output preserved in artifact"
   ],
   "parsed": {
     "scanner": "nmap",
-    "start_time": "1791623990",
+    "start_time": "1793034187",
     "host_count": 1,
     "hosts": [
       {
         "status": "up",
         "addresses": [
           {
-            "addr": "172.30.104.10",
+            "addr": "172.30.95.10",
             "addrtype": "ipv4"
           }
         ],
@@ -167,66 +174,67 @@ Actual Hercules result:
   "stdout_replaced_by": "parsed"
 }
 
-[130.237s → 169.529s] shell_exec
+[69.385s → 107.258s] shell_exec
 Scripted model: The ports are reachable. I will verify service behavior with version detection and retain both text and XML output.
 Actual arguments:
 {
-  "command": "nmap -Pn -sT -sV --version-light -p 8000,8080,8443 172.30.104.10 -oA /opt/workspace/artifacts/services",
+  "command": "nmap -Pn -sT -sV --version-light -p 8000,8080,8443 172.30.95.10 -oA /opt/workspace/artifacts/services",
   "timeout": 45
 }
 Actual Hercules result:
 {
   "tool": "shell_exec",
   "exit_code": 0,
-  "stdout": "Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-10 09:20 +0000\nNmap scan report for hercules-capture-4cf98050c909-fixture.hercules-capture-4cf98050c909-net (172.30.104.10)\nHost is up (0.00080s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/10%Time=6ACA034E%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:14\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540px;margin:80px\\x20auto;background:#e9e9\nSF:e6;color:#242424}label,input,button{display:block;margin:12px\\x200}inpu\nSF:t,button{padding:12px}</style>\\n<h1>Atlas\\x20operations</h1><p>Disposab\nSF:le\\x20Hercules\\x20capture\\x20lab\\.</p>\\n<form\\x20action=\\\"/login\\\"\\x20m\nSF:ethod=\\\"post\\\"><label\\x20for=\\\"email\\\">Email</label><input\\x20id=\\\"emai\nSF:l\\\"\\x20name=\\\"email\\\"\\x20type=\\\"email\\\"\\x20required><label\\x20for=\\\"pas\nSF:sword\\\">Password</label><input\\x20id=\\\"password\\\"\\x20name=\\\"password\\\"\\\nSF:x20type=\\\"password\\\"\\x20required><button>Sign\\x20in</button></form>\")%r\nSF:(FourOhFourRequest,E9,\"HTTP/1\\.0\\x20404\\x20Not\\x20Found\\r\\nServer:\\x20A\nSF:tlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:19\\x20G\nSF:MT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x\nSF:2059\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n<h1>Not\\x20found</h1><p>Th\nSF:is\\x20route\\x20is\\x20absent\\x20from\\x20the\\x20lab\\.</p>\")%r(Socks5,2E3,\nSF:\"HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20syntax\\x20\\('\\\\x05\\\\x04\\\\x00\\\\x0\nSF:1\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03'\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nD\nSF:ate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:19\\x20GMT\\r\\nConnection:\\x20\nSF:close\\r\\nContent-Type:\\x20text/html;charset=utf-8\\r\\nContent-Length:\\x2\n\n[truncated: 825 chars; artifact: /opt/workspace/logs/exec_stdout_20261010_092028_332019.txt]\nSF:0\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03'\\)\\.</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20\\x20<p>Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x20request\\\nSF:x20syntax\\x20or\\x20unsupported\\x20method\\.</p>\\n\\x20\\x20\\x20\\x20</body>\nSF:\\n</html>\\n\");\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8080-TCP:V=7.99%I=2%D=10/10%Time=6ACA034E%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,F7,\"HTTP/1\\.0\\x20302\\x20Found\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\nSF:\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:14\\x20GMT\\r\\nContent-Ty\nSF:pe:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x2033\\r\\nX-Hercul\nSF:es-Lab:\\x20disposable\\r\\nLocation:\\x20https://172\\.30\\.104\\.10:8443/log\nSF:in\\r\\n\\r\\nRedirect\\x20to\\x20the\\x20lab\\x20TLS\\x20endpoint\\.\")%r(HTTPOpt\nSF:ions,29F,\"HTTP/1\\.0\\x20501\\x20Unsupported\\x20method\\x20\\('OPTIONS'\\)\\r\\\nSF:nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x20\nSF:09:20:14\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\\x20text/html;c\nSF:harset=utf-8\\r\\nContent-Length:\\x20485\\r\\n\\r\\n<!DOCTYPE\\x20HTML>\\n<html\nSF:\\x20lang=\\\"en\\\">\\n\\x20\\x20\\x20\\x20<head>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\\nSF:x20<meta\\x20charset=\\\"utf-8\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<style\\\nSF:x20type=\\\"text/css\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\nSF::root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x2\nSF:0\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\\nSF:x20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20</style>\\n\\x20\\x20\\x2\nSF:0\\x20\\x20\\x20\\x20\\x20<title>Error\\x20response</title>\\n\\x20\\x20\\x20\\x20\nSF:</head>\\n\\x20\\x20\\x20\\x20<body>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<h1>Er\nSF:ror\\x20response</h1>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Error\\x20code:\nSF:\\x20501</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Message:\\x20Unsupported\nSF:\\x20method\\x20\\('OPTIONS'\\)\\.</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>E\nSF:rror\\x20code\\x20explanation:\\x20501\\x20-\\x20Server\\x20does\\x20not\\x20su\nSF:pport\\x20this\\x20operation\\.</p>\\n\\x20\\x20\\x20\\x20</body>\\n</html>\\n\")%\nSF:r(RTSPRequest,2A5,\"HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20version\\x20\\('\nSF:RTSP/1\\.0'\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20\nSF:Oct\\x202026\\x2009:20:15\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\nSF:\\x20text/html;charset=utf-8\\r\\nContent-Length:\\x20489\\r\\n\\r\\n<!DOCTYPE\\\nSF:x20HTML>\\n<html\\x20lang=\\\"en\\\">\\n\\x20\\x20\\x20\\x20<head>\\n\\x20\\x20\\x20\\x\nSF:20\\x20\\x20\\x20\\x20<meta\\x20charset=\\\"utf-8\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20\\x20<style\\x20type=\\\"text/css\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\\nSF:x20\\x20\\x20\\x20:root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20\\x20\\x20\\x20\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x\nSF:20\\x20\\x20\\x20\\x20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20</styl\nSF:e>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<title>Error\\x20response</title>\\n\\\nSF:x20\\x20\\x20\\x20</head>\\n\\x20\\x20\\x20\\x20<body>\\n\\x20\\x20\\x20\\x20\\x20\\x2\nSF:0\\x20\\x20<h1>Error\\x20response</h1>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p\nSF:>Error\\x20code:\\x20400</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Message:\nSF:\\x20Bad\\x20request\\x20version\\x20\\('RTSP/1\\.0'\\)\\.</p>\\n\\x20\\x20\\x20\\x2\nSF:0\\x20\\x20\\x20\\x20<p>Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x2\nSF:0request\\x20syntax\\x20or\\x20unsupported\\x20method\\.</p>\\n\\x20\\x20\\x20\\x\nSF:20</body>\\n</html>\\n\");\n\nService detection performed. Please report any incorrect results at https://nmap.org/submit/ .\nNmap done: 1 IP address (1 host up) scanned in 17.31 seconds\n",
+  "stdout": "Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:03 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.00091s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/26%Time=6ADF87E3%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:31\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540px;margin:80px\\x20auto;background:#e9e9\nSF:e6;color:#242424}label,input,button{display:block;margin:12px\\x200}inpu\nSF:t,button{padding:12px}</style>\\n<h1>Atlas\\x20operations</h1><p>Disposab\nSF:le\\x20Hercules\\x20capture\\x20lab\\.</p>\\n<form\\x20action=\\\"/login\\\"\\x20m\nSF:ethod=\\\"post\\\"><label\\x20for=\\\"email\\\">Email</label><input\\x20id=\\\"emai\nSF:l\\\"\\x20name=\\\"email\\\"\\x20type=\\\"email\\\"\\x20required><label\\x20for=\\\"pas\nSF:sword\\\">Password</label><input\\x20id=\\\"password\\\"\\x20name=\\\"password\\\"\\\nSF:x20type=\\\"password\\\"\\x20required><button>Sign\\x20in</button></form>\")%r\nSF:(FourOhFourRequest,E9,\"HTTP/1\\.0\\x20404\\x20Not\\x20Found\\r\\nServer:\\x20A\nSF:tlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:36\\x20G\nSF:MT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x\nSF:2059\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n<h1>Not\\x20found</h1><p>Th\nSF:is\\x20route\\x20is\\x20absent\\x20from\\x20the\\x20lab\\.</p>\")%r(Socks5,2E3,\nSF:\"HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20syntax\\x20\\('\\\\x05\\\\x04\\\\x00\\\\x0\nSF:1\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03'\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nD\nSF:ate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:36\\x20GMT\\r\\nConnection:\\x20\nSF:close\\r\\nContent-Type:\\x20text/html;charset=utf-8\\r\\nContent-Length:\\x2\n\n[truncated: 825 chars; artifact: /opt/workspace/logs/exec_stdout_20261026_170344_358130.txt]\nSF:0\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03'\\)\\.</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20\\x20<p>Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x20request\\\nSF:x20syntax\\x20or\\x20unsupported\\x20method\\.</p>\\n\\x20\\x20\\x20\\x20</body>\nSF:\\n</html>\\n\");\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8080-TCP:V=7.99%I=2%D=10/26%Time=6ADF87E3%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,F6,\"HTTP/1\\.0\\x20302\\x20Found\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\nSF:\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:31\\x20GMT\\r\\nContent-Ty\nSF:pe:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x2033\\r\\nX-Hercul\nSF:es-Lab:\\x20disposable\\r\\nLocation:\\x20https://172\\.30\\.95\\.10:8443/logi\nSF:n\\r\\n\\r\\nRedirect\\x20to\\x20the\\x20lab\\x20TLS\\x20endpoint\\.\")%r(HTTPOpti\nSF:ons,29F,\"HTTP/1\\.0\\x20501\\x20Unsupported\\x20method\\x20\\('OPTIONS'\\)\\r\\n\nSF:Server:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x201\nSF:7:03:31\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\\x20text/html;ch\nSF:arset=utf-8\\r\\nContent-Length:\\x20485\\r\\n\\r\\n<!DOCTYPE\\x20HTML>\\n<html\\\nSF:x20lang=\\\"en\\\">\\n\\x20\\x20\\x20\\x20<head>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x\nSF:20<meta\\x20charset=\\\"utf-8\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<style\\x\nSF:20type=\\\"text/css\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20:\nSF:root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x\nSF:20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20</style>\\n\\x20\\x20\\x20\nSF:\\x20\\x20\\x20\\x20\\x20<title>Error\\x20response</title>\\n\\x20\\x20\\x20\\x20<\nSF:/head>\\n\\x20\\x20\\x20\\x20<body>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<h1>Err\nSF:or\\x20response</h1>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Error\\x20code:\\\nSF:x20501</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Message:\\x20Unsupported\\\nSF:x20method\\x20\\('OPTIONS'\\)\\.</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Er\nSF:ror\\x20code\\x20explanation:\\x20501\\x20-\\x20Server\\x20does\\x20not\\x20sup\nSF:port\\x20this\\x20operation\\.</p>\\n\\x20\\x20\\x20\\x20</body>\\n</html>\\n\")%r\nSF:(RTSPRequest,2A5,\"HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20version\\x20\\('R\nSF:TSP/1\\.0'\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20O\nSF:ct\\x202026\\x2017:03:31\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\\\nSF:x20text/html;charset=utf-8\\r\\nContent-Length:\\x20489\\r\\n\\r\\n<!DOCTYPE\\x\nSF:20HTML>\\n<html\\x20lang=\\\"en\\\">\\n\\x20\\x20\\x20\\x20<head>\\n\\x20\\x20\\x20\\x2\nSF:0\\x20\\x20\\x20\\x20<meta\\x20charset=\\\"utf-8\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\\nSF:x20\\x20<style\\x20type=\\\"text/css\\\">\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x\nSF:20\\x20\\x20\\x20:root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\\nSF:x20\\x20\\x20\\x20\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x2\nSF:0\\x20\\x20\\x20\\x20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20</style\nSF:>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<title>Error\\x20response</title>\\n\\x\nSF:20\\x20\\x20\\x20</head>\\n\\x20\\x20\\x20\\x20<body>\\n\\x20\\x20\\x20\\x20\\x20\\x20\nSF:\\x20\\x20<h1>Error\\x20response</h1>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>\nSF:Error\\x20code:\\x20400</p>\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20<p>Message:\\\nSF:x20Bad\\x20request\\x20version\\x20\\('RTSP/1\\.0'\\)\\.</p>\\n\\x20\\x20\\x20\\x20\nSF:\\x20\\x20\\x20\\x20<p>Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x20\nSF:request\\x20syntax\\x20or\\x20unsupported\\x20method\\.</p>\\n\\x20\\x20\\x20\\x2\nSF:0</body>\\n</html>\\n\");\n\nService detection performed. Please report any incorrect results at https://nmap.org/submit/ .\nNmap done: 1 IP address (1 host up) scanned in 16.33 seconds\n",
   "stderr": "",
-  "duration_seconds": 17.62,
-  "command": "bash /opt/workspace/tmp/shell_ec3fcf0e4f10460b8bce4a9c628bcfe7.sh",
+  "duration_seconds": 16.5,
+  "command": "bash /opt/workspace/tmp/shell_41212cf192704a0994084c98c0662e44.sh",
   "output_filtered": false,
   "output_complete": false,
   "evidence_complete": true,
   "stdout_truncated": true,
   "stderr_truncated": false,
-  "stdout_chars": 6629,
+  "stdout_chars": 6627,
   "stderr_chars": 0,
-  "stdout_bytes": 6629,
+  "stdout_bytes": 6627,
   "stderr_bytes": 0,
   "stdout_chars_exact": true,
   "stderr_chars_exact": true,
-  "inline_stdout_chars": 5898,
+  "inline_stdout_chars": 5896,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 1475,
+  "estimated_inline_tokens": 1474,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45,
   "truncated": true,
-  "artifact": "/opt/workspace/logs/exec_stdout_20261010_092028_332019.txt",
-  "raw_artifact": "/opt/workspace/logs/exec_raw_20261010_092025_210623.txt",
+  "artifact": "/opt/workspace/logs/exec_stdout_20261026_170344_358130.txt",
+  "raw_artifact": "/opt/workspace/logs/exec_raw_20261026_170341_303216.txt",
   "raw_artifacts": {
-    "combined": "/opt/workspace/logs/exec_raw_20261010_092025_210623.txt"
+    "combined": "/opt/workspace/logs/exec_raw_20261026_170341_303216.txt"
   },
-  "stdout_artifact": "/opt/workspace/logs/exec_stdout_20261010_092028_332019.txt",
+  "stdout_artifact": "/opt/workspace/logs/exec_stdout_20261026_170344_358130.txt",
   "filter_notes": [
     "raw output preserved in artifact",
     "stdout truncated with head/tail preservation"
   ]
 }
 
-[171.496s → 177.898s] network_curl
+[109.189s → 115.656s] network_curl
 Scripted model: I will confirm that the discovered HTTP service responds, retaining the response as a file.
 Actual arguments:
 {
-  "url": "http://172.30.104.10:8000/health",
+  "url": "http://172.30.95.10:8000/health",
   "extra_args": "--max-time 5 -o /opt/workspace/artifacts/health.txt"
 }
 Actual Hercules result:
 {
   "tool": "network_curl",
-  "url": "http://172.30.104.10:8000/health",
-  "redirects_followed": false,
-  "redirect_note": "Redirect following is disabled while target scopes are configured.",
+  "url": "http://172.30.95.10:8000/health",
+  "redirects_followed": true,
   "exit_code": 0,
   "stdout": "",
   "stderr": "",
-  "duration_seconds": 0.34,
-  "command": "curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.104.10:8000/health",
+  "duration_seconds": 0.44,
+  "command": "curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -240,27 +248,28 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 0,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 0
+  "estimated_inline_tokens": 0,
+  "requested_timeout_seconds": 60,
+  "effective_timeout_seconds": 60
 }
 
-[180.001s → 186.448s] network_curl
+[117.648s → 124.183s] network_curl
 Scripted model: The HTTP service is healthy. I will inspect its declared routes before interpreting what the application exposes.
 Actual arguments:
 {
-  "url": "http://172.30.104.10:8000/robots.txt",
+  "url": "http://172.30.95.10:8000/robots.txt",
   "extra_args": "--max-time 5 -o /opt/workspace/artifacts/robots.txt"
 }
 Actual Hercules result:
 {
   "tool": "network_curl",
-  "url": "http://172.30.104.10:8000/robots.txt",
-  "redirects_followed": false,
-  "redirect_note": "Redirect following is disabled while target scopes are configured.",
+  "url": "http://172.30.95.10:8000/robots.txt",
+  "redirects_followed": true,
   "exit_code": 0,
   "stdout": "",
   "stderr": "",
-  "duration_seconds": 0.39,
-  "command": "curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.104.10:8000/robots.txt",
+  "duration_seconds": 0.51,
+  "command": "curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.95.10:8000/robots.txt",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -274,41 +283,45 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 0,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 0
+  "estimated_inline_tokens": 0,
+  "requested_timeout_seconds": 60,
+  "effective_timeout_seconds": 60
 }
 
-[188.478s → 204.245s] shell_exec
+[126.247s → 145.096s] shell_exec
 Scripted model: I will verify the lab certificate with its supplied CA; I will not disable certificate validation.
 Actual arguments:
 {
-  "command": "openssl s_client -connect 172.30.104.10:8443 -CAfile /opt/workspace/lab-cert.pem -verify_return_error </dev/null > /opt/workspace/artifacts/tls.txt 2>&1; cat /opt/workspace/artifacts/tls.txt",
+  "command": "openssl s_client -connect 172.30.95.10:8443 -CAfile /opt/workspace/lab-cert.pem -verify_return_error </dev/null > /opt/workspace/artifacts/tls.txt 2>&1; cat /opt/workspace/artifacts/tls.txt",
   "timeout": 45
 }
 Actual Hercules result:
 {
   "tool": "shell_exec",
   "exit_code": 0,
-  "stdout": "Connecting to 172.30.104.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 10 09:17:39 2026 GMT; NotAfter: Nov  9 09:17:39 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUGzWWKhWhFvSSXUejuXbgMOaT/D8wDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAxMDA5MTczOVoXDTI2MTEwOTA5MTcz\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAx2Fa3Q2lMgHTekbJXv/e/AEW7ZWl2ua4ZsI7mpjdvE1erKD9uIaX8pVI9xk/\ne0Je5rfUu2+8xVMwfeN4iVYP7I+9UajuaL+86Q1iSnGKxRHRmwcvyeTZizFw2ghH\nbCuK9dWKsXwqMDUxqVLqngnSGT/2Cb6f/gfwGV5ANdnI1ckKP2cayuxGhBDC6se0\nqeX9mMUhbv6IIZLx/7Oc4R7F+gK8nUKtABef3i4ElP5lD15m87qV59M8AFXJOWka\nIioqQQhXLxvlCxKy7g9MuZKwCYuA9wk+EmWvSc+dWGe443qu6tJwEGHCJsQttFGh\nRozY5q8cSUIPQxg7bGgf87RvtwIDAQABo2kwZzAdBgNVHQ4EFgQUeQi982eHa22S\nxUN/+DtUIYKQpvMwHwYDVR0jBBgwFoAUeQi982eHa22SxUN/+DtUIYKQpvMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweaAowDQYJKoZIhvcNAQEL\nBQADggEBAIzE+qC57oU5eE6VvHE0JlAFkW8z7u8HEeYaO30gxUnveemunapT4g8g\nR/3L3VQr72xgp4BObTfZDAWbnfvZYprLPVbExp1dQvlAeXWK+kkLzU66iny5Lymk\n6B3+vNICrMXU2p5n+q9iyWGmVI2pFBH9aunHhrkJwjg7tE2fCdOQUrH9oEtr+uY/\nEGLixVNgxf7Ps3A1QTfU1T3xY043Cyof7S8p7mHkdBRTdaqTTKe4COQUV8k4zq84\nAI5mEbXls2D+Quif4D5S1R3bMcwF5wxjAgQW5fb6IN763NUXxIyrUUNlmaun+bbc\n15U7AWdLRf4H/OVqH27GdW9wTxs1x6Y=\n-----END CERTIFICATE-----\nsubject=CN=lab\nissuer=CN=lab\n---\nNo client certificate CA names sent\nPeer signing digest: SHA256\nPeer signature type: rsa_pss_rsae_sha256\nPeer Temp Key: X25519, 253 bits\n---\nSSL handshake has read 1347 bytes and written 1738 bytes\nVerification: OK\n---\nNew, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384\nProtocol: TLSv1.3\nServer public key is 2048 bit\nThis TLS version forbids renegotiation.\nCompression: NONE\nExpansion: NONE\nNo ALPN negotiated\nEarly data was not sent\nVerify return code: 0 (ok)\n---\nDONE\n---\nPost-Handshake New Session Ticket arrived:\nSSL-Session:\n    Protocol  : TLSv1.3\n    Cipher    : TLS_AES_256_GCM_SHA384\n    Session-ID: DCD5F4D78665D03FD93874EA0F06273E1CF6D6CA34FAF3CC7462897046CBC91D\n    Session-ID-ctx: \n    Resumption PSK: 8E9921F096AFE949EE42FA7C85AC5599AA741064A4DD2E18182E0A40389ADC08B9C6C434BE9839246726D6EB8637C331\n    PSK identity: None\n    PSK identity hint: None\n    SRP username: None\n    TLS session ticket lifetime hint: 7200 (seconds)\n    TLS session ticket:\n    0000 - 31 36 02 56 ed 01 c4 07-a9 ad 49 8b a4 b3 9d ba   16.V......I.....\n    0010 - 8e 4a c1 06 30 95 b0 cc-55 aa 02 21 f7 4d 6a a6   .J..0...U..!.Mj.\n    0020 - 5f 7f f9 25 2e 9b 90 3c-4b 75 d5 be a7 56 80 66   _..%...<Ku...V.f\n    0030 - 8b 5b 73 93 6b 6e af 9a-a8 46 61 5a ec 47 99 48   .[s.kn...FaZ.G.H\n    0040 - 71 cb 9e 52 12 33 8f bf-6e a2 25 24 c1 0e fa d4   q..R.3..n.%$....\n    0050 - 19 d0 98 f0 08 df 30 57-6d 98 93 19 01 43 99 4c   ......0Wm....C.L\n    0060 - 31 7d 30 c9 09 8f 24 18-5c e6 5b da 1a 6e e0 dd   1}0...$.\\.[..n..\n    0070 - ca 51 3e cb 47 c4 5b bb-61 78 c0 51 96 32 d3 c6   .Q>.G.[.ax.Q.2..\n    0080 - 5b 01 a5 49 0c 10 56 2b-8b 78 24 1d 37 cf b5 fd   [..I..V+.x$.7...\n    0090 - ab 5c 12 c8 51 fd a9 4a-47 19 7e 08 cd d7 cc 2b   .\\..Q..JG.~....+\n    00a0 - 46 cd 10 f0 85 fc e9 ba-87 31 f2 ef e2 85 d2 31   F........1.....1\n    00b0 - d1 5a f6 56 49 6a f8 4c-95 3a d1 d9 01 bd d3 1c   .Z.VIj.L.:......\n    00c0 - b4 cc 65 f5 85 81 83 e2-8c d4 7f b4 f9 17 43 07   ..e...........C.\n\n    Start Time: 1791624065\n    Timeout   : 7200 (sec)\n    Verify return code: 0 (ok)\n    Extended master secret: no\n    Max Early Data: 0\n---\nread R BLOCK\n",
+  "stdout": "Connecting to 172.30.95.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 26 17:01:59 2026 GMT; NotAfter: Nov 25 17:01:59 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUOQxv+jVVHyBIF5oOj33hbvya8gYwDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAyNjE3MDE1OVoXDTI2MTEyNTE3MDE1\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAqQ1N04OY4wmizL8pzikNYfWzwtJz1u/SOTgneAy0d+/6Tk776wHyaRVonj8A\nw0TcGBlCUHLtYN8S+4o62DKG5KDmjLc6tKj6VvBO3o2eU0x1tpYWcuUGqbiSBatS\nqDJDTK1fVFbbRqGFyV7W2JdLFWGubYFmmdJEgJQKQ3CiB+7gspzw8uUNeJo5ql6D\n/KZsf8km9J7D6GFk88N8EedjGECdgGRiAMipEsG/pqPSERk5FMxvkPdTxBO7x4vy\n4uFZrEgHPIQdInCjE8Vfkn/gMPoKVDNJGr8A86m9PkspmvpbMyKWXMd4nnkfrLIL\naM3CHlgIDyd8NllTEgorn3SocQIDAQABo2kwZzAdBgNVHQ4EFgQUzieu+Ng5Gs2r\nbR7OHLtxDWxk/OMwHwYDVR0jBBgwFoAUzieu+Ng5Gs2rbR7OHLtxDWxk/OMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweXwowDQYJKoZIhvcNAQEL\nBQADggEBAEHfI7D4EGRIQc6jmjxpCNE6tHWgv+3UHDopGi+SoHeA5frQBvP01Ews\nnII9wDAvfDd70KOJi3jVkqdImBniZ77jFmeFfZeqsJBIXwjDdWmexYuUKa5GpOQW\no7vtpk4mo/qvcTNKyBTsHzkBOf4xH/I7VXI+bRI3h56sKVNKndPs+ENCd6j52iWu\nohwODPuhAodueFC5mWsg22kKN5JNJfV/vPUzuIrBLWi0WYSaAazpAxTpzqs0CCuK\nBjk0BACcRFdyyRopd9IT75RA4JkPKux+d/8v2KxAR0SQtqRhwAd49Imj3UxOdwOd\nUc7e60TRUv6NEKRW5wfEJe/+6aYF9Gs=\n-----END CERTIFICATE-----\nsubject=CN=lab\nissuer=CN=lab\n---\nNo client certificate CA names sent\nPeer signing digest: SHA256\nPeer signature type: rsa_pss_rsae_sha256\nPeer Temp Key: X25519, 253 bits\n---\nSSL handshake has read 1347 bytes and written 1738 bytes\nVerification: OK\n---\nNew, TLSv1.3, Cipher is TLS_AES_256_GCM_SHA384\nProtocol: TLSv1.3\nServer public key is 2048 bit\nThis TLS version forbids renegotiation.\nCompression: NONE\nExpansion: NONE\nNo ALPN negotiated\nEarly data was not sent\nVerify return code: 0 (ok)\n---\nDONE\n---\nPost-Handshake New Session Ticket arrived:\nSSL-Session:\n    Protocol  : TLSv1.3\n    Cipher    : TLS_AES_256_GCM_SHA384\n    Session-ID: E02943F996C918AC6F66828C296336F27AB0789CEA2876D35E7DC4ADF4A2C386\n    Session-ID-ctx: \n    Resumption PSK: E52FB06F8808A08DE3D6087FA61B8C8950DB8D4AFC633FCD83EFF9405B3E1619D0EFB432F21EA60BEC617F1C37426AC1\n    PSK identity: None\n    PSK identity hint: None\n    SRP username: None\n    TLS session ticket lifetime hint: 7200 (seconds)\n    TLS session ticket:\n    0000 - c9 0b 8a 4b 75 44 6c a0-0c 10 4a 01 c2 2e 7b 49   ...KuDl...J...{I\n    0010 - a0 78 58 85 e3 54 0a af-d6 d2 cd 6d a6 9d 0f 83   .xX..T.....m....\n    0020 - a5 85 e6 e1 54 0d 9c bd-75 68 4d 19 62 f5 cd 32   ....T...uhM.b..2\n    0030 - 55 04 3b 2a 2c 6e de 97-03 7d 7f 1e ce 94 c9 38   U.;*,n...}.....8\n    0040 - 05 9f 06 7a ed 26 0d 26-ef 07 97 19 a0 0a c8 58   ...z.&.&.......X\n    0050 - 58 d5 17 ac 08 42 59 c5-19 df 71 27 da 24 12 d4   X....BY...q'.$..\n    0060 - 9a 1c 1a 00 de 9d 9b 93-d1 06 10 8a c3 a8 a1 fa   ................\n    0070 - e3 9d fe 87 7e 90 bb 30-f9 3b 3e 66 7e 68 73 57   ....~..0.;>f~hsW\n    0080 - b4 02 6c f0 91 2a af e9-fd 52 98 e1 7a d2 52 b4   ..l..*...R..z.R.\n    0090 - c2 7f b7 d0 e8 7d 2f e8-7f f3 94 61 d2 77 a6 57   .....}/....a.w.W\n    00a0 - 8b 47 0e 08 a6 4d 9e da-52 b7 7d e3 6e a9 ea c6   .G...M..R.}.n...\n    00b0 - 2b a8 fe d5 6d 9e c4 fd-66 52 fa 01 cc dc cc b0   +...m...fR......\n    00c0 - 3c 92 b0 91 ae 9e d6 d6-ba 00 8c f6 cb da ce 06   <...............\n\n    Start Time: 1793034264\n    Timeout   : 7200 (sec)\n    Verify return code: 0 (ok)\n    Extended master secret: ***\n    Max Early Data: 0\n---\nread R BLOCK\n---\nPost-Handshake New Session Ticket arrived:\nSSL-Session:\n    Protocol  : TLSv1.3\n    Cipher    : TLS_AES_256_GCM_SHA384\n    Session-ID: A16F6A58DC648B2E5D25883247B694762C4D44F3241FDD1469BD848E5E95DE95\n    Session-ID-ctx: \n    Resumption PSK: E104E035F4877CB38C214FDCFE1B991146F369D49A42F60BDEB8893D06A8D291F496E39D5F0956C06344D6BA77A52EA5\n    PSK identity: None\n    PSK identity hint: None\n    SRP username: None\n    TLS session ticket lifetime hint: 7200 (seconds)\n    TLS session ticket:\n    0000 - c9 0b 8a 4b 75 44 6c a0-0c 10 4a 01 c2 2e 7b 49   ...KuDl...J...{I\n    0010 - 6b 94 b9 0a aa 07 43 88-e2 21 bd d8 77 43 2a b8   k.....C..!..wC*.\n    0020 - a6 76 dc 36 dd ef fd 05-62 dd a6 ea ee 5d 7f 53   .v.6....b....].S\n    0030 - f7 f1 7c fb 1c 81 7f 24-14 95 8c 4c 0e 64 fd 84   ..|....$...L.d..\n    0040 - 43 fa cc 7b 62 0b c1 03-7a b4 ce 1c dd 41 cc 8b   C..{b...z....A..\n    0050 - 2f 87 63 0a d7 08 f2 9b-c2 12 bb d7 ad 10 0e 98   /.c.............\n    0060 - 5a fc eb 19 d2 41 de be-cd 10 dc 00 c6 b2 fb 95   Z....A..........\n    0070 - 7b d9 e6 75 31 c7 da 30-f5 e1 19 7d e8 df 89 a1   {..u1..0...}....\n    0080 - 3a b2 ee 38 72 78 69 c6-44 fa 1f 82 c2 08 70 1b   :..8rxi.D.....p.\n    0090 - bd f4 10 d8 16 0a 54 62-19 4c b9 48 08 73 64 a0   ......Tb.L.H.sd.\n    00a0 - 0c 14 ac f7 eb 69 53 23-3f 29 4a 90 4c db 04 f2   .....iS#?)J.L...\n    00b0 - ee 7d b2 4b ca 57 6a 4d-1e e1 1a 29 d4 ba 20 9f   .}.K.WjM...).. .\n    00c0 - e3 05 b2 7b b5 92 c0 64-f5 ab 99 72 aa b2 92 1f   ...{...d...r....\n\n    Start Time: 1793034264\n    Timeout   : 7200 (sec)\n    Verify return code: 0 (ok)\n    Extended master secret: ***\n    Max Early Data: 0\n---\nread R BLOCK\n",
   "stderr": "",
-  "duration_seconds": 0.36,
-  "command": "bash /opt/workspace/tmp/shell_e945b0e7d1064a74b7057ebe6e6fd7fb.sh",
+  "duration_seconds": 3.46,
+  "command": "bash /opt/workspace/tmp/shell_7b22f1f6cd61487584a2783afd3c150b.sh",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
   "stdout_truncated": false,
   "stderr_truncated": false,
-  "stdout_chars": 3604,
+  "stdout_chars": 5266,
   "stderr_chars": 0,
-  "stdout_bytes": 3604,
+  "stdout_bytes": 5266,
   "stderr_bytes": 0,
   "stdout_chars_exact": true,
   "stderr_chars_exact": true,
-  "inline_stdout_chars": 3604,
+  "inline_stdout_chars": 5268,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 901
+  "estimated_inline_tokens": 1317,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45
 }
 
-[206.449s → 212.528s] workspace_read_file
+[147.262s → 153.329s] workspace_read_file
 Scripted model: I will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior.
 Actual arguments:
 {
@@ -321,19 +334,71 @@ Actual Hercules result:
   "path": "/opt/workspace/artifacts/services.xml",
   "encoding": "text",
   "bytes": 4096,
-  "total_bytes": 8116,
+  "total_bytes": 8112,
   "offset": 0,
   "truncated": true,
   "next_offset": 4096,
-  "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Sat Oct 10 09:20:07 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10\" start=\"1791624007\" startstr=\"Sat Oct 10 09:20:07 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1791624007\" endtime=\"1791624025\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.104.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-4cf98050c909-fixture.hercules-capture-4cf98050c909-net\" type=\"PTR\"/>\n</hostnames>\n<ports><port protocol=\"tcp\" portid=\"8000\"><state state=\"open\" reason=\"syn-ack\" reason_ttl=\"0\"/><service name=\"http-alt\" servicefp=\"SF-Port8000-TCP:V=7.99%I=2%D=10/10%Time=6ACA034E%P=x86_64-pc-linux-gnu%r(GetRequest,2DD,&quot;HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:14\\x20GMT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n&lt;!doctype\\x20html&gt;&lt;html\\x20lang=\\&quot;en\\&quot;&gt;&lt;title&gt;Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in&lt;/title&gt;\\n&lt;style&gt;body{font:18px\\x20system-ui;max-width:540px;margin:80px\\x20auto;background:#e9e9e6;color:#242424}label,input,button{display:block;margin:12px\\x200}input,button{padding:12px}&lt;/style&gt;\\n&lt;h1&gt;Atlas\\x20operations&lt;/h1&gt;&lt;p&gt;Disposable\\x20Hercules\\x20capture\\x20lab\\.&lt;/p&gt;\\n&lt;form\\x20action=\\&quot;/login\\&quot;\\x20method=\\&quot;post\\&quot;&gt;&lt;label\\x20for=\\&quot;email\\&quot;&gt;Email&lt;/label&gt;&lt;input\\x20id=\\&quot;email\\&quot;\\x20name=\\&quot;email\\&quot;\\x20type=\\&quot;email\\&quot;\\x20required&gt;&lt;label\\x20for=\\&quot;password\\&quot;&gt;Password&lt;/label&gt;&lt;input\\x20id=\\&quot;password\\&quot;\\x20name=\\&quot;password\\&quot;\\x20type=\\&quot;password\\&quot;\\x20required&gt;&lt;button&gt;Sign\\x20in&lt;/button&gt;&lt;/form&gt;&quot;)%r(FourOhFourRequest,E9,&quot;HTTP/1\\.0\\x20404\\x20Not\\x20Found\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:19\\x20GMT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x2059\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n&lt;h1&gt;Not\\x20found&lt;/h1&gt;&lt;p&gt;This\\x20route\\x20is\\x20absent\\x20from\\x20the\\x20lab\\.&lt;/p&gt;&quot;)%r(Socks5,2E3,&quot;HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20syntax\\x20\\(&apos;\\\\x05\\\\x04\\\\x00\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03&apos;\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:19\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\\x20text/html;charset=utf-8\\r\\nContent-Length:\\x20520\\r\\n\\r\\n&lt;!DOCTYPE\\x20HTML&gt;\\n&lt;html\\x20lang=\\&quot;en\\&quot;&gt;\\n\\x20\\x20\\x20\\x20&lt;head&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;meta\\x20charset=\\&quot;utf-8\\&quot;&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;style\\x20type=\\&quot;text/css\\&quot;&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20:root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;/style&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;title&gt;Error\\x20response&lt;/title&gt;\\n\\x20\\x20\\x20\\x20&lt;/head&gt;\\n\\x20\\x20\\x20\\x20&lt;body&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;h1&gt;Error\\x20response&lt;/h1&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Error\\x20code:\\x20400&lt;/p&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Message:\\x20Bad\\x20request\\x20syntax\\x20\\(&apos;\\\\x05\\\\x04\\\\x00\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03&apos;\\)\\.&lt;/p&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x20request\\x20sy"
+  "content": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Mon Oct 26 17:03:24 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10\" start=\"1793034204\" startstr=\"Mon Oct 26 17:03:24 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1793034205\" endtime=\"1793034221\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.95.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-713648547804-fixture.hercules-capture-713648547804-net\" type=\"PTR\"/>\n</hostnames>\n<ports><port protocol=\"tcp\" portid=\"8000\"><state state=\"open\" reason=\"syn-ack\" reason_ttl=\"0\"/><service name=\"http-alt\" servicefp=\"SF-Port8000-TCP:V=7.99%I=2%D=10/26%Time=6ADF87E3%P=x86_64-pc-linux-gnu%r(GetRequest,2DD,&quot;HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:31\\x20GMT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n&lt;!doctype\\x20html&gt;&lt;html\\x20lang=\\&quot;en\\&quot;&gt;&lt;title&gt;Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in&lt;/title&gt;\\n&lt;style&gt;body{font:18px\\x20system-ui;max-width:540px;margin:80px\\x20auto;background:#e9e9e6;color:#242424}label,input,button{display:block;margin:12px\\x200}input,button{padding:12px}&lt;/style&gt;\\n&lt;h1&gt;Atlas\\x20operations&lt;/h1&gt;&lt;p&gt;Disposable\\x20Hercules\\x20capture\\x20lab\\.&lt;/p&gt;\\n&lt;form\\x20action=\\&quot;/login\\&quot;\\x20method=\\&quot;post\\&quot;&gt;&lt;label\\x20for=\\&quot;email\\&quot;&gt;Email&lt;/label&gt;&lt;input\\x20id=\\&quot;email\\&quot;\\x20name=\\&quot;email\\&quot;\\x20type=\\&quot;email\\&quot;\\x20required&gt;&lt;label\\x20for=\\&quot;password\\&quot;&gt;Password&lt;/label&gt;&lt;input\\x20id=\\&quot;password\\&quot;\\x20name=\\&quot;password\\&quot;\\x20type=\\&quot;password\\&quot;\\x20required&gt;&lt;button&gt;Sign\\x20in&lt;/button&gt;&lt;/form&gt;&quot;)%r(FourOhFourRequest,E9,&quot;HTTP/1\\.0\\x20404\\x20Not\\x20Found\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:36\\x20GMT\\r\\nContent-Type:\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x2059\\r\\nX-Hercules-Lab:\\x20disposable\\r\\n\\r\\n&lt;h1&gt;Not\\x20found&lt;/h1&gt;&lt;p&gt;This\\x20route\\x20is\\x20absent\\x20from\\x20the\\x20lab\\.&lt;/p&gt;&quot;)%r(Socks5,2E3,&quot;HTTP/1\\.0\\x20400\\x20Bad\\x20request\\x20syntax\\x20\\(&apos;\\\\x05\\\\x04\\\\x00\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03&apos;\\)\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:36\\x20GMT\\r\\nConnection:\\x20close\\r\\nContent-Type:\\x20text/html;charset=utf-8\\r\\nContent-Length:\\x20520\\r\\n\\r\\n&lt;!DOCTYPE\\x20HTML&gt;\\n&lt;html\\x20lang=\\&quot;en\\&quot;&gt;\\n\\x20\\x20\\x20\\x20&lt;head&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;meta\\x20charset=\\&quot;utf-8\\&quot;&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;style\\x20type=\\&quot;text/css\\&quot;&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20:root\\x20{\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20color-scheme:\\x20light\\x20dark;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20}\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;/style&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;title&gt;Error\\x20response&lt;/title&gt;\\n\\x20\\x20\\x20\\x20&lt;/head&gt;\\n\\x20\\x20\\x20\\x20&lt;body&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;h1&gt;Error\\x20response&lt;/h1&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Error\\x20code:\\x20400&lt;/p&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Message:\\x20Bad\\x20request\\x20syntax\\x20\\(&apos;\\\\x05\\\\x04\\\\x00\\\\x01\\\\x02\\\\x80\\\\x05\\\\x01\\\\x00\\\\x03&apos;\\)\\.&lt;/p&gt;\\n\\x20\\x20\\x20\\x20\\x20\\x20\\x20\\x20&lt;p&gt;Error\\x20code\\x20explanation:\\x20400\\x20-\\x20Bad\\x20request\\x20synta"
 }
 
-[214.690s → 220.822s] workspace_write_file
-Scripted model: All investigation checks have passed. I will write a report that links the observed evidence and states the limits of this scripted local investigation.
+[155.470s → 171.240s] shell_exec
+Scripted model: The negative-control port should not look like an exposed service. I will save its actual result before drawing a network boundary.
+Actual arguments:
+{
+  "command": "nmap -Pn -sT -p 9999 172.30.95.10 -oN /opt/workspace/artifacts/closed-port.txt; cat /opt/workspace/artifacts/closed-port.txt",
+  "timeout": 45
+}
+Actual Hercules result:
+{
+  "tool": "shell_exec",
+  "exit_code": 0,
+  "stdout": "Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:04 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\nNmap done: 1 IP address (1 host up) scanned in 0.05 seconds\n# Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n",
+  "stderr": "",
+  "duration_seconds": 0.42,
+  "command": "bash /opt/workspace/tmp/shell_6e34bdac3f3d4de8ac607fb23484da7c.sh",
+  "output_filtered": false,
+  "output_complete": true,
+  "evidence_complete": true,
+  "stdout_truncated": false,
+  "stderr_truncated": false,
+  "stdout_chars": 743,
+  "stderr_chars": 0,
+  "stdout_bytes": 743,
+  "stderr_bytes": 0,
+  "stdout_chars_exact": true,
+  "stderr_chars_exact": true,
+  "inline_stdout_chars": 743,
+  "inline_stderr_chars": 0,
+  "estimated_inline_tokens": 186,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45
+}
+
+[173.165s → 179.245s] workspace_read_file
+Scripted model: I will include the negative control in the report so coverage is explicit.
+Actual arguments:
+{
+  "path": "artifacts/closed-port.txt"
+}
+Actual Hercules result:
+{
+  "tool": "workspace_read_file",
+  "path": "/opt/workspace/artifacts/closed-port.txt",
+  "encoding": "text",
+  "bytes": 429,
+  "total_bytes": 429,
+  "offset": 0,
+  "truncated": false,
+  "next_offset": null,
+  "content": "# Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n"
+}
+
+[181.407s → 187.493s] workspace_write_file
+Scripted model: All investigation checks have passed. I will write a report that links the observed evidence and states this local investigation's limits.
 Actual arguments:
 {
   "path": "reports/network.md",
-  "content": "# Network inventory\n\nReal Hercules tools in a disposable local lab. Model decisions and this report are scripted.\n\n## Verified observations\n\n### 3. recon_dns\nI will query the lab DNS server directly. The result will establish the local address before service discovery.\n\nActual response excerpt:\n```text\ntool: recon_dns\nselected_tool: dig\ntarget: 172.30.104.10\ncommand: dig @172.30.104.10 172.30.104.10 A\nexit_code: 0\nstdout: \n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.104.10 172.30.104.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 48342\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.104.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.104.10.\t\t60\tIN\tA\t172.30.104.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.104.10#53(172.30.104.10) (UDP)\n;; WHEN: Sat Oct 10 09:19:41 UTC 2026\n;; MSG SIZE  rcvd: 47\n\n\nstderr: \nduration_seconds: 0.22\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 486\nstderr_chars: 0\nstdout_bytes: 486\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 486\ninline_stderr_chars: 0\nestimated_inline_tokens: 122\n```\n\n### 4. nmap_scan\nDNS is confirmed. I will map only the three scoped service ports; an open port alone will not establish a vulnerability.\n\nActual response excerpt:\n```text\ntool: nmap_scan\nmode: port\ntarget: 172.30.104.10\nports: 8000,8080,8443\nexit_code: 0\nstderr: \nduration_seconds: 0.41\ncommand: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.104.10\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 1629\nstderr_chars: 0\nstdout_bytes: 1629\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 408\nraw_artifact: /opt/workspace/logs/exec_raw_20261010_091950_257618.txt\nraw_artifacts: combined: /opt/workspace/logs/exec_raw_20261010_091950_257618.txt\nfilter_notes: raw output preserved in artifact\nparsed: scanner: nmap\nstart_time: 1791623990\nhost_count: 1\nhosts: status: up\naddresses: addr: 172.30.104.10\naddrtype: ipv4\nports: portid: 8000\nprotocol: tcp\nstate: open\nservice: name: http-alt\nproduct: None\nversion: None\nportid: 8080\nprotocol: tcp\nstate: open\nservice: name: http-proxy\nproduct: None\nversion: None\nportid: 8443\nprotocol: tcp\nstate: open\nservice: name: https-alt\nproduct: None\nversion: None\nstructur\n```\n\n### 5. shell_exec\nThe ports are reachable. I will verify service behavior with version detection and retain both text and XML output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-10 09:20 +0000\nNmap scan report for hercules-capture-4cf98050c909-fixture.hercules-capture-4cf98050c909-net (172.30.104.10)\nHost is up (0.00080s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/10%Time=6ACA034E%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:14\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.104.10:8000/health\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.34\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.104.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 7. network_curl\nThe HTTP service is healthy. I will inspect its declared routes before interpreting what the application exposes.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.104.10:8000/robots.txt\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.39\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.104.10:8000/robots.txt\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 8. shell_exec\nI will verify the lab certificate with its supplied CA; I will not disable certificate validation.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Connecting to 172.30.104.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 10 09:17:39 2026 GMT; NotAfter: Nov  9 09:17:39 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUGzWWKhWhFvSSXUejuXbgMOaT/D8wDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAxMDA5MTczOVoXDTI2MTEwOTA5MTcz\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAx2Fa3Q2lMgHTekbJXv/e/AEW7ZWl2ua4ZsI7mpjdvE1erKD9uIaX8pVI9xk/\ne0Je5rfUu2+8xVMwfeN4iVYP7I+9UajuaL+86Q1iSnGKxRHRmwcvyeTZizFw2ghH\nbCuK9dWKsXwqMDUxqVLqngnSGT/2Cb6f/gfwGV5ANdnI1ckKP2cayuxGhBDC6se0\nqeX9mMUhbv6IIZLx/7Oc4R7F+gK8nUKtABef3i4ElP5lD15m87qV59M8AFXJOWka\nIioqQQhXLxvlCxKy7g9MuZKwCYuA9wk+EmWvSc+dWGe443qu6tJwEGHCJsQttFGh\nRozY5q8cSUIPQxg7bGgf87RvtwIDAQABo2kwZzAdBgNVHQ4EFgQUeQi982eHa22S\nxUN/+DtUIYKQpvMwHwYDVR0jBBgwFoAUeQi982eHa22SxUN/+DtUIYKQpvMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweaAowDQYJKoZIhvcNAQEL\nBQADg\n```\n\n### 9. workspace_read_file\nI will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/services.xml\nencoding: text\nbytes: 4096\ntotal_bytes: 8116\noffset: 0\ntruncated: True\nnext_offset: 4096\ncontent: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Sat Oct 10 09:20:07 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10\" start=\"1791624007\" startstr=\"Sat Oct 10 09:20:07 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1791624007\" endtime=\"1791624025\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.104.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-4cf98050c909-fixture.hercules-capture-4cf980\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
+  "content": "# Service boundary map\n\nHercules tool results from a disposable local lab.\n\n## Verified observations\n\n### 3. recon_dns\nI will query the lab DNS server directly. The result will establish the local address before service discovery.\n\nActual response excerpt:\n```text\ntool: recon_dns\nselected_tool: dig\ntarget: 172.30.95.10\ncommand: dig @172.30.95.10 172.30.95.10 A\nexit_code: 0\nstdout: \n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.95.10 172.30.95.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 24012\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.95.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.95.10.\t\t60\tIN\tA\t172.30.95.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.95.10#53(172.30.95.10) (UDP)\n;; WHEN: Mon Oct 26 17:02:59 UTC 2026\n;; MSG SIZE  rcvd: 46\n\n\nstderr: \nduration_seconds: 0.17\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 479\nstderr_chars: 0\nstdout_bytes: 479\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 479\ninline_stderr_chars: 0\nestimated_inline_tokens: 120\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 4. nmap_scan\nDNS is confirmed. I will map only the three scoped service ports; an open port alone will not establish a vulnerability.\n\nActual response excerpt:\n```text\ntool: nmap_scan\nmode: port\ntarget: 172.30.95.10\nports: 8000,8080,8443\nexit_code: 0\nstderr: \nduration_seconds: 0.23\ncommand: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.95.10\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 1626\nstderr_chars: 0\nstdout_bytes: 1626\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 407\nrequested_timeout_seconds: 300\neffective_timeout_seconds: 300\nraw_artifact: /opt/workspace/logs/exec_raw_20261026_170307_712334.txt\nraw_artifacts: combined: /opt/workspace/logs/exec_raw_20261026_170307_712334.txt\nfilter_notes: raw output preserved in artifact\nparsed: scanner: nmap\nstart_time: 1793034187\nhost_count: 1\nhosts: status: up\naddresses: addr: 172.30.95.10\naddrtype: ipv4\nports: portid: 8000\nprotocol: tcp\nstate: open\nservice: name: http-alt\nproduct: None\nversion: None\nportid: 8080\nprotocol: tcp\nstate: open\nservice: name: http-proxy\nproduct: None\nversion: None\nportid: 8443\nprotocol: tcp\nstate: open\nse\n```\n\n### 5. shell_exec\nThe ports are reachable. I will verify service behavior with version detection and retain both text and XML output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:03 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.00091s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/26%Time=6ADF87E3%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:31\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540p\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/health\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.44\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 7. network_curl\nThe HTTP service is healthy. I will inspect its declared routes before interpreting what the application exposes.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/robots.txt\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.51\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.95.10:8000/robots.txt\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 8. shell_exec\nI will verify the lab certificate with its supplied CA; I will not disable certificate validation.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Connecting to 172.30.95.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 26 17:01:59 2026 GMT; NotAfter: Nov 25 17:01:59 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUOQxv+jVVHyBIF5oOj33hbvya8gYwDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAyNjE3MDE1OVoXDTI2MTEyNTE3MDE1\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAqQ1N04OY4wmizL8pzikNYfWzwtJz1u/SOTgneAy0d+/6Tk776wHyaRVonj8A\nw0TcGBlCUHLtYN8S+4o62DKG5KDmjLc6tKj6VvBO3o2eU0x1tpYWcuUGqbiSBatS\nqDJDTK1fVFbbRqGFyV7W2JdLFWGubYFmmdJEgJQKQ3CiB+7gspzw8uUNeJo5ql6D\n/KZsf8km9J7D6GFk88N8EedjGECdgGRiAMipEsG/pqPSERk5FMxvkPdTxBO7x4vy\n4uFZrEgHPIQdInCjE8Vfkn/gMPoKVDNJGr8A86m9PkspmvpbMyKWXMd4nnkfrLIL\naM3CHlgIDyd8NllTEgorn3SocQIDAQABo2kwZzAdBgNVHQ4EFgQUzieu+Ng5Gs2r\nbR7OHLtxDWxk/OMwHwYDVR0jBBgwFoAUzieu+Ng5Gs2rbR7OHLtxDWxk/OMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweXwowDQYJKoZIhvcNAQEL\nBQADgg\n```\n\n### 9. workspace_read_file\nI will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/services.xml\nencoding: text\nbytes: 4096\ntotal_bytes: 8112\noffset: 0\ntruncated: True\nnext_offset: 4096\ncontent: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Mon Oct 26 17:03:24 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10\" start=\"1793034204\" startstr=\"Mon Oct 26 17:03:24 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1793034205\" endtime=\"1793034221\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.95.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-713648547804-fixture.hercules-capture-713648547\n```\n\n### 10. shell_exec\nThe negative-control port should not look like an exposed service. I will save its actual result before drawing a network boundary.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:04 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\nNmap done: 1 IP address (1 host up) scanned in 0.05 seconds\n# Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n\nstderr: \nduration_seconds: 0.42\ncommand: bash /opt/workspace/tmp/shell_6e34bdac3f3d4de8ac607fb23484da7c.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 743\nstderr_chars: 0\nstdout_bytes: 743\nstderr_bytes: 0\nstdout_chars_exact: True\ns\n```\n\n### 11. workspace_read_file\nI will include the negative control in the report so coverage is explicit.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/closed-port.txt\nencoding: text\nbytes: 429\ntotal_bytes: 429\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: # Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
 }
 Actual Hercules result:
 {
@@ -341,11 +406,11 @@ Actual Hercules result:
   "path": "/opt/workspace/reports/network.md",
   "status": "success",
   "encoding": "text",
-  "bytes": 8564,
+  "bytes": 10564,
   "applied_mode": "0644"
 }
 
-[223.232s → 245.055s] shell_exec
+[189.693s → 207.613s] shell_exec
 Scripted model: I will render the verified Markdown as readable HTML and index the real workspace artifacts with SHA-256 hashes.
 Actual arguments:
 {
@@ -356,10 +421,10 @@ Actual Hercules result:
 {
   "tool": "shell_exec",
   "exit_code": 0,
-  "stdout": "{\"report\": \"/opt/workspace/reports/network.md\", \"evidence_files\": 12, \"verified\": true}\n",
+  "stdout": "{\"report\": \"/opt/workspace/reports/network.md\", \"evidence_files\": 15, \"verified\": true}\n",
   "stderr": "",
-  "duration_seconds": 0.8,
-  "command": "bash /opt/workspace/tmp/shell_1906fdf05ffe4c6fbb68306c43c187b6.sh",
+  "duration_seconds": 1.83,
+  "command": "bash /opt/workspace/tmp/shell_ccc5231807154c6aa1d4c93bc509ac3b.sh",
   "output_filtered": false,
   "output_complete": true,
   "evidence_complete": true,
@@ -373,10 +438,12 @@ Actual Hercules result:
   "stderr_chars_exact": true,
   "inline_stdout_chars": 88,
   "inline_stderr_chars": 0,
-  "estimated_inline_tokens": 22
+  "estimated_inline_tokens": 22,
+  "requested_timeout_seconds": 45,
+  "effective_timeout_seconds": 45
 }
 
-[247.238s → 253.356s] workspace_read_file
+[210.149s → 216.742s] workspace_read_file
 Scripted model: I will reread the saved report before declaring completion. A completed inline response and a complete evidence collection are separate properties.
 Actual arguments:
 {
@@ -387,15 +454,15 @@ Actual Hercules result:
   "tool": "workspace_read_file",
   "path": "/opt/workspace/reports/network.md",
   "encoding": "text",
-  "bytes": 8564,
-  "total_bytes": 8564,
+  "bytes": 10564,
+  "total_bytes": 10564,
   "offset": 0,
   "truncated": false,
   "next_offset": null,
-  "content": "# Network inventory\n\nReal Hercules tools in a disposable local lab. Model decisions and this report are scripted.\n\n## Verified observations\n\n### 3. recon_dns\nI will query the lab DNS server directly. The result will establish the local address before service discovery.\n\nActual response excerpt:\n```text\ntool: recon_dns\nselected_tool: dig\ntarget: 172.30.104.10\ncommand: dig @172.30.104.10 172.30.104.10 A\nexit_code: 0\nstdout: \n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.104.10 172.30.104.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 48342\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.104.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.104.10.\t\t60\tIN\tA\t172.30.104.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.104.10#53(172.30.104.10) (UDP)\n;; WHEN: Sat Oct 10 09:19:41 UTC 2026\n;; MSG SIZE  rcvd: 47\n\n\nstderr: \nduration_seconds: 0.22\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 486\nstderr_chars: 0\nstdout_bytes: 486\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 486\ninline_stderr_chars: 0\nestimated_inline_tokens: 122\n```\n\n### 4. nmap_scan\nDNS is confirmed. I will map only the three scoped service ports; an open port alone will not establish a vulnerability.\n\nActual response excerpt:\n```text\ntool: nmap_scan\nmode: port\ntarget: 172.30.104.10\nports: 8000,8080,8443\nexit_code: 0\nstderr: \nduration_seconds: 0.41\ncommand: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.104.10\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 1629\nstderr_chars: 0\nstdout_bytes: 1629\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 408\nraw_artifact: /opt/workspace/logs/exec_raw_20261010_091950_257618.txt\nraw_artifacts: combined: /opt/workspace/logs/exec_raw_20261010_091950_257618.txt\nfilter_notes: raw output preserved in artifact\nparsed: scanner: nmap\nstart_time: 1791623990\nhost_count: 1\nhosts: status: up\naddresses: addr: 172.30.104.10\naddrtype: ipv4\nports: portid: 8000\nprotocol: tcp\nstate: open\nservice: name: http-alt\nproduct: None\nversion: None\nportid: 8080\nprotocol: tcp\nstate: open\nservice: name: http-proxy\nproduct: None\nversion: None\nportid: 8443\nprotocol: tcp\nstate: open\nservice: name: https-alt\nproduct: None\nversion: None\nstructur\n```\n\n### 5. shell_exec\nThe ports are reachable. I will verify service behavior with version detection and retain both text and XML output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-10 09:20 +0000\nNmap scan report for hercules-capture-4cf98050c909-fixture.hercules-capture-4cf98050c909-net (172.30.104.10)\nHost is up (0.00080s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/10%Time=6ACA034E%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Sat,\\x2010\\x20Oct\\x202026\\x2009:20:14\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.104.10:8000/health\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.34\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.104.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 7. network_curl\nThe HTTP service is healthy. I will inspect its declared routes before interpreting what the application exposes.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.104.10:8000/robots.txt\nredirects_followed: False\nredirect_note: Redirect following is disabled while target scopes are configured.\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.39\ncommand: curl -s -X GET --proto =http,https -i --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.104.10:8000/robots.txt\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\n```\n\n### 8. shell_exec\nI will verify the lab certificate with its supplied CA; I will not disable certificate validation.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Connecting to 172.30.104.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 10 09:17:39 2026 GMT; NotAfter: Nov  9 09:17:39 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUGzWWKhWhFvSSXUejuXbgMOaT/D8wDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAxMDA5MTczOVoXDTI2MTEwOTA5MTcz\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAx2Fa3Q2lMgHTekbJXv/e/AEW7ZWl2ua4ZsI7mpjdvE1erKD9uIaX8pVI9xk/\ne0Je5rfUu2+8xVMwfeN4iVYP7I+9UajuaL+86Q1iSnGKxRHRmwcvyeTZizFw2ghH\nbCuK9dWKsXwqMDUxqVLqngnSGT/2Cb6f/gfwGV5ANdnI1ckKP2cayuxGhBDC6se0\nqeX9mMUhbv6IIZLx/7Oc4R7F+gK8nUKtABef3i4ElP5lD15m87qV59M8AFXJOWka\nIioqQQhXLxvlCxKy7g9MuZKwCYuA9wk+EmWvSc+dWGe443qu6tJwEGHCJsQttFGh\nRozY5q8cSUIPQxg7bGgf87RvtwIDAQABo2kwZzAdBgNVHQ4EFgQUeQi982eHa22S\nxUN/+DtUIYKQpvMwHwYDVR0jBBgwFoAUeQi982eHa22SxUN/+DtUIYKQpvMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweaAowDQYJKoZIhvcNAQEL\nBQADg\n```\n\n### 9. workspace_read_file\nI will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/services.xml\nencoding: text\nbytes: 4096\ntotal_bytes: 8116\noffset: 0\ntruncated: True\nnext_offset: 4096\ncontent: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Sat Oct 10 09:20:07 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.104.10\" start=\"1791624007\" startstr=\"Sat Oct 10 09:20:07 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1791624007\" endtime=\"1791624025\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.104.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-4cf98050c909-fixture.hercules-capture-4cf980\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
+  "content": "# Service boundary map\n\nHercules tool results from a disposable local lab.\n\n## Verified observations\n\n### 3. recon_dns\nI will query the lab DNS server directly. The result will establish the local address before service discovery.\n\nActual response excerpt:\n```text\ntool: recon_dns\nselected_tool: dig\ntarget: 172.30.95.10\ncommand: dig @172.30.95.10 172.30.95.10 A\nexit_code: 0\nstdout: \n; <<>> DiG 9.20.27-2-Debian <<>> @172.30.95.10 172.30.95.10 A\n; (1 server found)\n;; global options: +cmd\n;; Got answer:\n;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 24012\n;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0\n\n;; QUESTION SECTION:\n;172.30.95.10.\t\t\tIN\tA\n\n;; ANSWER SECTION:\n172.30.95.10.\t\t60\tIN\tA\t172.30.95.10\n\n;; Query time: 0 msec\n;; SERVER: 172.30.95.10#53(172.30.95.10) (UDP)\n;; WHEN: Mon Oct 26 17:02:59 UTC 2026\n;; MSG SIZE  rcvd: 46\n\n\nstderr: \nduration_seconds: 0.17\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 479\nstderr_chars: 0\nstdout_bytes: 479\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 479\ninline_stderr_chars: 0\nestimated_inline_tokens: 120\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 4. nmap_scan\nDNS is confirmed. I will map only the three scoped service ports; an open port alone will not establish a vulnerability.\n\nActual response excerpt:\n```text\ntool: nmap_scan\nmode: port\ntarget: 172.30.95.10\nports: 8000,8080,8443\nexit_code: 0\nstderr: \nduration_seconds: 0.23\ncommand: nmap -p 8000,8080,8443 -Pn -sT -oX - 172.30.95.10\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 1626\nstderr_chars: 0\nstdout_bytes: 1626\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 407\nrequested_timeout_seconds: 300\neffective_timeout_seconds: 300\nraw_artifact: /opt/workspace/logs/exec_raw_20261026_170307_712334.txt\nraw_artifacts: combined: /opt/workspace/logs/exec_raw_20261026_170307_712334.txt\nfilter_notes: raw output preserved in artifact\nparsed: scanner: nmap\nstart_time: 1793034187\nhost_count: 1\nhosts: status: up\naddresses: addr: 172.30.95.10\naddrtype: ipv4\nports: portid: 8000\nprotocol: tcp\nstate: open\nservice: name: http-alt\nproduct: None\nversion: None\nportid: 8080\nprotocol: tcp\nstate: open\nservice: name: http-proxy\nproduct: None\nversion: None\nportid: 8443\nprotocol: tcp\nstate: open\nse\n```\n\n### 5. shell_exec\nThe ports are reachable. I will verify service behavior with version detection and retain both text and XML output.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:03 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.00091s latency).\n\nPORT     STATE SERVICE        VERSION\n8000/tcp open  http-alt?\n8080/tcp open  http-proxy?\n8443/tcp open  ssl/https-alt?\n2 services unrecognized despite returning data. If you know the service/version, please submit the following fingerprints at https://nmap.org/cgi-bin/submit.cgi?new-service :\n==============NEXT SERVICE FINGERPRINT (SUBMIT INDIVIDUALLY)==============\nSF-Port8000-TCP:V=7.99%I=2%D=10/26%Time=6ADF87E3%P=x86_64-pc-linux-gnu%r(G\nSF:etRequest,2DD,\"HTTP/1\\.0\\x20200\\x20OK\\r\\nServer:\\x20AtlasLab/1\\.0\\x20\\r\nSF:\\nDate:\\x20Mon,\\x2026\\x20Oct\\x202026\\x2017:03:31\\x20GMT\\r\\nContent-Type\nSF::\\x20text/html;\\x20charset=utf-8\\r\\nContent-Length:\\x20565\\r\\nX-Hercule\nSF:s-Lab:\\x20disposable\\r\\n\\r\\n<!doctype\\x20html><html\\x20lang=\\\"en\\\"><tit\nSF:le>Atlas\\x20lab\\x20\\xe2\\x80\\x94\\x20sign\\x20in</title>\\n<style>body{font\nSF::18px\\x20system-ui;max-width:540p\n```\n\n### 6. network_curl\nI will confirm that the discovered HTTP service responds, retaining the response as a file.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/health\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.44\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/health.txt http://172.30.95.10:8000/health\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 7. network_curl\nThe HTTP service is healthy. I will inspect its declared routes before interpreting what the application exposes.\n\nActual response excerpt:\n```text\ntool: network_curl\nurl: http://172.30.95.10:8000/robots.txt\nredirects_followed: True\nexit_code: 0\nstdout: \nstderr: \nduration_seconds: 0.51\ncommand: curl -s -X GET --proto =http,https -i -L --max-time 5 -o /opt/workspace/artifacts/robots.txt http://172.30.95.10:8000/robots.txt\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 0\nstderr_chars: 0\nstdout_bytes: 0\nstderr_bytes: 0\nstdout_chars_exact: True\nstderr_chars_exact: True\ninline_stdout_chars: 0\ninline_stderr_chars: 0\nestimated_inline_tokens: 0\nrequested_timeout_seconds: 60\neffective_timeout_seconds: 60\n```\n\n### 8. shell_exec\nI will verify the lab certificate with its supplied CA; I will not disable certificate validation.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Connecting to 172.30.95.10\nCan't use SSL_get_servername\ndepth=0 CN=lab\nverify return:1\nCONNECTED(00000003)\n---\nCertificate chain\n 0 s:CN=lab\n   i:CN=lab\n   a:PKEY: RSA, 2048 (bit); sigalg: sha256WithRSAEncryption\n   v:NotBefore: Oct 26 17:01:59 2026 GMT; NotAfter: Nov 25 17:01:59 2026 GMT\n---\nServer certificate\n-----BEGIN CERTIFICATE-----\nMIIDEzCCAfugAwIBAgIUOQxv+jVVHyBIF5oOj33hbvya8gYwDQYJKoZIhvcNAQEL\nBQAwDjEMMAoGA1UEAwwDbGFiMB4XDTI2MTAyNjE3MDE1OVoXDTI2MTEyNTE3MDE1\nOVowDjEMMAoGA1UEAwwDbGFiMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKC\nAQEAqQ1N04OY4wmizL8pzikNYfWzwtJz1u/SOTgneAy0d+/6Tk776wHyaRVonj8A\nw0TcGBlCUHLtYN8S+4o62DKG5KDmjLc6tKj6VvBO3o2eU0x1tpYWcuUGqbiSBatS\nqDJDTK1fVFbbRqGFyV7W2JdLFWGubYFmmdJEgJQKQ3CiB+7gspzw8uUNeJo5ql6D\n/KZsf8km9J7D6GFk88N8EedjGECdgGRiAMipEsG/pqPSERk5FMxvkPdTxBO7x4vy\n4uFZrEgHPIQdInCjE8Vfkn/gMPoKVDNJGr8A86m9PkspmvpbMyKWXMd4nnkfrLIL\naM3CHlgIDyd8NllTEgorn3SocQIDAQABo2kwZzAdBgNVHQ4EFgQUzieu+Ng5Gs2r\nbR7OHLtxDWxk/OMwHwYDVR0jBBgwFoAUzieu+Ng5Gs2rbR7OHLtxDWxk/OMwDwYD\nVR0TAQH/BAUwAwEB/zAUBgNVHREEDTALggNsYWKHBKweXwowDQYJKoZIhvcNAQEL\nBQADgg\n```\n\n### 9. workspace_read_file\nI will inspect the structured scan artifact before writing the inventory. The report should distinguish discovery from verified application behavior.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/services.xml\nencoding: text\nbytes: 4096\ntotal_bytes: 8112\noffset: 0\ntruncated: True\nnext_offset: 4096\ncontent: <?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE nmaprun>\n<?xml-stylesheet href=\"file:///usr/share/nmap/nmap.xsl\" type=\"text/xsl\"?>\n<!-- Nmap 7.99 scan initiated Mon Oct 26 17:03:24 2026 as: /usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10 -->\n<nmaprun scanner=\"nmap\" args=\"/usr/lib/nmap/nmap -Pn -sT -sV -&#45;version-light -p 8000,8080,8443 -oA /opt/workspace/artifacts/services 172.30.95.10\" start=\"1793034204\" startstr=\"Mon Oct 26 17:03:24 2026\" version=\"7.99\" xmloutputversion=\"1.05\">\n<scaninfo type=\"connect\" protocol=\"tcp\" numservices=\"3\" services=\"8000,8080,8443\"/>\n<verbose level=\"0\"/>\n<debugging level=\"0\"/>\n<host starttime=\"1793034205\" endtime=\"1793034221\"><status state=\"up\" reason=\"user-set\" reason_ttl=\"0\"/>\n<address addr=\"172.30.95.10\" addrtype=\"ipv4\"/>\n<hostnames>\n<hostname name=\"hercules-capture-713648547804-fixture.hercules-capture-713648547\n```\n\n### 10. shell_exec\nThe negative-control port should not look like an exposed service. I will save its actual result before drawing a network boundary.\n\nActual response excerpt:\n```text\ntool: shell_exec\nexit_code: 0\nstdout: Starting Nmap 7.99 ( https://nmap.org ) at 2026-10-26 17:04 +0000\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\nNmap done: 1 IP address (1 host up) scanned in 0.05 seconds\n# Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n\nstderr: \nduration_seconds: 0.42\ncommand: bash /opt/workspace/tmp/shell_6e34bdac3f3d4de8ac607fb23484da7c.sh\noutput_filtered: False\noutput_complete: True\nevidence_complete: True\nstdout_truncated: False\nstderr_truncated: False\nstdout_chars: 743\nstderr_chars: 0\nstdout_bytes: 743\nstderr_bytes: 0\nstdout_chars_exact: True\ns\n```\n\n### 11. workspace_read_file\nI will include the negative control in the report so coverage is explicit.\n\nActual response excerpt:\n```text\ntool: workspace_read_file\npath: /opt/workspace/artifacts/closed-port.txt\nencoding: text\nbytes: 429\ntotal_bytes: 429\noffset: 0\ntruncated: False\nnext_offset: None\ncontent: # Nmap 7.99 scan initiated Mon Oct 26 17:04:51 2026 as: /usr/lib/nmap/nmap -Pn -sT -p 9999 -oN /opt/workspace/artifacts/closed-port.txt 172.30.95.10\nNmap scan report for hercules-capture-713648547804-fixture.hercules-capture-713648547804-net (172.30.95.10)\nHost is up (0.000042s latency).\n\nPORT     STATE  SERVICE\n9999/tcp closed abyss\n\n# Nmap done at Mon Oct 26 17:04:51 2026 -- 1 IP address (1 host up) scanned in 0.05 seconds\n\n```\n\n## Scope and limitations\n\nOnly the internal fixture was assessed. No public target was contacted. Inputs are authored lab fixtures; tool results are real.\nThis is an evidence-linked demonstration, not a complete security assessment. A reference match, open port or missing header alone does not establish exploitability.\nRaw diagnostics and workspace artifacts are retained. Inline output completeness does not prove investigation completeness.\n\n## Evidence\nSee evidence-index.json for artifact paths, byte counts and SHA-256 hashes.\n"
 }
 
-[255.488s → 256.100s] system_stop_container
+[218.954s → 223.562s] system_stop_container
 Scripted model: The report and evidence index are verified. I will stop only this client's owned runtime; workspace evidence remains available.
 Actual arguments:
 {}
@@ -403,12 +470,22 @@ Actual Hercules result:
 {
   "tool": "system_stop_container",
   "status": "success",
-  "session_id": "b48608d2",
-  "message": "Session 'b48608d2' container stopped and removed. Workspace files are preserved; call system_start_container to resume."
+  "session_id": "1b48a3cf",
+  "message": "Session '1b48a3cf' container stopped and removed. Workspace files are preserved; call system_start_container to resume.",
+  "host_workspace": "C:\\Users\\Mihir Katoch\\OneDrive\\Documents\\ChatGPT\\hercules-mcp\\website\\test-results\\labs\\claude-network-48-1793034117336393600\\workspace\\1b48a3cf",
+  "container_workspace": "/opt/workspace",
+  "generation": 1,
+  "container_running": false,
+  "cleanup": {
+    "container_disposition": "removed",
+    "guardian_settled": true,
+    "ports_released": true,
+    "confirmed": true
+  }
 }
 
 Verified completion
 Report: reports/network.md
 HTML report: reports/network.html
 Evidence index: reports/evidence-index.json
-13 real Hercules calls passed their evidence checks. The owned runtime is stopped.
+15 real Hercules calls passed their evidence checks. The owned runtime is stopped.
