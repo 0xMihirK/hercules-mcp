@@ -36,7 +36,8 @@ def box(x: int, y: int, width: int, height: int, accent: bool = False) -> str:
     )
 
 
-def frame(name: str, title: str, description: str, width: int, height: int, body: str) -> None:
+def frame(name: str, title: str, description: str, width: int, height: int, body: str,
+          background: str = SHADER, background_opacity: str = ".42", veil_opacity: str = ".66") -> None:
     markup = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title description">
 <title id="title">{escape(title)}</title><desc id="description">{escape(description)}</desc>
 <defs>
@@ -52,8 +53,8 @@ def frame(name: str, title: str, description: str, width: int, height: int, body
   </style>
 </defs>
 <rect width="{width}" height="{height}" fill="#080b0f"/>
-<image href="{SHADER}" x="0" y="0" width="{width}" height="{height}" preserveAspectRatio="xMidYMid slice" opacity=".42"/>
-<rect width="{width}" height="{height}" fill="#090c11" fill-opacity=".66"/>
+<image href="{background}" x="0" y="0" width="{width}" height="{height}" preserveAspectRatio="xMidYMid slice" opacity="{background_opacity}"/>
+<rect width="{width}" height="{height}" fill="#090c11" fill-opacity="{veil_opacity}"/>
 {body}
 </svg>'''
     (ASSETS / name).write_text(markup + "\n", encoding="utf-8")
@@ -61,19 +62,14 @@ def frame(name: str, title: str, description: str, width: int, height: int, body
 
 def hero() -> None:
     body = f'''
-<defs><linearGradient id="hero-shade"><stop stop-color="#070a0e" stop-opacity=".85"/><stop offset=".65" stop-color="#070a0e" stop-opacity=".35"/><stop offset="1" stop-color="#070a0e" stop-opacity=".1"/></linearGradient></defs>
-<rect width="1200" height="720" fill="url(#hero-shade)"/>
-<path d="M60 58H1140M60 662H1140" stroke="#ff6a2b" stroke-width="3"/>
-<path d="M78 144V550" stroke="#ff6a2b" stroke-width="6"/>
-{text(107, 189, 'LOCAL MCP / KALI IN DOCKER', 'eyebrow', 'style="font-size:23px"')}
-{text(98, 345, 'HERCULES', 'title', 'style="font-size:106px;letter-spacing:-5px"')}
-{text(107, 466, 'MCP', 'title', 'style="font-size:132px;letter-spacing:-4px;fill:#ff8b56"')}
-<path d="M105 517H620" stroke="#ff6a2b" stroke-width="3"/>
-{text(107, 574, 'A Kali workspace for your AI agent.', 'name', 'style="font-size:36px"')}
-<path d="M732 138V114H1108M1140 160V546M1108 578H732" fill="none" stroke="#ff884d" stroke-opacity=".7" stroke-width="3"/>
-<image href="{LION}" x="710" y="118" width="500" height="500"/>
+<path d="M96 145h72" stroke="#ff8654" stroke-width="5"/>
+{text(92, 270, 'HERCULES', 'title', 'style="font-size:92px;letter-spacing:-3px"')}
+{text(615, 270, 'MCP', 'title', 'style="font-size:82px;letter-spacing:-2px;fill:#ff9b6c"')}
+{text(98, 338, 'A Kali workspace for your AI agent.', 'body', 'style="font-size:34px;fill:#e1e3e5"')}
+<image href="{LION}" x="837" y="90" width="320" height="320"/>
 '''
-    frame("readme-hero.svg", "Hercules MCP", "A Kali workspace for your AI agent.", 1200, 720, body)
+    frame("readme-hero.svg", "Hercules MCP", "A Kali workspace for your AI agent.", 1200, 500,
+          body, image("readme-hero-background.jpg"), "1", ".05")
 
 
 def architecture() -> None:

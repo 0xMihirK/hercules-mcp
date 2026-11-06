@@ -10,7 +10,8 @@ does not imply endorsement.
 - `hermes.png`: [Hermes Agent site icon](https://hermes-agent.nousresearch.com/assets/hermes-agent/icon.png).
 - `docker.svg`: [Devicon v2.17.0](https://github.com/devicons/devicon/tree/v2.17.0/icons), under the included `LICENSE.Devicon`.
 
-The dark background in the generated README art is a static frame of the
-project website's procedural smoke/hatch renderer (`website/recipe.json`).
-`scripts/render_readme_art.py` embeds it and these marks in the SVGs so GitHub
-does not need to fetch linked images.
+The diagram backgrounds use a static frame of the project website's procedural
+smoke/hatch renderer (`website/recipe.json`). The hero uses a generated
+graphite-and-copper halftone texture in `assets/readme-hero-background.jpg`.
+`scripts/render_readme_art.py` embeds the backgrounds and marks in the SVGs so
+GitHub does not need to fetch linked images.
