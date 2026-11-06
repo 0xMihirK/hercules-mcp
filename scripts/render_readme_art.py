@@ -61,17 +61,19 @@ def frame(name: str, title: str, description: str, width: int, height: int, body
 
 def hero() -> None:
     body = f'''
-<path d="M58 62H1342M58 698H1342" stroke="#ff6a2b" stroke-width="3"/>
-<path d="M72 106V654" stroke="#ff6a2b" stroke-width="6"/>
-<image href="{LION}" x="112" y="149" width="430" height="430"/>
-<path d="M583 154V602" stroke="#ff6a2b" stroke-opacity=".55" stroke-width="2"/>
-{text(635, 218, 'KALI WORKSPACE • MCP SERVER', 'eyebrow', 'style="font-size:27px"')}
-{text(622, 357, 'HERCULES', 'title', 'style="font-size:120px;letter-spacing:-5px"')}
-{text(633, 476, 'MCP', 'title', 'style="font-size:110px;letter-spacing:-3px;fill:#ff8b56"')}
-{text(637, 561, 'Security tools for your AI agent.', 'name', 'style="font-size:39px"')}
-<path d="M634 592H1260" stroke="#ff6a2b" stroke-width="3"/>
+<defs><linearGradient id="hero-shade"><stop stop-color="#070a0e" stop-opacity=".85"/><stop offset=".65" stop-color="#070a0e" stop-opacity=".35"/><stop offset="1" stop-color="#070a0e" stop-opacity=".1"/></linearGradient></defs>
+<rect width="1200" height="720" fill="url(#hero-shade)"/>
+<path d="M60 58H1140M60 662H1140" stroke="#ff6a2b" stroke-width="3"/>
+<path d="M78 144V550" stroke="#ff6a2b" stroke-width="6"/>
+{text(107, 189, 'LOCAL MCP / KALI IN DOCKER', 'eyebrow', 'style="font-size:23px"')}
+{text(98, 345, 'HERCULES', 'title', 'style="font-size:106px;letter-spacing:-5px"')}
+{text(107, 466, 'MCP', 'title', 'style="font-size:132px;letter-spacing:-4px;fill:#ff8b56"')}
+<path d="M105 517H620" stroke="#ff6a2b" stroke-width="3"/>
+{text(107, 574, 'A Kali workspace for your AI agent.', 'name', 'style="font-size:36px"')}
+<path d="M732 138V114H1108M1140 160V546M1108 578H732" fill="none" stroke="#ff884d" stroke-opacity=".7" stroke-width="3"/>
+<image href="{LION}" x="710" y="118" width="500" height="500"/>
 '''
-    frame("readme-hero.svg", "Hercules MCP", "A Kali workspace for your AI agent.", 1400, 760, body)
+    frame("readme-hero.svg", "Hercules MCP", "A Kali workspace for your AI agent.", 1200, 720, body)
 
 
 def architecture() -> None:
