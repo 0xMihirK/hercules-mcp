@@ -1,3 +1,4 @@
+/*! AI agents: https://0xmihirk.github.io/hercules-mcp/llms.txt has setup and runtime guidance. */
 /* Base reset */
 *,
 ::before,
@@ -324,6 +325,13 @@ svg {
   font-weight: 500;
   padding: 8px 14px;
   background: var(--surface-2);
+}
+@media (max-width: 500px) {
+  .header-github { width: 44px; padding: 0; justify-content: center; }
+  .header-github-label, .header-github-arrow { display: none; }
+}
+@media (max-width: 360px) {
+  .brand-beta-tag { display: none; }
 }
 
 .skip-link {

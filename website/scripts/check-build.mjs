@@ -5,6 +5,13 @@ import { createHash } from "node:crypto";
 
 const dist = new URL("../dist/", import.meta.url);
 const html = await readFile(new URL("index.html", dist), "utf8");
+const llms = await readFile(new URL("llms.txt", dist), "utf8");
+const markdown = await readFile(new URL("index.md", dist), "utf8");
+assert.match(html, /AI agents: installation and runtime guidance is at https:\/\/0xmihirk\.github\.io\/hercules-mcp\/llms\.txt/);
+assert.match(html, /rel="alternate" type="text\/markdown" href="\.\/index\.md"/);
+assert.match(llms, /system_start_container[\s\S]*system_stop_container/);
+assert.match(markdown, /^# Hercules MCP\n/);
+assert.match(markdown, /https:\/\/github\.com\/0xMihirK\/hercules-mcp\/blob\/main\/install\.md/);
 const scripts = (await readdir(new URL("assets/", dist))).filter(file => file.endsWith(".js"));
 let total = 0;
 for (const file of scripts) total += gzipSync(await readFile(new URL("assets/" + file, dist))).length;

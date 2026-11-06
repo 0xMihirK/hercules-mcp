@@ -108,8 +108,8 @@ export default function App() {
             <a href="#install">Setup</a>
           </nav>
           <div className="header-actions">
-            <a className="header-github" href={github}>
-              <GithubLogo size={20} weight="fill" aria-hidden="true" /> GitHub <ArrowUpRight size={16} aria-hidden="true" />
+            <a className="header-github" href={github} aria-label="GitHub repository">
+              <GithubLogo size={20} weight="fill" aria-hidden="true" /> <span className="header-github-label">GitHub</span> <ArrowUpRight className="header-github-arrow" size={16} aria-hidden="true" />
             </a>
           </div>
         </div>

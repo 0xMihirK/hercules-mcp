@@ -1,0 +1,27 @@
+# Hercules MCP
+
+Hercules is a local STDIO MCP server that gives terminal-capable AI agents structured access to security tools and Obscura browser automation in a session-owned Kali Docker workspace. It is intended for authorized security testing on Windows, macOS, and Linux hosts.
+
+## Canonical instructions
+
+- Installation, updates, supported clients, and recovery: https://github.com/0xMihirK/hercules-mcp/blob/main/install.md
+- Project overview and copyable setup prompt: https://github.com/0xMihirK/hercules-mcp/blob/main/README.md
+- Website and interactive architecture: https://0xmihirk.github.io/hercules-mcp/
+
+## Install or update
+
+1. Identify the current MCP client explicitly. Configure only that client unless the user names others. Read the installation guide before changing anything.
+2. If Hercules is installed, use the absolute `hercules-setup` launcher recorded beside that client's Hercules launcher. Run `status --client <client> --json`, explain the proposed change, then use `install --client <client> --yes` for an authorized install/update or `repair --client <client> --yes` for registration repair.
+3. For a first install, obtain the official repository and run its documented PowerShell or POSIX bootstrap. It prepares a permanent version-specific environment and delegates to the same setup CLI. Do not invent a client registration or replace a live environment.
+4. Host installation and cold STDIO verification do not start Docker. Ask separately before `runtime prepare --client <client> --yes` because it may download a large image and assets; `verify --client <client> --runtime` explicitly runs local container tests. Reload the selected client when setup requests it.
+5. If a harness denies a step, stop that operation and report it. Use the supported approval and `resume --client <client> --yes` flow; do not change permission modes or retry through another tool.
+
+Use the exact client identifiers and platform commands in install.md. Keep existing preferences, secrets, scope, workspaces, evidence, and other client entries. A cold MCP connection proves the server can load, not that a container has been tested.
+
+## Use and limits
+
+- Connecting a client must not create a container. Call `system_start_container` immediately before the first Docker-backed task; it reuses the current session when possible. Save evidence and call `system_stop_container` when the coordinated work is complete.
+- A new session creates a different workspace. Previous owned workspaces remain available for inspection; files do not move between sessions automatically.
+- Validate targets and scope before active testing. Docker networking and privileges are operator controlled; the runtime is not a complete network boundary.
+- Obscura does not enforce CSP and does not support browser-native downloads. Use the documented HTTP or workspace path for downloads and verify resulting files.
+- Treat scanner hits, broad version matches, incomplete coverage, and timeouts as leads to verify, not confirmed vulnerabilities.

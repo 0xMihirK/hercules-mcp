@@ -75,6 +75,8 @@ else:
 
 (public / "catalog.json").write_text(json.dumps(catalog, indent=2), encoding="utf-8")
 (public / "install.txt").write_text(install_prompt, encoding="utf-8")
+(public / "llms.txt").write_bytes((SITE / "llms.txt").read_bytes())
+(public / "index.md").write_bytes((SITE / "agent-page.md").read_bytes())
 (SITE / "src/site-facts.json").write_text(json.dumps({"catalog":catalog,"installationPrompt":install_prompt},ensure_ascii=False),encoding="utf-8",newline="\n")
 (public / ".nojekyll").touch()
 print(f"Prepared {catalog['full_tool_count']} tools / {len(catalog['capabilities'])} bundles")

@@ -5,6 +5,10 @@ workflow. Product counts, the tool catalog and the installation prompt come
 from Hercules source. Docker is required for capturing demonstrations, not for
 building the website or viewing it.
 
+The static site also publishes [`llms.txt`](llms.txt) for setup guidance and a
+[Markdown page](agent-page.md) at `/hercules-mcp/index.md` for agents that
+prefer text over the interactive interface.
+
 The current plugin also bundles nine agent skills with 79 on-demand topic
 guides. These guide tool choice and testing workflows; they do not add MCP
 tools or authorize new targets. The standalone website branch receives its
