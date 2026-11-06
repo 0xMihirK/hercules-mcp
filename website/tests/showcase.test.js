@@ -104,7 +104,8 @@ test("return routing is one rounded channel through the filter, with left-facing
   const ports={agent:{x:200,y:80},hub:{x:270,y:80},dispatch:{x:550,y:80},docker:{x:620,y:80},agentReturn:{x:200,y:190},filter:{x:270,y:340},filterInput:{x:550,y:340},result:{x:620,y:400},mount:{x:990,y:430},workspace:{x:990,y:480}};
   const routes=architectureRoutes(ports);
   assert.equal((routes.response.match(/M/g)||[]).length,1,"return channel must not branch");
-  assert.match(routes.response,/^M620,340 L247,340/);
+  assert.match(routes.response,/^M620,400 L597,400 Q585,400 585,388/);
+  assert.match(routes.response,/Q585,340 573,340/);
   assert.match(routes.response,/L200,190$/);
   assert.ok(routes.response.includes("Q"),"orthogonal bends are rounded");
   assert.equal(routes.mount,"M990,430 L990,480","workspace mount stays vertical");
@@ -114,6 +115,7 @@ test("return routing is one rounded channel through the filter, with left-facing
   assert.equal(architectureRoutes({...ports,docker:{x:620,y:81}}).request,"M200,80 L270,80 M550,80 L620,80");
   assert.equal(routes.arrows.length,2);
   for(const arrow of routes.arrows){assert.equal(arrow.y,340);assert.ok(arrow.x>200 && arrow.x<620);}
+  assert.ok(routes.arrows[0].x>ports.filterInput.x && routes.arrows[0].x<(ports.result.x+ports.filterInput.x)/2);
   assert.doesNotMatch(routes.response,/NaN|Infinity/);
   assert.equal(roundedRoute([{x:0,y:0},{x:0,y:0},{x:10,y:0}]),"M0,0 L10,0");
   assert.equal(roundedRoute([]),"");

@@ -65,11 +65,12 @@ export function architectureRoutes(ports: Record<string, Point>) {
   const { agent, hub, dispatch, docker, agentReturn, filter, filterInput, result, mount, workspace } = ports;
   const request = (from: Point, to: Point) => roundedRoute([from, { x: to.x, y: from.y }]);
   const left = (agentReturn.x + filter.x) / 2;
+  const right = (result.x + filterInput.x) / 2;
   return {
     request: request(agent, hub) + " " + request(dispatch, docker),
-    response: roundedRoute([{ x: result.x, y: filterInput.y }, { x: left, y: filter.y }, { x: left, y: agentReturn.y }, agentReturn]),
+    response: roundedRoute([result, { x: right, y: result.y }, { x: right, y: filterInput.y }, filterInput, filter, { x: left, y: filter.y }, { x: left, y: agentReturn.y }, agentReturn]),
     mount: roundedRoute([{ x: workspace.x, y: mount.y }, workspace]),
-    arrows: [{ x: (result.x + filterInput.x) / 2, y: filterInput.y }, { x: (left + filter.x) / 2, y: filter.y }],
+    arrows: [{ x: (right + filterInput.x) / 2, y: filterInput.y }, { x: (left + filter.x) / 2, y: filter.y }],
     returnLabel: { x: left - 8, y: (filter.y + agentReturn.y) / 2 },
     mountLabel: { x: workspace.x, y: (mount.y + workspace.y) / 2 },
   };

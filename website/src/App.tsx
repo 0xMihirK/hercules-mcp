@@ -3,6 +3,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ArrowUpRight } from "@phosphor-icons/react/ArrowUpRight";
 import { BeerStein } from "@phosphor-icons/react/BeerStein";
+import { GithubLogo } from "@phosphor-icons/react/GithubLogo";
 import { LinkedinLogoIcon } from "@phosphor-icons/react/LinkedinLogo";
 import { useReducedMotion } from "./lib/use-reduced-motion";
 import Background from "./components/Background";
@@ -108,7 +109,7 @@ export default function App() {
           </nav>
           <div className="header-actions">
             <a className="header-github" href={github}>
-              GitHub <ArrowUpRight size={16} aria-hidden="true" />
+              <GithubLogo size={20} weight="fill" aria-hidden="true" /> GitHub <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </div>
         </div>
