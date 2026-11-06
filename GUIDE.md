@@ -55,7 +55,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or update Hercules MCP via https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Run host setup without starting a container; offer prebuilt image (recommended) or local build. Prepare runtime after my choice. Report results.
+Install or update Hercules MCP via https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Host setup does not start containers. Ask: prebuilt image (recommended) or local build. Prepare runtime after my choice. Stop and report denials.
 ```
 
 The shared [setup workflow](install.md) handles discovery, install/update,

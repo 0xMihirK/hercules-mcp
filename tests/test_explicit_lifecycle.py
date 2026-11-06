@@ -595,6 +595,7 @@ def test_install_update_contract_is_documented() -> None:
     assert "Configure only this agent" in prompt
     assert "prebuilt image (recommended) or local build" in prompt
     assert "Prepare runtime after my choice" in prompt
+    assert "Stop and report denials" in prompt
     assert "## Instructions for the installing agent" in install
     for phrase in (
         "hercules-setup",
