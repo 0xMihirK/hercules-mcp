@@ -22,7 +22,7 @@ Website: https://0xmihirk.github.io/hercules-mcp/
 
 ## Install or update
 
-Read the [canonical installation guide](https://github.com/0xMihirK/hercules-mcp/blob/main/install.md). Identify the current client, run the setup CLI's read-only status check, and configure only that client. Host installation, runtime image preparation, and container verification are separate steps. The [copyable agent prompt](./install.txt) gives the short entry point; [llms.txt](./llms.txt) gives concise agent instructions.
+Read the [canonical installation guide](https://github.com/0xMihirK/hercules-mcp/blob/main/install.md). Identify the current client, run the setup CLI's read-only status check, and configure only that client. Host installation, runtime image preparation, and container verification are separate steps. Before runtime preparation, ask interactively whether to use the pinned prebuilt image (recommended) or build locally from source; use chat if the harness has no question UI. Run `runtime prepare --client <client> --image-source prebuilt --yes` or `--image-source build --yes` only after the choice. A verified cached image is reused; a failed prebuilt pull never triggers a build. The [copyable agent prompt](./install.txt) gives the short entry point; [llms.txt](./llms.txt) gives concise agent instructions.
 
 ## Boundaries
 

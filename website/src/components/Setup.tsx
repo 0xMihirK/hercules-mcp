@@ -139,8 +139,9 @@ export default function Setup({ prompt }: { prompt: string }) {
           </div>
           <h3>Connect and verify.</h3>
           <p>
-            Reload your client when instructed. Runtime image downloads and
-            local container smoke tests stay under your explicit control.
+            Choose a prebuilt Kali image (recommended) or a local build before
+            preparing the runtime. Reload your client when instructed; local
+            container tests stay under your control.
           </p>
         </li>
       </ol>
