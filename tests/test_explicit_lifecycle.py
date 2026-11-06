@@ -4,7 +4,9 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -15,6 +17,7 @@ from fastmcp.client.transports import StdioTransport
 from hercules.core.docker_manager import DockerManager, RuntimeNotStarted
 from hercules.core.firewall import classify_exception
 from hercules.core.workspace import WorkspaceManager
+from hercules.core.tool_catalog import all_tool_names
 
 # Captured from origin/main at 2a016e6. Descriptions may evolve, but every
 # pre-existing public tool name and input schema stays backward compatible.
@@ -615,3 +618,21 @@ def test_install_update_contract_is_documented() -> None:
         "question interface",
     ):
         assert phrase in install_text
+
+
+def test_readme_tool_inventory_and_artwork() -> None:
+    root = Path(__file__).resolve().parents[1]
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    inventory = readme.split("See all 47 MCP tool names", 1)[1].split("</details>", 1)[0]
+    assert set(re.findall(r"`([a-z0-9_]+)`", inventory)) == set(all_tool_names())
+
+    for name in (
+        "readme-hero.svg",
+        "setup-flow-v2.svg",
+        "architecture-v4.svg",
+        "workspace-lifecycle-v2.svg",
+    ):
+        assert f"assets/{name}" in readme
+        svg = ET.parse(root / "assets" / name)
+        images = list(svg.iter("{http://www.w3.org/2000/svg}image"))
+        assert images and all(item.get("href", "").startswith("data:image/") for item in images)

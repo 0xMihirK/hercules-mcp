@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/hercules-mark.png" alt="Hercules MCP lion" width="128"/>
+  <img src="assets/hercules-mark-large.png" alt="Hercules MCP lion" width="180"/>
 </p>
 
 <h1 align="center">Hercules MCP</h1>
@@ -30,7 +30,7 @@ interactive introduction to the workflow, tools, and workspace evidence.
 > egress against an external target.
 
 <p align="center">
-  <img src="assets/architecture-v3.svg" alt="AI clients connect to the Hercules MCP host over STDIO. An explicitly started Kali container runs the tools and mounts retained host workspace evidence." width="900" />
+  <img src="assets/architecture-v4.svg" alt="AI clients connect to the Hercules MCP host over STDIO. An explicitly started Kali container runs the tools and mounts retained host workspace evidence." width="900" />
 </p>
 
 ## Contents
