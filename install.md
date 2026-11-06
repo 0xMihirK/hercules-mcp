@@ -13,12 +13,15 @@ Never infer the active agent from installed executables.
 
 The short README/website prompt delegates these requirements to this guide:
 
-1. Identify the current client explicitly. Run read-only `status`, explain the
-   proposed changes, then use the CLI for the authorized install/update or repair.
+1. Identify the current client explicitly; ask if the invoking client is unclear.
+   Run read-only `status`, explain the proposed changes, then use the CLI for the
+   authorized install/update or repair.
 2. Preserve existing preferences, secrets, scope, evidence, and other clients.
    Offer full capabilities for a new installation; preserve existing selections.
 3. Keep host setup, runtime preparation, and container verification separate.
-   Ask before large runtime downloads or container tests; host setup starts no containers.
+   Before runtime preparation, offer the pinned prebuilt image (recommended) or
+   a local build. Ask before large runtime downloads or container tests; host
+   setup starts no containers.
 4. If the harness denies an action, stop it and report the exact blocked operation.
    Do not change permission modes, add approval rules/hooks, or retry through another tool.
 5. Use the CLI's recovery and exact-owned cleanup on success, failure, and interruption.
@@ -28,6 +31,19 @@ The short README/website prompt delegates these requirements to this guide:
 7. Report host revision, registration/reload, runtime preparation, actual verification,
    cleanup/retained items, and one next action separately. Cold STDIO success is not
    container verification or proof that the current client session loaded the server.
+
+Use the harness's interactive question interface for decisions that need user
+input; batch them when possible. Ask in chat and wait if no question interface
+exists. Resolve the client identifier if unclear. Keep an existing scope,
+capability selection, and verified image; otherwise use the documented user
+scope and full-capability defaults unless the user requests a change. Do not
+ask the user to repeat decisions already answered. If runtime preparation is
+needed, ask: **Use the pinned prebuilt Kali image (recommended), or build the
+full image locally from source?** Explain that either may use substantial disk
+space and downloads; a local build is slower and needed for an unpublished or
+custom-trust revision. Wait for the answer before running `runtime prepare`.
+If only host setup was requested, leave runtime preparation pending. A prebuilt
+failure is reported with the local-build option; never switch silently.
 
 ## Bootstrap once; reuse on updates
 
@@ -68,9 +84,9 @@ Examples abbreviate the absolute setup launcher as `hercules-setup`:
 | `install --client claude-code --yes` | Install/update/repair this client, with cold STDIO validation |
 | `repair --client claude-code --yes` | Repair the recorded version without upgrading |
 | `install --client claude-code --reinstall --yes` | Fresh replacement; retain the old checkout |
-| `runtime prepare --client claude-code --yes` | `auto`: reuse a verified cache or pull the published digest (GHCR first, Docker Hub fallback); provision verified assets |
-| `runtime prepare --client claude-code --image-source build --yes` | Build the full image locally from source — **slower**; for an unpublished revision, custom build trust, or an offline host |
-| `runtime prepare --client claude-code --image-source prebuilt --yes` | Pull only a validated cache or trusted release digest; never build |
+| `runtime prepare --client claude-code --image-source prebuilt --yes` | **Recommended:** reuse a verified cache or pull the pinned release digest (GHCR first, Docker Hub fallback); provision verified assets; never build |
+| `runtime prepare --client claude-code --image-source build --yes` | Reuse a verified cache or build the full image locally from source — **slower**; for an unpublished revision, custom build trust, or an offline host |
+| `runtime prepare --client claude-code --yes` | Existing `auto` default: reuse a verified cache or pull a matching published digest; never silently build |
 | `resume --client claude-code --yes` | Recover unfinished writes and activate retained work when ready |
 | `verify --client claude-code` | Cold STDIO checks without execution-tool calls |
 | `verify --client claude-code --runtime` | Explicit local container start, harmless tools, and stop |
@@ -85,8 +101,9 @@ default to user scope and full capabilities; use `--scope project` or
 Existing preferences are preserved. Reinstall is never a mandatory question
 on an ordinary update.
 
-`--yes` confirms only the named setup operation, not harness permissions.
-Ask separately before large runtime downloads or container testing. A host-only
+`--yes` confirms only the named setup operation, not harness permissions or an
+answer to the image-choice question. Ask separately before large runtime
+downloads or container testing. A host-only
 installation can succeed with runtime preparation still required.
 
 ## Client adapters
@@ -227,12 +244,15 @@ means an MCP reload, new session, or IDE restart may still be needed.
 Do not reinstall merely to activate settings.
 
 There is one full Kali/Obscura image, not a lean flavor. Capability preferences
-still control exposed tools. `auto` pulls the published digest — GHCR first, then
-the identical-digest Docker Hub mirror — and provisions assets; it never silently
+still control exposed tools. The recommended `--image-source prebuilt` reuses a
+verified cache or pulls the published digest — GHCR first, then the
+identical-digest Docker Hub mirror — and provisions assets; it never silently
 builds after a registry failure or when no trusted digest matches the revision.
-To build the full image locally from source instead (slower, no registry pull —
-for an unpublished revision, custom build trust, or an offline host), pass
-`--image-source build` explicitly. Build/download phases preserve an 8 GiB
+The existing `auto` default follows the same cache/pull path. To build the full
+image locally from source instead (slower, no registry pull — for an unpublished
+revision, custom build trust, or an offline host), pass `--image-source build`
+explicitly. A verified cached image is reused even when build is selected.
+Build/download phases preserve an 8 GiB
 free-disk reserve; do not broadly prune Docker data to make room.
 
 The Obscura candidate remains under release verification. The runtime uses **host

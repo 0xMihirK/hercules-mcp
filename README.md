@@ -15,10 +15,10 @@ Hercules connects terminal-capable AI agents to structured security tools and an
 Paste this prompt into the terminal-capable agent you want to configure:
 
 ```text
-Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Host install needs no container; if a container step is denied, stop and tell me how to approve it. Report the result.
+Install or update Hercules MCP via https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Run host setup without starting a container; offer prebuilt image (recommended) or local build. Prepare runtime after my choice. Report results.
 ```
 
-The [setup guide](install.md) covers supported clients, Windows/macOS/Linux bootstrap commands, repair, updates, recovery, and Claude Code auto mode. Host installation does not start Docker. Runtime preparation and container verification are separate, explicit steps. Existing client settings, secrets, workspaces, and evidence are preserved during an update; an incompatible replacement stays pending while the working version remains active.
+The [setup guide](install.md) covers supported clients, Windows/macOS/Linux bootstrap commands, repair, updates, recovery, and Claude Code auto mode. Host installation does not start Docker. The agent asks you to choose a pinned prebuilt image (recommended) or a local build before runtime preparation; container verification is a separate step. Existing client settings, secrets, workspaces, and evidence are preserved during an update; an incompatible replacement stays pending while the working version remains active.
 
 ![Setup phases: discover, install and register the selected client, prepare the runtime when chosen, then verify separately.](assets/setup-flow.svg)
 

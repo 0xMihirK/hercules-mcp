@@ -589,10 +589,12 @@ def test_install_update_contract_is_documented() -> None:
     install = (project_root / "install.md").read_text(encoding="utf-8")
     install_text = " ".join(install.split())
 
-    assert readme.count("Install or update Hercules MCP using") == 1
+    assert readme.count("Install or update Hercules MCP via") == 1
     prompt = readme.split("```text\n", 1)[1].split("```", 1)[0]
     assert len(prompt.split()) <= 35
     assert "Configure only this agent" in prompt
+    assert "prebuilt image (recommended) or local build" in prompt
+    assert "Prepare runtime after my choice" in prompt
     assert "## Instructions for the installing agent" in install
     for phrase in (
         "hercules-setup",
@@ -607,5 +609,8 @@ def test_install_update_contract_is_documented() -> None:
         "Never perform a broad Docker",
         "Host setup never calls `shell_exec`",
         "cold connection does not prove Kali is ready",
+        "--image-source prebuilt",
+        "--image-source build",
+        "question interface",
     ):
         assert phrase in install_text

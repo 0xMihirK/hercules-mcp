@@ -16,11 +16,16 @@ for only that client. Preserve existing capabilities, configuration, and evidenc
 New installs default to full capabilities. Do not move a live virtual environment.
 
 Host setup and cold `verify` never start a container or call `shell_exec`.
-Ask separately before `runtime prepare` downloads/builds or `verify --runtime`.
+Before runtime preparation, ask the user interactively to choose a pinned
+prebuilt image (recommended) or a local build. Batch other unresolved setup
+decisions in the same question UI; use chat and wait if the harness has no
+question UI. Do not ask about settings with safe existing values or defaults.
+Ask separately before `verify --runtime`.
 The runtime is one full Kali image; selections hide tools, not packages.
-`auto` pulls the published digest (GHCR, then the Docker Hub mirror) or reuses a
-validated cache, and never hides a pull failure. Offer `--image-source build`
-(slower, builds from source) for an unpublished revision, custom trust, or offline.
+`--image-source prebuilt` reuses a validated cache or pulls the published digest
+(GHCR, then the Docker Hub mirror); `--image-source build` reuses a validated
+cache or builds locally from source and is slower. A failed prebuilt pull never
+triggers a silent build.
 If a harness denies an operation, stop that action and name the blocked phase;
 do not change permission modes, add blanket allow rules, or retry another tool.
 Resume only after the user resolves the denial through the harness's own controls.

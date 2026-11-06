@@ -55,7 +55,7 @@ Paste this prompt unchanged into any terminal-capable coding agent. The same
 prompt adapts to Windows, macOS, and capable Linux distributions:
 
 ```text
-Install or update Hercules MCP using https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Host install needs no container; if a container step is denied, stop and tell me how to approve it. Report the result.
+Install or update Hercules MCP via https://github.com/0xMihirK/hercules-mcp/blob/main/install.md. Configure only this agent. Run host setup without starting a container; offer prebuilt image (recommended) or local build. Prepare runtime after my choice. Report results.
 ```
 
 The shared [setup workflow](install.md) handles discovery, install/update,
@@ -70,9 +70,12 @@ bootstrap once, then reuse the absolute `hercules-setup` launcher. Supported
 clients include Claude Code/Desktop, Codex, Cursor, VS Code, Gemini CLI,
 OpenCode, Windsurf, and Hermes; other local STDIO clients can use a generic export.
 
-`runtime prepare` separately reuses/pulls a verified release image and provisions verified
-assets. `verify` checks cold STDIO; `verify --runtime` explicitly tests a local
-container. New installs default to full capabilities; existing selections,
+Before `runtime prepare`, the agent asks whether to use the pinned prebuilt image
+(recommended) or build locally from source; a validated cached image is reused.
+The choice maps to `--image-source prebuilt` or `--image-source build`. Runtime
+preparation also provisions verified assets. `verify` checks cold STDIO;
+`verify --runtime` explicitly tests a local container. New installs default
+to full capabilities; existing selections,
 secrets, workspaces, assets, scope, and unrelated settings are preserved.
 An update needing a new image stays pending while the old version remains active.
 Running environments are never moved or replaced, and no broad cleanup is used.
